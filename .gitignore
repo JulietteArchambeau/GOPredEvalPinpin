@@ -1,0 +1,36 @@
+# RStudio files
+.Rproj.user
+
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.Ruserdata
+
+# Data
+*.rds
+*.RDS
+/data/*
+/data_DRYAD/*
+
+# Figures
+*.png
+
+# Tables
+*.tex
+
+# Directories
+/figs/*
+/maps/*
+/doc/*
+/outputs/*
+
+# Reports
+*.pdf
+*.html
+
+# knitr and R markdown default cache directories
+*_cache
+*_files 
