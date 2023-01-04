@@ -1,0 +1,533 @@
+---
+title: "Formatting, exploring and imputing genomic data"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    # code_fold: hide
+    toc: true
+    toc_depth: 4
+    toc_float:
+       collapsed: false
+    number_sections: true
+    highlight: textmate
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+<style type="text/css">
+div.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+
+```{css, echo=FALSE}
+pre {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+pre[class] {
+  max-height: 600px;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(dplyr)      # CRAN v1.0.0
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(magrittr)   # CRAN v2.0.1
+library(kableExtra) # CRAN v1.1.0
+library(genetics)   # to calculate LD
+library(xtable)
+```
+
+# Loading the raw genomic data
+
+```{r LoadRawGenomicData}
+# Load the raw genomic data:
+data <- read.csv("data/DryadRepo/RawGenomicData.csv")
+```
+
+Below is a subset of the whole genomic dataset. NAs are indicated with `---`.
+
+Meaning of the columns:
+
+  - `clone`: clone ID.
+  
+  - `assay`: Assay in which the clone was genotyped, either the Infinium assay (`only_Inf`), the Axiom assay (`only_Affx`) or both assays (`both_Inf_Affx`).
+  
+  - `snp_1` --> `snp_14016`:  genotype for each of the 14,016 SNPs.
+
+
+```{r VizRawGenomicData, echo=F}
+# Visualizing the dataset:
+data[40:50,1:13]  %>% 
+  kable() %>%  
+  kable_styling(font_size=11,
+                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+# Formatting the genomic data
+
+For each SNP, we convert the letters (e.g. A/A, A/G) to numbers (0,1 or 2).
+
+```{r FormattingRawGenomicDataFromLettersToNumbers}
+# We apply a function to each column (i.e SNP) of the raw genomic data, 
+# after remonving the first two columns, i.e. the clone ID and the assay in which the clone was genotyped
+
+list.alleles <- lapply(colnames(data[,-c(1,2)]), function(x){ 
+  
+  vec <- data[,x]
+  
+  tab <- table(data[,x]) %>%  as.matrix() %>%  t() %>% as.data.frame() %>% dplyr::select(-contains("---"))
+  
+  
+  if(length(colnames(tab))==1){         # monomorphic case, e.g. only A/A
+    major <- names(which.max(tab))
+    
+    case_when(vec == major ~ 0) 
+    
+  } else if(length(colnames(tab))==2){  # case where there is no homozygote with the rare allele, e.g. A/A and A/G
+    
+    major <- names(which.max(tab))
+    mid <- names(which.min(tab))
+    
+    case_when(vec == major ~ 0,
+              vec == mid   ~ 1) 
+    
+  } else if (length(colnames(tab))==3){ # common case, e.g. A/A, A/G and G/G
+    
+    if(tab[,1]==tab[,3]){               # to account for cases where there is the same number of A/A and G/G 
+      major <- colnames(tab)[1]
+      minor <- colnames(tab)[3]
+      } else {
+    major <- names(which.max(tab[,c(1,3)]))
+    minor <- names(which.min(tab[,c(1,3)]))
+      }
+    mid <- setdiff(names(tab),c(major,minor))  
+    
+    case_when(vec == major ~ 0,
+              vec == minor ~ 2,
+              vec == mid   ~ 1) 
+  }
+})
+
+names(list.alleles) <- colnames(data[,-c(1,2)]) # reattribute the SNP ID to list names
+
+df <- list.alleles %>% 
+  as_tibble() %>% 
+  t()
+
+colnames(df) <- data$clone # attribute clone ID
+```
+
+```{r VizFormattedGenomicData, echo=F}
+df[1:11,40:50]  %>% 
+  kable() %>%  
+  kable_styling(font_size=11,
+                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+
+# Filtering monomorphic SNPs
+
+```{r IdentifyingMonomorphicSNPs}
+mono <- df %>% 
+  t() %>% 
+  as_tibble() %>% 
+  sapply(function(x) sum(x,na.rm=T)) %>% 
+  as.data.frame() %>%
+  set_colnames(c("sum")) %>% 
+  rownames_to_column(var = "snp") %>% 
+  as_tibble() %>% 
+  filter(sum==0)
+```
+
+`r nrow(mono)` SNPs are monomorphic and therefore, we are going to remove them.
+
+
+```{r RemovingMonomorphicSNPs}
+df <- df[!(row.names(df) %in% mono$snp),]
+```
+
+<span style="color: red;">There are `r nrow(df)` non-monomorphic SNPs left.</span>
+
+
+
+# Identifying duplicates
+
+The first way to identify the duplicated SNPs is by using the function `duplicated`. 
+
+```{r IdentifyPerfectDuplicates}
+dup <- df[duplicated(df) | duplicated(df, fromLast=TRUE), ]
+```
+
+There are `r nrow(dup)` duplicates (=SNPs that have exactly the same genotype as at least one other SNP).
+
+Then, we determine how many copies there are for each duplicate. 
+
+```{r CountCopiesDuplicates}
+count.duplicates <- function(DF){
+  x <- do.call('paste', c(DF, sep = '\r'))
+  ox <- order(x)
+  rl <- rle(x[ox])
+  cbind(DF[ox[cumsum(rl$lengths)],,drop=FALSE],count = rl$lengths)
+  
+}
+countdup <- count.duplicates(df %>% as.data.frame()) 
+table(countdup$count)
+```
+
+This is relevant with what we found before as 2*92 + 3*14 + 4 + 5 = 235.
+
+So it means that there are:
+
+  - <span style="color: red;"> 92 pairs of duplicate SNPs.</span>
+  - <span style="color: red;"> 14 groups of 3 duplicate SNPs.</span>
+  - <span style="color: red;"> 1 group of 4 duplicate SNPs.</span>
+  - <span style="color: red;"> 1 group of 5 duplicate SNPs.</span>
+
+But, there are two situations not accounted for by the function `duplicated`. 
+
+  - First, if two SNPs have exactly the same genotype for all clones, except one clone where one of the two SNPs has a value of "1" for instance, and the other SNP has the value "NA". In this case, the two SNPs will not be considered as duplicates. 
+  - Second, if the two SNPs covary perfectly but one have "0" when the other have "2", and vice versa, they will not be counted as duplicates neither. For instance:
+      - SNP_1: 0 0 1 1 2 2 
+      - SNP_2: 2 2 1 1 0 0 
+
+To add these situations in the count of duplicated SNPs, I selected all the pairs of SNPs with a correlation coefficient of 1. 
+
+```{r IdentifyCorrelatedSNPs}
+# Invert the genomic matrix
+tdf <- df %>% t() %>% as.data.frame() 
+
+# Create a matrix of correlation for all SNPs (12483snps x 12483snps)
+matcor <- cor(tdf, use = "pairwise.complete.obs")
+matcor[1:10,1:10] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+
+# Keep only the upper triangle of the matrix and remove values in the diagnonal
+matcor[lower.tri(matcor,diag=T)] <- NA
+matcor[1:10,1:10] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+
+<span style="color: red;">`r length(which(matcor==1))` pairs of SNPs have a correlation coefficient of 1.</span>
+
+
+
+# Removing the ROD population
+
+We remove the clones from the ROD (Rodoiros) population, as they come from a plantation of material from Central Spain in the Iberian Atlantic region.
+
+```{r RmROD}
+df <- df %>% 
+  as.data.frame() %>% 
+  dplyr::select(-contains("ROD"))
+```
+
+
+# Filtering based on NAs and MAF
+
+## Missing data per clone
+
+```{r MissingDataPerClone, warning=F, fig.height=6,fig.width=10}
+tab <- df %>% 
+  as_tibble() %>% 
+  sapply(function(x) sum(is.na(x))*100/nrow(df)) %>% 
+  as.data.frame() %>%
+  set_colnames(c("freq.NAs")) %>% 
+  rownames_to_column(var = "clone") %>% 
+  as_tibble() %>% 
+  arrange(freq.NAs) %>% 
+  mutate(id=1:nrow(.))
+
+plot(tab$id,tab$freq.NAs,
+     pch=20,
+     xlab="Clone number",
+     ylab="Percentage of missing data per clone")
+```
+
+`r nrow(tab[tab$freq.NAs<20,])` clones have less than 20% missing data, `r nrow(tab[tab$freq.NAs<18,])` clones have less than 18% and `r nrow(tab[tab$freq.NAs<15,])` have less than 15%.
+
+```{r RemoveCloneMissingData}
+# Specifying the chosen threshold:
+threshold.NA.per.clone <- 18
+
+# Removing clones with more than 18% missing data
+df <- df %>% dplyr::select(tab[tab$freq.NAs<threshold.NA.per.clone,]$clone)
+```
+
+**<span style="color: red;">We keep the `r nrow(tab[tab$freq.NAs<threshold.NA.per.clone,])` clones that have less than `r threshold.NA.per.clone`% missing data.</span>**
+
+## Minor allele frequencies
+
+```{r MAF, warning=F, fig.height=6,fig.width=10}
+tab <- df %>% 
+  t() %>% 
+  as_tibble() %>% 
+  sapply(function(x) sum(x,na.rm=T)*100/(2*nrow(.))) %>% 
+  as.data.frame() %>%
+  set_colnames(c("MAF")) %>% 
+  rownames_to_column(var = "snp") %>% 
+  as_tibble() %>% 
+  arrange(MAF) %>% 
+  mutate(id=1:nrow(.))
+
+plot(tab$id,tab$MAF,
+     pch=20,
+     xlab="SNP number",
+     ylab="Minor allele frequencies")
+```
+
+**<span style="color: red;">`r nrow(tab[tab$MAF<1,])` SNPs have MAF < 1%.</span>** 
+
+We remove the SNPs with MAF < 1%.
+
+```{r RmMissingDataMAF}
+df <-  df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]   
+```
+
+**<span style="color: red;">There are `r nrow(df)` SNPs left.</span>** 
+
+
+## Missing data per SNP
+
+```{r MissingDataPerSNP, warning=F, fig.height=6,fig.width=10}
+tab <- df %>% 
+  t() %>% 
+  as_tibble() %>% 
+  sapply(function(x) sum(is.na(x))*100/nrow(.)) %>% 
+  as.data.frame() %>%
+  set_colnames(c("freq.NAs")) %>% 
+  rownames_to_column(var = "snp") %>% 
+  as_tibble() %>% 
+  arrange(freq.NAs) %>% 
+  mutate(id=1:nrow(.))
+
+plot(tab$id,tab$freq.NAs,
+     pch=20,
+     xlab="SNP number",
+     ylab="Percentage of missing data per SNP")
+```
+
+
+`r nrow(tab[tab$freq.NAs<20,])` SNPs have the percentage of missing data lower than 20% and `r nrow(tab[tab$freq.NAs<15,])` lower than 15%.
+
+```{r RmMissingDataSNPs}
+df <- df[(row.names(df) %in% tab[tab$freq.NAs<20,]$snp),]
+```
+
+**<span style="color: red;">We keep SNPs with missing data lower than 20% and so there are `r nrow(df)` SNPs left.</span>**
+
+```{r ReorderColumns}
+# We reorder the columns (clone names) in the alphabetical order.
+df <- df %>%  dplyr::select(order(colnames(df)))
+```
+
+
+# Exporting the formatted and filtered genomic data
+
+```{r ExportingFormattedGenomicData}
+df %>% 
+  rownames_to_column(var="snp_ID") %>% 
+  write_csv(paste0("data_DRYAD/FormattedFilteredGenomicData_",ncol(df),"clones_",nrow(df),"snps.csv"),
+        append=FALSE,
+        col_names = 1)
+
+# downloading the formatted genomic data with SNP ID as first column: read.csv("data_DRYAD/FormattedFilteredGenomicData_454clones_9817snps.csv",row.names = 1)
+# or downloading the formatted genomic data with SNP ID as row names: read.csv("data_DRYAD/FormattedFilteredGenomicData_454clones_9817snps.csv")
+```
+
+# Exploring the genomic data
+
+## How many SNPs genotyped in each assay?
+
+We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric assay and in both. 
+
+```{r NumberSNPgenotypedAssays}
+codes <- read.csv("data_DRYAD/SnpCodesMatching.csv")
+
+temp.df <- read.csv("data_DRYAD/SnpCodesMatching.csv") %>% 
+  merge(df %>% rownames_to_column(var="snp_ID"),by="snp_ID")
+
+nb <- sapply(temp.df[,1:4], function(x) sum(!(is.na(x))))
+```
+
+Among the `r nb[[1]]` SNPs used in this paper (after filtering), **`r nb[[3]]` were genotyped in the Affymetrix assay**, **`r nb[[4]]` in the Infinium assay** and **`r temp.df[,c(1,3,4)] %>% drop_na() %>% nrow()` were genotyped by both assays**.
+
+## How many clones genotyped in each assay?
+
+We want to know the same for the clones, i.e. how many clones were genotyped by each assay and by both.
+
+```{r NumberClonesGenotypedAssays}
+temp.df <- data[,1:2] %>% filter(clone %in% colnames(df))
+
+# sapply(temp.df, function(x) sum(is.na(x))) # (to check) No NAs, great .
+
+table(temp.df$assay)
+```
+
+All clones were genotyped with both the Affymetrix and Infinium assays.
+
+## Average and max number of missing data per clone
+
+Frequency of missing data per clone:
+
+```{r MissingDataPerclone}
+tab <- df %>% 
+  sapply(function(x) sum(is.na(x))*100/nrow(df)) %>% 
+  as.data.frame() %>%
+  set_colnames(c("freq.NAs")) %>% 
+  rownames_to_column(var = "clone") %>% 
+  as_tibble() %>% 
+  arrange(desc(freq.NAs)) %>% 
+  mutate(id=1:nrow(.))
+
+# Visualization
+plot(tab$id,tab$freq.NAs,
+     pch=20,
+     xlab="Clone number",
+     ylab="Percentage of missing data per clone")
+
+# Table ordered in decreasing order
+# so clones with the highest frequencies of missing data are first
+tab[c(1:10),1:2] %>%
+  kable() %>%  
+  kable_styling(font_size=11,
+                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+  
+```
+
+The **maximum frequency of missing data per clone** is **`r round(max(tab$freq.NAs),2)`%** and the **average frequency of missing data per clone** is **`r round(mean(tab$freq.NAs),2)`%**.
+
+## Number of clones per population
+
+```{r GenerateTableLatexSuppInfoNbClonesPerProv}
+# We generate a table for the Supplementary Information of the paper, with the number of clones (i.e. trees) per provenance:
+tibble(Provenance=str_sub(colnames(df),1,3),clon=colnames(df)) %>% 
+  group_by(Provenance) %>% 
+  count(name="Nb.clones") %>% 
+  kable("latex", booktabs=T) 
+```
+
+# Imputation of missing data
+
+Percentage of missing data in the entire genomic dataset: `r round(sum(is.na(df)) * 100 / (dim(df)[1]*dim(df)[2]),2)`%.
+
+We are going to imputate the missing values using the most common allele at each SNP within the main gene pool of the clone. So here, the genotypes are classified according to the main gene pool they belong to (although we aknowledge that some genotypes are admixed and belong to different gene pools).
+
+We load the dataset in which there is the proportion of belonging of each genotype to a given gene pool [from @jaramillo2015molecular].
+
+```{r LoadingPropAncestry}
+prop <- read.csv("data_DRYAD/PopulationPopStructureEnvData.csv") %>% 
+  dplyr::select(clon,prov,paste0(rep("Q",6),1:6),max.Q)
+```
+
+We check whether some clones in the genomic dataset we want to use for the following analyses have no population structure data.
+
+```{r IdentifyClonesNoPopStructure}
+setdiff(colnames(df),prop$clon)
+```
+
+This is ok, we know the proportion of membership to each gene pool for each clone we want to use in the following analyses! 
+
+```{r MergePopStructureWithGenomicData}
+mainGP <- prop %>% dplyr::select(clon,max.Q) # extract the main gene pool for each clone.
+
+gen.imp <- df %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rownames_to_column("clon") %>%  
+  left_join(mainGP,by="clon") %>% 
+  dplyr::select(clon,max.Q,everything())
+
+gen.imp[1:10,1:10] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
+```
+
+```{r CheckingImputation1}
+# If we want to check that the imputation worked fine
+  # Find some SNPs with NAs
+subset <- gen.imp[gen.imp$max.Q=="Q5",]
+sample(colnames(subset)[colSums(is.na(subset)) > 0],3,replace=F) #extract some SNPs with NAs
+sum(is.na(subset)) # 14,902 NAs in Q5 gene pool
+
+table(subset[,"snp_12238"]) # NAs of this SNP should take the value '2' after imputation.
+table(subset[,"snp_10182"]) # NAs of this SNP should take the value '1' after imputation.
+table(subset[,"snp_7628"])  # NAs of this SNP should take the value '2' after imputation.
+```
+
+
+We impute the missing data:
+
+```{r NAsImputation}
+# Replace NAs by (1) subseting by GP, (2) imputing NAs, (3) reassembling the GP.
+for(i in unique(gen.imp$max.Q)){
+  subset <- gen.imp[gen.imp$max.Q==i,]
+  subset <- apply(subset[,3:ncol(subset)], 2, function(x) replace(x, is.na(x), as.numeric(names(which.max(table(x))))))
+  gen.imp[gen.imp$max.Q==i,3:ncol(gen.imp)] <- subset
+}
+```
+
+
+```{r CheckingImputation2}
+# If we want to check that the imputation worked fine
+  # Look at the SNPs that had NAs before imputation
+subset <- gen.imp[gen.imp$max.Q=="Q5",]
+sum(is.na(subset)) # 0 NAs now!
+
+table(subset[,"snp_12238"]) # great! (NAs of this SNP has taken the values '2' after imputation)
+table(subset[,"snp_10182"]) # great! (The missing value of this SNP has taken the value '1' after imputation)
+table(subset[,"snp_7628"])  # great! (The missing value of this SNP has taken the value '2' after imputation)
+```
+
+Formating the dataset (reattributing clone names, clones in columns and snp in rows, etc.):
+
+```{r ReformatImputedDataset}
+rownames(gen.imp) <- gen.imp$clon
+gen.imp <- gen.imp %>% 
+  dplyr::select(-clon,-max.Q) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Visualization:
+gen.imp[1:10,1:10] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
+```
+
+ 
+# Exporting the dataset
+
+```{r ExportGenomicDataImputedRDS}
+gen.imp %>% 
+  rownames_to_column(var="snp_ID") %>% 
+  write_csv(paste0("data_DRYAD/ImputedGenomicData_",ncol(gen.imp),"clones_",nrow(gen.imp),"snps.csv"),
+        append=FALSE)
+```
+
+# References
