@@ -351,12 +351,11 @@ df <- df %>%  dplyr::select(order(colnames(df)))
 ```{r ExportingFormattedGenomicData}
 df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data_DRYAD/FormattedFilteredGenomicData_",ncol(df),"clones_",nrow(df),"snps.csv"),
-        append=FALSE,
-        col_names = 1)
+  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_",ncol(df),"clones_",nrow(df),"snps.csv"),
+            append=FALSE)
 
-# downloading the formatted genomic data with SNP ID as first column: read.csv("data_DRYAD/FormattedFilteredGenomicData_454clones_9817snps.csv",row.names = 1)
-# or downloading the formatted genomic data with SNP ID as row names: read.csv("data_DRYAD/FormattedFilteredGenomicData_454clones_9817snps.csv")
+# downloading the formatted genomic data with SNP ID as first column: read.csv("data/DryadRepo/FormattedFilteredGenomicData_454clones_9817snps.csv",row.names = 1)
+# or downloading the formatted genomic data with SNP ID as row names: read.csv("data/DryadRepo/FormattedFilteredGenomicData_454clones_9817snps.csv")
 ```
 
 # Exploring the genomic data
@@ -366,9 +365,9 @@ df %>%
 We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric assay and in both. 
 
 ```{r NumberSNPgenotypedAssays}
-codes <- read.csv("data_DRYAD/SnpCodesMatching.csv")
+codes <- read.csv("data/DryadRepo/SnpCodesMatching.csv")
 
-temp.df <- read.csv("data_DRYAD/SnpCodesMatching.csv") %>% 
+temp.df <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
   merge(df %>% rownames_to_column(var="snp_ID"),by="snp_ID")
 
 nb <- sapply(temp.df[,1:4], function(x) sum(!(is.na(x))))
@@ -428,7 +427,8 @@ The **maximum frequency of missing data per clone** is **`r round(max(tab$freq.N
 tibble(Provenance=str_sub(colnames(df),1,3),clon=colnames(df)) %>% 
   group_by(Provenance) %>% 
   count(name="Nb.clones") %>% 
-  kable("latex", booktabs=T) 
+  xtable(type="latex",digits=3) %>% 
+  print(file='tables/NbclonesPerPopulationGenomicData.tex',include.rownames=FALSE)
 ```
 
 # Imputation of missing data
@@ -440,7 +440,7 @@ We are going to imputate the missing values using the most common allele at each
 We load the dataset in which there is the proportion of belonging of each genotype to a given gene pool [from @jaramillo2015molecular].
 
 ```{r LoadingPropAncestry}
-prop <- read.csv("data_DRYAD/PopulationPopStructureEnvData.csv") %>% 
+prop <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
   dplyr::select(clon,prov,paste0(rep("Q",6),1:6),max.Q)
 ```
 
@@ -526,7 +526,7 @@ gen.imp[1:10,1:10] %>%
 ```{r ExportGenomicDataImputedRDS}
 gen.imp %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data_DRYAD/ImputedGenomicData_",ncol(gen.imp),"clones_",nrow(gen.imp),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/ImputedGenomicData_",ncol(gen.imp),"clones_",nrow(gen.imp),"snps.csv"),
         append=FALSE)
 ```
 
