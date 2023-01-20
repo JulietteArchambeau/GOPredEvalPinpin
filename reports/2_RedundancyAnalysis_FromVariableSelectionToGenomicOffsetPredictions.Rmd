@@ -1,0 +1,475 @@
+---
+title: "Climatic variable selection, candidate SNPs identification, genomic offset predictions"
+subtitle: "Based on RDA"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2:
+    df_print: kable
+    fig.caption: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: no
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+editor_options:
+  chunk_output_type: console
+bibliography: references.bib
+always_allow_html: true
+---
+
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+<style type="text/css">
+div.main-container {
+  max-width: 2000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+
+
+
+```{css, echo=FALSE}
+pre {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+pre[class] {
+  max-height: 600px;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(dplyr)      # CRAN v1.0.0
+library(psych)      # CRAN v1.8.12 (pairs.panels function)
+library(tidyverse)  # CRAN v1.3.0
+library(raster)     # CRAN v3.3-13
+library(stringr)    # CRAN v1.4.0
+library(ggbiplot)
+library(corrplot)
+library(vegan)
+```
+
+```{r VizOptions, echo=F}
+source("scripts/functions/corpmat.R")
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+```
+
+<br>
+
+Most analyses conducted in this document are based on:
+
+  - @forester2018comparing and the associated [vignette](https://popgen.nescent.org/2018-03-27_RDA_GEA.html). 
+  
+  - @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
+  
+# Downloading the data
+
+
+## Genomic data
+
+```{r LoadGenomicData}
+geno <- read.csv("data/DryadRepo/ImputedGenomicData_454clones_9817snps.csv",row.names = 1) %>% 
+  t() %>% 
+  as.data.frame()
+
+geno[1:10,1:10] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
+```
+
+The genomic dataset contains `r nrow(geno)` clones (i.e. genotypes) and `r ncol(geno)` SNPs. 
+
+RDA requires complete data frames (i.e., no missing data). Missing data were imputed based on the main gene pool of the clone, i.e. using the most common allele at each SNP (see report `1_FormattingGenomicData.Rmd`).
+
+<!-- RDA can run on allele frequencies, maybe it would be worth calculate the allele frequencies based on non-imputed missing data and see if I get the same outputs. -->
+
+## Climatic data
+
+Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). Annual climatic variables were extracted between 1901 and 2098. 
+
+**Reference period:** we use the annual values between 1901 and 1950 to capture the climatic conditions under which the populations have evolved. 
+
+
+```{r LoadClimateDToutputs}
+clim <- read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_2098.csv",
+               show_col_types = FALSE) %>% 
+  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 to 1950
+  group_by(ID) %>% # group by population
+  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
+  dplyr::select(-Year) %>% 
+  dplyr::rename(longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                pop=ID)
+
+clim[1:10,1:10] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+```
+
+The dataset contains `r nrow(clim)` populations and `r ncol(clim)-4` climatic variables. The description of the climatic variables is available [here](https://www.ibbr.cnr.it/climate-dt/?action=fldlist).
+
+```{r CorrelationsPanels,fig.height=9,fig.width=12,eval=F,echo=F}
+# Chunk to generate figures to vizualize the correlations among the climatic variables
+
+allvar <- colnames(clim)[-1] # we keep long, lat, elev and clim variables
+
+cor <- cor(clim[,allvar])
+
+# matrix of the p-value of the correlation
+p.mat <- corpmat(cor)
+
+# Generate a correlation plot
+png(file = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",width=1300,height=1300)
+corrplot::corrplot(cor, method="color", col=col(200),  
+                   type="upper", order="hclust", 
+                   addCoef.col = "black", # Add coefficient of correlation
+                   tl.col="black", tl.srt=45, #Text label color and rotation
+                   # Combine with significance
+                   p.mat = p.mat, sig.level = 0.01, insig = "blank", 
+                   # hide correlation coefficient on the principal diagonal
+                   diag=FALSE,number.cex=0.6)
+dev.off()
+
+
+
+# Generate a PCA
+pca <- prcomp(clim[,allvar], center = TRUE,scale. = TRUE)
+
+p <- ggbiplot(pca,varname.size =4) +  
+  ylim(-3.5, 2.5) +    
+  xlim(-3, 3) + 
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(size=12))
+
+
+p
+ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=20,height=20,
+       bg="white")
+```
+
+```{r StandardizeClimaticVariables}
+## Standardization of the climatic variables
+clim.sc <- clim
+
+clim.sc2 <- clim %>% 
+  dplyr::select(-c("pop","latitude","longitude","elevation")) %>% 
+  scale(center=TRUE, scale=TRUE)
+
+## Recovering scaling coefficients
+scale_clim <- attr(clim.sc2, 'scaled:scale')
+center_clim <- attr(clim.sc2, 'scaled:center')
+
+clim.sc[,colnames(clim.sc2)]  <-  clim.sc2
+```
+
+
+
+## Population genetic structure
+
+The population genetic structure was estimated in @jaramillo2015molecular. 
+
+```{r LoadingPopGenStructure}
+df.var <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
+  filter(clon %in% rownames(geno)) %>% # keep the same clones as in the genomic data
+  unique() %>% 
+  dplyr::rename(pop=prov) %>% 
+  left_join(clim.sc,by="pop") %>% # merge with the climatic variables
+  arrange(clon) # the clones have to be in the same order as in the genomic data.
+
+# Run this line to check that the order of the clones in the geno and pgs dataset is the same.
+# identical(as.vector(pgs$clon),rownames(geno)) # should be TRUE 
+
+df.var[1:10,1:14] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+```
+
+
+# Selecting the climatic variables
+
+## Criteria 1: exposure to climate change
+
+
+For each climatic variable:
+
+   + we calculate the *mean* and *standard deviation* of its annual values for the reference period 1901-1950: $\mu_{ref}$ and $\sigma_{ref}$, respectively.
+  
+  + we calculate the *Z-score* of each of its annual values $X$ for a given future period, such as *Z-score* = $(X - \mu_{ref})/\sigma_{ref}$
+
+
+```{r CalculatingZscoreExposureCC,warning=F}
+# Time window for future climates:
+min.fut.clim <- 2023
+max.fut.clim <- 2050
+
+# Do we average the z-scores across future years?
+avg <- FALSE
+
+# Climatic variables that we want to remove
+removed.clim <- c("bFFP") # weird values
+
+
+# We load ClimateDT outputs 
+clim2 <-  read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_2098.csv",
+               show_col_types = FALSE)
+
+# selected clim variables
+var.clim <- colnames(clim2)[!colnames(clim2) %in% c("ID","Year","Longitude","Latitude","Elevation",removed.clim)]
+
+
+# calculating the z-scores
+zscores <- lapply(var.clim, function(x){
+  
+past.clim <- clim2 %>% 
+  dplyr::filter(Year<1951) %>%  # keep 1901 to 1950
+  dplyr::select(ID,x) %>% 
+  group_by(ID) %>% 
+  dplyr::summarise_all(list(mean="mean",sd="sd"))
+
+# z-scores
+zcores <- clim2 %>% 
+  dplyr::filter(Year>min.fut.clim & Year<max.fut.clim) %>% 
+  dplyr::select(ID,Year,x) %>% 
+  dplyr::rename(var=x) %>% 
+  left_join(past.clim,by="ID") %>% 
+  dplyr::mutate(zscore=(var-mean)/sd) 
+
+if(avg==TRUE){
+  zcores <-  zcores %>% 
+    group_by(ID) %>% 
+    dplyr::summarise_at("zscore","mean")
+} else{
+  zcores <-  zcores %>% 
+    dplyr::select(ID,Year,zscore)
+}
+  
+}) %>% 
+  setNames(var.clim) %>% 
+  bind_rows(.id="var") 
+
+# we sort the average z-scores (across populations and years) to determine 
+# which climatic variables have the highest abs(Z-scores)
+abs.mean.zscore <- zscores %>% 
+  spread(var,zscore) %>% 
+  mutate_if(is.numeric,abs) %>%
+  dplyr::select(all_of(var.clim)) %>% 
+  dplyr::summarise_all("mean") %>% 
+  gather(variable, value) %>% 
+  arrange(value)
+```
+
+```{r ViolinPlotExposureCC, fig.cap="\\large Deviation of future values of the climatic variables from the reference period 1901-1950. A point is specific to a given year and a given population", fig.height=15,fig.width=13, fig.align="center"}
+# Violin plots
+zscores %>%
+  mutate(var=factor(var,levels=c(abs.mean.zscore$variable))) %>% 
+  ggplot(aes(x=var, y=zscore)) + 
+  geom_jitter(shape=16,aes(colour = Year),position=position_jitter(0.2),size=0.5) +
+  geom_violin(alpha=0.2) + 
+  scale_colour_gradient2(low = "blue", mid="yellow",high = "red",midpoint=(max.fut.clim+min.fut.clim)/2) +
+  coord_flip() +
+  xlab("") + ylab("Z-scores") +
+  theme_bw() +
+  theme(legend.position=c(0.8, 0.7),
+        legend.title = element_text(size = 18),
+        legend.text = element_text(size = 15),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size=16))
+```
+
+*Temperature*-related variables show the *highest deviations* from their distribution under the reference period 1901-1950 and also all show a consistent increase across populations and years.
+
+*Precipitation*-related variables show *lower deviations* from their distribution under the reference period 1901-1950. Moreover, they do not show a consistent decrease across years and populations. 
+
+**Notes on the graph interpretation:** Figure \@ref(fig:ViolinPlotExposureCC) quantifies the relative deviations of the values of the climate variables from their distribution over the reference period 1901-1950. The highest deviations of temperature-related variables do not imply that populations will be less affected by future changes in precipitation than in temperatures.  Indeed, for some climate variables, even minor changes can severely affect populations. For example, some populations may already be suffering from summer droughts and even a small decrease in precipitation could have dramatic consequences.
+
+## Criteria 2: a predictive approach
+
+To select the variables of interest, we may also use a *predictive approach* using *RDA with stepwise selection*, where the goal is to *maximize the genetic variance* explained by a set of predictors [@capblancq2021redundancy].
+
+For that, we use the selection procedure from the `ordiR2step` function of the package `vegan`. 
+
+We have to specify two models:
+
+  - a *null* model where the response is explained only by an intercept.
+
+  - a *full* model including all variables. 
+
+```{r ForwardSelectionNullModel}
+rda.null <- rda(geno ~ 1, df.var)
+```
+
+```{r ForwardSelectionFullModel}
+rda.full <- rda(geno ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
+                  bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
+                  bio19 + Eref + CMD + MCMT + MOP + MSP + MWMT + AOP + GDD0 + GDD5 + GDD18 + 
+                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var)
+```
+
+
+In the `ordi2step` function, the default criteria for including the variables is based on both *significance* of the newly selected variables, and the comparison of *adjusted variation* ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. If the new variable is not significant or the $R^2_{adj}$ of the model including this new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
+
+We use the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.  
+
+```{r StepwiseSelectionProcedure, message=FALSE, results='hide', eval=F}
+## Stepwise procedure with ordiR2step function
+mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
+saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel.rds")
+```
+
+```{r OutputsStepwiseSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
+mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel.rds")
+mod
+mod$anova
+```
+
+<br>
+
+The stepwise selection procedure selects all variables, which is not very useful `r emo::ji("unamused")`.
+
+We try the *forward* selection procedure of the `ordi2step` function.
+
+```{r ForwardSelectionProcedure, message=FALSE, results='hide', eval=F}
+## forward selection procedure with ordiR2step function
+mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T, direction="forward")
+saveRDS(mod,file="outputs/VariableSelection/ForwardSelectionModel.rds")
+```
+
+```{r OutputsForwardSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
+mod <- readRDS("outputs/VariableSelection/ForwardSelectionModel.rds")
+mod
+mod$anova
+```
+
+<br>
+
+The stepwise selection procedure also selects all variables `r emo::ji("confounded")`.
+
+
+## Criteria 3: biological meaning and study goals
+
+Study goals:
+
+  - evaluate the genomic offset predictions with different methods.
+  
+  - provide GO estimates for the studied populations to identify populations that may be at risk of maladaptation under climate change (those estimates will be provided based on the "best performing" genomic offset predictions in the evaluation part).
+  
+### Variable selection for the evaluation part
+
+Importantly, it may be relevant not to select the same climatic variables for the different study goals and evaluation methods. 
+
+Indeed, seedling survival in common gardens after a strong summer drought is likely to be mainly impacted by the differences in adaptation to drought conditions among populations. So, it may be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
+
+To evaluate genomic offset predictions using height of young trees in common gardens as a proxy of fitness, both winter and summer temperature and precipitation variables can be used as they may all impact tree growth. However, it may still be interesting to compare the *summer drought GO* predictions with the GO predictions based on climatic variables capturing both winter and summer conditions (ie *global-climate genomic offset*, *global-climate GO*), as winter conditions may also impact tree growth in common gardens. 
+
+In natural populations, climate change can *directly* impact tree mortality through more and more frequent and intense summer droughts. In contrast, an increase in winter temperatures is highly unlikely to directly impact the death of adult trees. Therefore, to determine whether current mortality rates in natural populations may be attributed to maladaptation to summer drought conditions, it may be relevant to evaluate the association between *drought genomic offset* predictions and mortality rates in National Forest Inventory plots.
+On the other hand, increased temperatures in winter can benefit to pests and pathogens, which can indirectly impact tree death. In such a case, it may also be relevant to evaluate the association between mortality rates in NFI plots and GO predictions considering both winter and summer climatic conditions.
+Note that in the NFI, a tree is not counted as dead if its death is attributed to pests. However, mortality is a multifactorial process and it can be very difficult (if not impossible) to determine the relative contributions of climate, pests and other factors to tree death.
+
+Evaluation of the genomic offset predictions with ecophysiological models: I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *global-climate GO* predictions.
+
+### Variable selection for providing GO predictions for the studied populations
+
+According to previous studies, maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures (eg [@grivet2011molecular]). Under climate change, cold temperatures are expected to increase in average at the location of the studied populations (Figure \@ref(fig:ViolinPlotExposureCC)). An increase in cold temperatures is unlikely to directly negatively impact the fitness of adult trees but it may impact the survival of young trees, the reproductive ability and the impact of pests and pathogens. 
+
+Thus, for the second objective of this paper (which is to provide GO estimates for the studied populations), whether or not to include winter conditions in GO predictions is a tricky question, for which there is probably no correct answer. 
+
+In this paper, we will follow the following workflow:
+
+  - if the predictions of *summer-drought GO* or *global-climate GO* are consistently better across the different evaluation methods, then we will provide these GO predictions for the studied populations.
+  
+  - if the predictions of *summer-drought GO* or *global-climate GO* are not consistently better across the different evaluation parts, then we will provide both the *summer-drought GO* or *global-climate GO* predictions for the studied populations.
+
+
+## Selected variables
+
+### Summer-drought climatic variables
+
+Selected variables:
+
+  - `bio17`: the precipitation of driest quarter (in mm).
+  
+  - `MCMT`: the mean warmest month temperature (in °C).
+  
+
+`MCMT` will increase a lot under climate change => strong exposure to climate change.
+
+```{r VizSelectedDroughtVar, fig.width=5,fig.height=5}
+## Selected summer-drought variables
+drought.var <- c("bio17","MWMT")
+
+clim %>%
+  dplyr::select(all_of(drought.var)) %>%
+  unique() %>%
+  pairs.panels(scale=T,hist.col="palegreen1")
+```
+
+### Global-climate variables
+
+Selected variables:
+
+  - `bio17`: the precipitation of driest quarter (in mm).
+  
+  - `MWMT`: the mean warmest month temperature (in °C).
+  
+  - `bio12`: annual precipitation (in mm).
+  
+  - `bio1`: mean annual temperature (in °C). 
+  
+  - `MCMT`: the mean coldest month temperature (in °C).
+
+`bio1`, and to a lesser extent `MWMT`, will increase a lot under climate change => strong exposure to climate change.
+
+```{r VizSelectedGlobalVar, fig.width=10,fig.height=10}
+## Selected global-climate variables
+global.var <- c("bio1","bio12","bio17","MWMT","MCMT")
+
+clim %>%
+  dplyr::select(all_of(global.var)) %>%
+  unique() %>%
+  pairs.panels(scale=T,hist.col="palegreen1")
+```
+
+# Variance partitioning
+
+We want to disentangle the *relative contribution* of different factors in explaining genetic variation, namely:
+
+  - *climate*, either captured by the *summer-drought* climate variables or the *global* climate variables.
+  
+  - *neutral population structure*, captured by the ancestry coefficients from @jaramillo2015molecular. 
+  
+  - *geography*, accounted for by the population coordinates (longitude and latitude).
+  
+  
+
+We will run:
+
+  - one *full* RDA with all factors (population structure, environment and geographical distance), i.e. no variable conditioning.
+  
+  - three *partial* RDA in which the factor of interest is conditioned by the other two factors.
+
+<!-- Create a df with all variables scaled and one with none! -->
+
+
+# References
