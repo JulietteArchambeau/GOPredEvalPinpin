@@ -10,7 +10,6 @@ output:
     toc_float:
        collapsed: false
     number_sections: true
-    highlight: textmate
 bibliography: references.bib
 editor_options: 
   chunk_output_type: console
@@ -57,9 +56,12 @@ library(magrittr)   # CRAN v2.0.1
 library(kableExtra) # CRAN v1.1.0
 library(genetics)   # to calculate LD
 library(xtable)
+library(reshape2)
 ```
 
-# Loading the raw genomic data
+# Raw genomic data
+
+## Loading
 
 ```{r LoadRawGenomicData}
 # Load the raw genomic data:
@@ -85,7 +87,7 @@ data[40:50,1:13]  %>%
                 bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
 ```
 
-# Formatting the genomic data
+## Formatting
 
 For each SNP, we convert the letters (e.g. A/A, A/G) to numbers (0,1 or 2).
 
@@ -146,8 +148,9 @@ df[1:11,40:50]  %>%
                 bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
 ```
 
+# Filtering genomic data
 
-# Filtering monomorphic SNPs
+## Filtering monomorphic SNPs
 
 ```{r IdentifyingMonomorphicSNPs}
 mono <- df %>% 
@@ -172,71 +175,7 @@ df <- df[!(row.names(df) %in% mono$snp),]
 
 
 
-# Identifying duplicates
-
-The first way to identify the duplicated SNPs is by using the function `duplicated`. 
-
-```{r IdentifyPerfectDuplicates}
-dup <- df[duplicated(df) | duplicated(df, fromLast=TRUE), ]
-```
-
-There are `r nrow(dup)` duplicates (=SNPs that have exactly the same genotype as at least one other SNP).
-
-Then, we determine how many copies there are for each duplicate. 
-
-```{r CountCopiesDuplicates}
-count.duplicates <- function(DF){
-  x <- do.call('paste', c(DF, sep = '\r'))
-  ox <- order(x)
-  rl <- rle(x[ox])
-  cbind(DF[ox[cumsum(rl$lengths)],,drop=FALSE],count = rl$lengths)
-  
-}
-countdup <- count.duplicates(df %>% as.data.frame()) 
-table(countdup$count)
-```
-
-This is relevant with what we found before as 2*92 + 3*14 + 4 + 5 = 235.
-
-So it means that there are:
-
-  - <span style="color: red;"> 92 pairs of duplicate SNPs.</span>
-  - <span style="color: red;"> 14 groups of 3 duplicate SNPs.</span>
-  - <span style="color: red;"> 1 group of 4 duplicate SNPs.</span>
-  - <span style="color: red;"> 1 group of 5 duplicate SNPs.</span>
-
-But, there are two situations not accounted for by the function `duplicated`. 
-
-  - First, if two SNPs have exactly the same genotype for all clones, except one clone where one of the two SNPs has a value of "1" for instance, and the other SNP has the value "NA". In this case, the two SNPs will not be considered as duplicates. 
-  - Second, if the two SNPs covary perfectly but one have "0" when the other have "2", and vice versa, they will not be counted as duplicates neither. For instance:
-      - SNP_1: 0 0 1 1 2 2 
-      - SNP_2: 2 2 1 1 0 0 
-
-To add these situations in the count of duplicated SNPs, I selected all the pairs of SNPs with a correlation coefficient of 1. 
-
-```{r IdentifyCorrelatedSNPs}
-# Invert the genomic matrix
-tdf <- df %>% t() %>% as.data.frame() 
-
-# Create a matrix of correlation for all SNPs (12483snps x 12483snps)
-matcor <- cor(tdf, use = "pairwise.complete.obs")
-matcor[1:10,1:10] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
-
-# Keep only the upper triangle of the matrix and remove values in the diagnonal
-matcor[lower.tri(matcor,diag=T)] <- NA
-matcor[1:10,1:10] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
-```
-
-
-<span style="color: red;">`r length(which(matcor==1))` pairs of SNPs have a correlation coefficient of 1.</span>
-
-
-
-# Removing the ROD population
+## Removing the ROD population
 
 We remove the clones from the ROD (Rodoiros) population, as they come from a plantation of material from Central Spain in the Iberian Atlantic region.
 
@@ -247,9 +186,9 @@ df <- df %>%
 ```
 
 
-# Filtering based on NAs and MAF
+## Filtering based on NAs and MAF
 
-## Missing data per clone
+### Missing data per clone
 
 ```{r MissingDataPerClone, warning=F, fig.height=6,fig.width=10}
 tab <- df %>% 
@@ -280,7 +219,7 @@ df <- df %>% dplyr::select(tab[tab$freq.NAs<threshold.NA.per.clone,]$clone)
 
 **<span style="color: red;">We keep the `r nrow(tab[tab$freq.NAs<threshold.NA.per.clone,])` clones that have less than `r threshold.NA.per.clone`% missing data.</span>**
 
-## Minor allele frequencies
+### Minor allele frequencies
 
 ```{r MAF, warning=F, fig.height=6,fig.width=10}
 tab <- df %>% 
@@ -311,7 +250,7 @@ df <-  df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]
 **<span style="color: red;">There are `r nrow(df)` SNPs left.</span>** 
 
 
-## Missing data per SNP
+### Missing data per SNP
 
 ```{r MissingDataPerSNP, warning=F, fig.height=6,fig.width=10}
 tab <- df %>% 
@@ -348,15 +287,180 @@ df <- df %>%  dplyr::select(order(colnames(df)))
 
 # Exporting the formatted and filtered genomic data
 
-```{r ExportingFormattedGenomicData}
+##  Allele counts (i.e. 0/1/2)
+
+Can be used in the RDA
+
+```{r ExportingFormattedGenomicDataAlleleCounts}
 df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_",ncol(df),"clones_",nrow(df),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",ncol(df),"clones_",nrow(df),"snps.csv"),
             append=FALSE)
 
-# downloading the formatted genomic data with SNP ID as first column: read.csv("data/DryadRepo/FormattedFilteredGenomicData_454clones_9817snps.csv",row.names = 1)
-# or downloading the formatted genomic data with SNP ID as row names: read.csv("data/DryadRepo/FormattedFilteredGenomicData_454clones_9817snps.csv")
+# Reminder
+# to download the dataset with snp_ID as first column: use `read.csv` with missing row.names
+# to download the dataset with snp_ID as row names: use `read.csv` with row.names = 1
 ```
+
+##  Allele frequencies
+
+Can be used in the RDA, GF.
+
+```{r ExportingFormattedGenomicDataAllelefrequencies}
+df.freq <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_454clones_9817snps.csv", row.names = 1) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="pop") %>% 
+  mutate(pop=str_sub(pop,1,3)) %>% 
+  group_by(pop) %>% 
+  summarise_all(~sum(., na.rm = TRUE)/((n()-sum(is.na(.)))*2))
+
+df.freq %>% 
+  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_",ncol(df),"clones_",nrow(df),"snps.csv"),
+            append=FALSE)
+
+df.freq[1:10,1:8] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+
+# Collinearity among SNPs
+
+## Identifying duplicates
+
+The first way to identify the duplicated SNPs is by using the function `duplicated`. 
+
+```{r IdentifyPerfectDuplicates}
+df.dup <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_454clones_9817snps.csv", row.names = 1) 
+
+dup <- df.dup[duplicated(df.dup) | duplicated(df.dup, fromLast=TRUE), ]
+```
+
+There are `r nrow(dup)` duplicates (=SNPs that have exactly the same genotype as at least one other SNP).
+
+Then, we determine how many copies there are for each duplicate. 
+
+```{r CountCopiesDuplicates}
+count.duplicates <- function(DF){
+  x <- do.call('paste', c(DF, sep = '\r'))
+  ox <- order(x)
+  rl <- rle(x[ox])
+  cbind(DF[ox[cumsum(rl$lengths)],,drop=FALSE],count = rl$lengths)
+  
+}
+countdup <- count.duplicates(df.dup %>% as.data.frame()) 
+
+tab <- table(countdup$count) %>% 
+  as.data.frame() %>% 
+  setNames(c("SnpNumberWithinGroups","GroupNumber"))
+  
+tab  %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+In this table, `r colnames(tab)[1]` is the number of duplicated SNPs within each group (ie groups of 2 SNPs, 3 SNPs, 4 SNPs, etc) and  `r colnames(tab)[2]` is the number of groups (or the number of non-duplicated SNPs for the first row). 
+
+So it means that there are:
+
+  - `r tab[1,2]` non-duplicated SNPs.
+  - `r tab[2,2]` groups of `r tab[2,1]` duplicated SNPs.
+  - `r tab[3,2]` groups of `r tab[3,1]` duplicated SNPs.
+  - `r tab[4,2]` group of `r tab[4,1]` duplicated SNPs.
+  - `r tab[5,2]` group of `r tab[5,1]` duplicated SNPs.
+  - `r tab[6,2]` group of `r tab[6,1]` duplicated SNPs.
+  - `r tab[7,2]` group of `r tab[7,1]` duplicated SNPs.
+
+```{r ChecksNumberDuplicates, eval=F}
+# checking that the numbers are coherent
+
+# we should recover the total number of SNPs
+TotNbSNPs <- tab %>% 
+  dplyr::mutate(product=as.numeric(SnpNumberWithinGroups)*as.numeric(GroupNumber)) %>% 
+  dplyr::summarise(sum=sum(product))
+TotNbSNPs # that's ok!
+
+# we should recover the total number of duplicated SNPs
+TotNbSNPs - tab$GroupNumber[1] # that's ok too!
+```
+
+But, there are two situations not accounted for by the function `duplicated`. 
+
+  - First, if two SNPs have exactly the same genotype for all clones, except one clone where one of the two SNPs has a value of "1" for instance, and the other SNP has the value "NA". In this case, the two SNPs will not be considered as duplicates. 
+  - Second, if the two SNPs covary perfectly but one have "0" when the other have "2", and vice versa, they will not be counted as duplicates neither. For instance:
+      - SNP_1: 0 0 1 1 2 2 
+      - SNP_2: 2 2 1 1 0 0 
+
+To add these situations in the count of duplicated SNPs, I selected all the pairs of SNPs with a correlation coefficient of 1. 
+
+```{r IdentifyCorrelatedSNPs, warning=F}
+# Invert the genomic matrix
+tdf.dup <- df.dup %>% t() %>% as.data.frame() 
+
+# Create a matrix of correlation for all SNPs (12483snps x 12483snps)
+matcor <- cor(tdf.dup, use = "pairwise.complete.obs")
+matcor[1:10,1:10] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+
+# Keep only the upper triangle of the matrix and remove values in the diagonal
+matcor[lower.tri(matcor,diag=T)] <- NA
+matcor[1:10,1:10] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+
+<span style="color: red;">`r length(which(matcor==1))` pairs of SNPs have a correlation coefficient of 1.</span>
+
+```{r ExtractCorrelatedSNPs}
+snpcor <- matcor %>% 
+  melt() %>% 
+  na.omit() %>% 
+  dplyr::filter(value==1) %>% 
+  dplyr::select(-value)
+
+rm(matcor) # to free memory space
+```
+
+
+## Pairwise LD
+
+ We calculate the *pairwise linkage disequilibrium* among SNPs with the `genetics` package.
+
+```{r CalculateLD,eval=F}
+# format genomic data for the `LD` function of the `genetics` package
+LD <- data %>% dplyr::select(-clone,-assay) %>% makeGenotypes() 
+
+# calculate LD (very very very long)
+LD <- LD(LD)
+
+saveRDS(LD, file="outputs/LD/LDGeneticsRpackage.rds")
+```
+
+```{r IdentifyHighLDSNPs}
+LDmat <- readRDS("outputs/LD/LDGeneticsRpackage.rds")
+LDmat <- LDmat$`R^2`
+
+snpLD <- LDmat %>% 
+  melt() %>% 
+  na.omit() %>% 
+  dplyr::filter(value>0.99) %>% 
+  dplyr::select(-value)
+
+rm(LDmat) # to free memory space
+```
+
+`r nrow(snpLD)` pairs of SNPs with LD > 0.99 (with LD estimated as the $r$ correlation coefficient among the SNPs).
+
+```{r CommonCorSNPs}
+snpLDcor <- snpLD %>% inner_join(snpcor, by = c("Var1", "Var2"))
+```
+
+`r nrow(snpLDcor)` pairs of SNPs with both a Pearson correlation coefficient equal to 1 and LD > 0.99 (with LD estimated as the $r$ correlation coefficient among the SNPs).
+
+<span style="color: red;">**Do we prune the collinear SNPs?**</span>
 
 # Exploring the genomic data
 
