@@ -67,6 +67,7 @@ library(stringr)    # CRAN v1.4.0
 library(ggbiplot)
 library(corrplot)
 library(vegan)
+library(xtable)
 ```
 
 ```{r VizOptions, echo=F}
@@ -169,21 +170,6 @@ ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=20,height=20
        bg="white")
 ```
 
-```{r StandardizeClimaticVariables}
-## Standardization of the climatic variables
-clim.sc <- clim
-
-clim.sc2 <- clim %>% 
-  dplyr::select(-c("pop","latitude","longitude","elevation")) %>% 
-  scale(center=TRUE, scale=TRUE)
-
-## Recovering scaling coefficients
-scale_clim <- attr(clim.sc2, 'scaled:scale')
-center_clim <- attr(clim.sc2, 'scaled:center')
-
-clim.sc[,colnames(clim.sc2)]  <-  clim.sc2
-```
-
 
 
 ## Population genetic structure
@@ -195,7 +181,8 @@ df.var <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>%
   filter(clon %in% rownames(geno)) %>% # keep the same clones as in the genomic data
   unique() %>% 
   dplyr::rename(pop=prov) %>% 
-  left_join(clim.sc,by="pop") %>% # merge with the climatic variables
+  left_join(clim,by="pop") %>% # merge with the climatic variables
+  dplyr::select(-max.Q) %>% 
   arrange(clon) # the clones have to be in the same order as in the genomic data.
 
 # Run this line to check that the order of the clones in the geno and pgs dataset is the same.
@@ -206,6 +193,22 @@ df.var[1:10,1:14] %>%
   kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
 ```
 
+## Standardize the variables
+
+
+```{r StandardizeVariables}
+df.var.sc <- df.var
+
+df.var.sc2 <- df.var.sc %>% 
+  dplyr::select(-c("pop","clon")) %>% 
+  scale(center=TRUE, scale=TRUE)
+
+## Recovering scaling coefficients
+scale_coeff <- attr(df.var.sc2, 'scaled:scale')
+center_coeff <- attr(df.var.sc2, 'scaled:center')
+
+df.var.sc[,colnames(df.var.sc2)]  <-  df.var.sc2
+```
 
 # Selecting the climatic variables
 
@@ -317,14 +320,14 @@ We have to specify two models:
   - a *full* model including all variables. 
 
 ```{r ForwardSelectionNullModel}
-rda.null <- rda(geno ~ 1, df.var)
+rda.null <- rda(geno ~ 1, df.var.sc)
 ```
 
 ```{r ForwardSelectionFullModel}
 rda.full <- rda(geno ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
                   bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
                   bio19 + Eref + CMD + MCMT + MOP + MSP + MWMT + AOP + GDD0 + GDD5 + GDD18 + 
-                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var)
+                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var.sc)
 ```
 
 
@@ -417,10 +420,13 @@ Selected variables:
 
 ```{r VizSelectedDroughtVar, fig.width=5,fig.height=5}
 ## Selected summer-drought variables
-drought.var <- c("bio17","MWMT")
+drought.var <- list(name="Summer-drought variables",
+                   code="Droughtvar",
+                   variables=c("bio17","MWMT"))
+
 
 clim %>%
-  dplyr::select(all_of(drought.var)) %>%
+  dplyr::select(all_of(drought.var$variables)) %>%
   unique() %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
@@ -443,10 +449,12 @@ Selected variables:
 
 ```{r VizSelectedGlobalVar, fig.width=10,fig.height=10}
 ## Selected global-climate variables
-global.var <- c("bio1","bio12","bio17","MWMT","MCMT")
+global.var <- list(name="Global-climate variables",
+                   code="GCvar",
+                   variables=c("bio1","bio12","bio17","MWMT","MCMT"))
 
 clim %>%
-  dplyr::select(all_of(global.var)) %>%
+  dplyr::select(all_of(global.var$variables)) %>%
   unique() %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
@@ -468,8 +476,125 @@ We will run:
   - one *full* RDA with all factors (population structure, environment and geographical distance), i.e. no variable conditioning.
   
   - three *partial* RDA in which the factor of interest is conditioned by the other two factors.
+  
+```{r FunctionVarPart}
+VarPart <- function(df.geno, select.clim.var, df.var, scale.rda, center.rda){
 
-<!-- Create a df with all variables scaled and one with none! -->
+# The df of the explanatory variables has to include only the variables included in the model
+df.var <- df.var %>% 
+  dplyr::select(all_of(select.clim.var$variables),
+                starts_with("Q"),
+                ends_with("itude"))
 
+
+# Build formulas of the RDA models
+# ================================
+form.clim.var <- paste(select.clim.var$variables,collapse= " + ") # climatic variables
+form.pgs.var <- colnames(df.var) %>% stringr::str_subset("^Q") %>%  paste(collapse= " + ") # pop structure
+form.geo.var <- colnames(df.var) %>% stringr::str_subset("itude") %>%  paste(collapse= " + ") # coordinates
+
+# complete model formulas
+form.full.rda <- paste("df.geno ~ ",
+                       paste(c(form.clim.var,form.pgs.var,form.geo.var),collapse=" + " )) %>% 
+  as.formula()
+
+form.clim.rda <- paste("df.geno ~ ",
+                       form.clim.var,"+ Condition(",paste(c(form.pgs.var,form.geo.var),collapse=" + " ), ")") %>% 
+  as.formula()
+
+form.pgs.rda <- paste("df.geno ~ ",
+                       form.pgs.var,"+ Condition(",paste(c(form.clim.var,form.geo.var),collapse=" + " ), ")") %>% 
+  as.formula()
+
+form.geo.rda <- paste("df.geno ~ ",
+                       form.geo.var,"+ Condition(",paste(c(form.clim.var,form.pgs.var),collapse=" + " ), ")") %>% 
+  as.formula()
+
+
+# Run the RDA models
+# ==================
+
+# Full RDA
+full.rda <- rda(form.full.rda, 
+                data=df.var, 
+                scale=scale.rda,
+                center=center.rda) 
+anova.full.rda <- anova(full.rda)
+
+# Partial RDA: pure climatic model
+clim.rda <- rda(form.clim.rda, 
+                data=df.var, 
+                scale=scale.rda,
+                center=center.rda)
+anova.clim.rda <- anova(clim.rda)
+
+# Partial RDA: pure neutral population structure model
+pgs.rda <- rda(form.pgs.rda, 
+                data=df.var, 
+                scale=scale.rda,
+                center=center.rda)
+anova.pgs.rda <- anova(pgs.rda)
+
+# Partial RDA: pure geography model
+geo.rda <- rda(form.geo.rda, 
+                data=df.var, 
+                scale=scale.rda,
+                center=center.rda)
+anova.geo.rda <- anova(geo.rda)
+
+
+# Summary table
+# =============
+
+sum.tab.RDA <- tibble("RDA models"=c("Full model: Y ~ clim + geo + pgs.",
+                      "Pure climate model: Y ~ clim | (geo + pgs)",
+                      "Pure pop. gen. structure model: Y ~ pgs | (geo + clim)",
+                      "Pure geography model: Y ~ geo | (pgs + clim)"),
+       "Total exp. variance"=c(RsquareAdj(full.rda)[[1]],
+              RsquareAdj(clim.rda)[[1]],
+              RsquareAdj(pgs.rda)[[1]],
+              RsquareAdj(geo.rda)[[1]]),
+       "Relative exp. variance"=c(1,
+                                  RsquareAdj(clim.rda)[[1]]/RsquareAdj(full.rda)[[1]],
+                                  RsquareAdj(pgs.rda)[[1]]/RsquareAdj(full.rda)[[1]],
+                                  RsquareAdj(geo.rda)[[1]]/RsquareAdj(full.rda)[[1]]),
+       "P-value"=c(anova.full.rda[["Pr(>F)"]][[1]],
+                   anova.clim.rda[["Pr(>F)"]][[1]],
+                   anova.pgs.rda[["Pr(>F)"]][[1]],
+                   anova.geo.rda[["Pr(>F)"]][[1]]))
+
+# Export the table in latex
+xtable(sum.tab.RDA, type = "latex",digits=2) %>% 
+  print(file = paste("tables/VariancePartitioningRDA_",select.clim.var$code,".tex"), include.rownames=FALSE)
+
+return(sum.tab.RDA)
+}
+```
+
+
+```{r VartPartGCvar}
+sum.tab.RDA  <- VarPart(df.geno=geno,
+                        select.clim.var=global.var, 
+                        df.var=df.var.sc, 
+                        scale.rda=F,center.rda=F)
+
+sum.tab.RDA %>% 
+  kable(digits = 4) %>%  
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
+```
+
+
+```{r VartPartDroughtvar}
+sum.tab.RDA  <- VarPart(df.geno=geno,
+                        select.clim.var=drought.var, 
+                        df.var=df.var.sc, 
+                        scale.rda=F,center.rda=F)
+
+sum.tab.RDA %>% 
+  kable(digits = 4) %>%  
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
+```
 
 # References
