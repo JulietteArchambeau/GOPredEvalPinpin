@@ -77,19 +77,30 @@ col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA")
 
 <br>
 
+
 Most analyses conducted in this document are based on:
 
   - @forester2018comparing and the associated [vignette](https://popgen.nescent.org/2018-03-27_RDA_GEA.html). 
   
   - @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
   
-# Downloading the data
 
+RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). In the present study, it seems more relevant to work with allele frequencies as several genotypes were collected at each sampling site (i.e. source population) and therefore experience the same climatic conditions. Moreover, the sample sizes varies across populations.
+
+However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \ref(VarPart)), correcting for population structure with the ancestry coefficient has most likely resulted in overcorrection for population structure. 
+
+In the present document,  we will therefore use *population-based allele frequencies*. Except for variance partitioning, in which we will estimate the relative contribution of climate, population structure and geography either using the ancestry coefficients at the genotype level from @jaramillo2015molecular or the firts PCs scores of and RDA to account for the population genetic structure.
+
+  
+# Downloading the data
 
 ## Genomic data
 
+
 ```{r LoadGenomicData}
-geno <- read.csv("data/DryadRepo/ImputedGenomicData_454clones_9817snps.csv",row.names = 1) %>% 
+# Individual-based allele counts
+# ==============================
+geno <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9817snps.csv",row.names = 1) %>% 
   t() %>% 
   as.data.frame()
 
@@ -97,13 +108,22 @@ geno[1:10,1:10] %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
   column_spec(1, bold = T)
+
+
+# Population-based allele frequencies
+# ===================================
+genofreq <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_454clones_9817snps.csv",
+                     row.names = 1)
+
+genofreq[1:10,1:10] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
+  column_spec(1, bold = T)
 ```
 
-The genomic dataset contains `r nrow(geno)` clones (i.e. genotypes) and `r ncol(geno)` SNPs. 
+The genomic dataset with *individual-based allele counts* contains `r nrow(geno)` clones (i.e. genotypes) and `r ncol(geno)` SNPs. The genomic dataset with *population-based allele frequencies* contains `r nrow(genofreq)` populations and `r ncol(genofreq)` SNPs.
 
 RDA requires complete data frames (i.e., no missing data). Missing data were imputed based on the main gene pool of the clone, i.e. using the most common allele at each SNP (see report `1_FormattingGenomicData.Rmd`).
-
-<!-- RDA can run on allele frequencies, maybe it would be worth calculate the allele frequencies based on non-imputed missing data and see if I get the same outputs. -->
 
 ## Climatic data
 
@@ -174,10 +194,13 @@ ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=20,height=20
 
 ## Population genetic structure
 
-The population genetic structure was estimated in @jaramillo2015molecular. 
+
+### Ancestry coefficients
+
+The proportion of gene pool assignment was estimated in @jaramillo2015molecular for each genotype with the *STRUCTURE* software.
 
 ```{r LoadingPopGenStructure}
-df.var <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
+df.var.ind <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
   filter(clon %in% rownames(geno)) %>% # keep the same clones as in the genomic data
   unique() %>% 
   dplyr::rename(pop=prov) %>% 
@@ -186,12 +209,57 @@ df.var <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>%
   arrange(clon) # the clones have to be in the same order as in the genomic data.
 
 # Run this line to check that the order of the clones in the geno and pgs dataset is the same.
-# identical(as.vector(pgs$clon),rownames(geno)) # should be TRUE 
+# identical(as.vector(df.var.ind$clon),rownames(geno)) # should be TRUE 
 
-df.var[1:10,1:14] %>%
+df.var.ind[1:10,1:14] %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+
+# We create a df with standardized variables (ie centered and scaled)
+df.var.ind.sc <- df.var.ind %>% 
+  dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
 ```
+
+### PC scores
+
+
+Another way to account for population structure in the RDA models is to use PCs from a *principal component analysis* (PCA) as proxies of the population evolutionary history. This is the method used in @capblancq2021redundancy.
+
+As advised in @capblancq2021redundancy, the estimation of the population genetic structure should be performed on genomic data not filtered for minor allele frequencies because small genetic variations are expected to be involved in differentiating neutral genetic groups. So, we use *population-based allele frequencies* not filtered for MAF and imputed for missing data (based on the most common allele in the gene pool, see report `1_FormattingGenomicData.Rmd`).
+
+
+```{r LoadImtGenDataMAF}
+genomaf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_10520snps.csv")
+
+genomaf[1:10,1:8] %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
+We run the PCA with the `rda` function of the `vegan` package, which performs a PCA when no predictor is included.
+
+```{r RunPCA, fig.height=4,fig.width=6}
+pca <- rda(genomaf[,-1], scale=T)
+
+# Screeplot of the PCA eigenvalues
+screeplot(pca, type = "barplot", npcs=10, main="PCA Eigenvalues")
+```
+
+Based on the screeplot, retaining three or four PCs may be reasonable to account for neutral population structure in downstream analyses. 
+
+In our case, we decide to keep the first three PCs.
+
+```{r}
+## Neutral population structure table
+PCs <- scores(pca, choices=c(1:3), display="sites", scaling=0)
+pgs <- data.frame(pop = genomaf[,1], PCs) %>% 
+  setNames(c("pop", "PC1", "PC2", "PC3")) 
+
+pgs %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+```
+
 
 ## Standardize the variables
 
@@ -459,7 +527,7 @@ clim %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
 
-# Variance partitioning
+# Variance partitioning{#VarPart}
 
 We want to disentangle the *relative contribution* of different factors in explaining genetic variation, namely:
 
@@ -476,6 +544,8 @@ We will run:
   - one *full* RDA with all factors (population structure, environment and geographical distance), i.e. no variable conditioning.
   
   - three *partial* RDA in which the factor of interest is conditioned by the other two factors.
+  
+## Individual-based allele counts
   
 ```{r FunctionVarPart}
 VarPart <- function(df.geno, select.clim.var, df.var, scale.rda, center.rda){
@@ -596,5 +666,7 @@ sum.tab.RDA %>%
   kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
   column_spec(1, bold = T)
 ```
+
+## Population-based allele frequencies
 
 # References
