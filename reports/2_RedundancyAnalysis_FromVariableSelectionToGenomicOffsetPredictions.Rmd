@@ -68,6 +68,7 @@ library(ggbiplot)
 library(corrplot)
 library(vegan)
 library(xtable)
+library(reshape2)
 ```
 
 ```{r VizOptions, echo=F}
@@ -112,7 +113,7 @@ geno[1:10,1:10] %>%
 
 # Population-based allele frequencies
 # ===================================
-genofreq <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_454clones_9817snps.csv",
+genofreq <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv",
                      row.names = 1)
 
 genofreq[1:10,1:10] %>%
@@ -126,6 +127,9 @@ The genomic dataset with *individual-based allele counts* contains `r nrow(geno)
 RDA requires complete data frames (i.e., no missing data). Missing data were imputed based on the main gene pool of the clone, i.e. using the most common allele at each SNP (see report `1_FormattingGenomicData.Rmd`).
 
 ## Climatic data
+
+
+### load data 
 
 Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). Annual climatic variables were extracted between 1901 and 2098. 
 
@@ -151,7 +155,87 @@ clim[1:10,1:10] %>%
 
 The dataset contains `r nrow(clim)` populations and `r ncol(clim)-4` climatic variables. The description of the climatic variables is available [here](https://www.ibbr.cnr.it/climate-dt/?action=fldlist).
 
-```{r CorrelationsPanels,fig.height=9,fig.width=12,eval=F,echo=F}
+### preselection
+
+```{r}
+IdentifyCorrelatedVariables <- function(df,correlation.threshold){
+
+# calculate the correlation matrix among the variables
+clim.cor <- df %>% 
+  dplyr::select(-pop,-elevation,-contains("itude")) %>% 
+  cor()
+
+# attribute NA to the lower triangle and diagonal of the matrix
+clim.cor[lower.tri(clim.cor,diag=T)] <- NA
+
+# build a dataframe with the correlated variables
+clim.cor <- clim.cor %>% 
+  melt() %>% 
+  na.omit() %>% 
+  dplyr::filter(value>correlation.threshold)
+
+}
+
+# we want to identify variables with a correlation coefficient higher than:
+correlation.threshold <- 0.95
+
+# we ran the function to identify the highly correlated variables
+clim.cor <- IdentifyCorrelatedVariables(df=clim,correlation.threshold = correlation.threshold)
+
+
+clim.cor %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+```
+
+`r nrow(clim.cor)` pairs of variables have a correlation coefficient higher than `r correlation.threshold`.
+
+We remove some variables so that there are no more pairs of variables with a correlation coefficient greater than `r correlation.threshold`.
+
+We also remove the variables `MOP` and `AOP` because there is no metadata for these variables on the ClimateDT website.
+
+We remove also some variables of low biological interest for maritime past adaptation or adaptation to future climate: `PAS` (precipitation as snow between August and July), `bio13` (precipitation of the wettest month).
+
+When estimating exposure to climate change in section \ref(ExpCC), we saw that `bFFP` has weird future climatic values, so we remove it also. 
+
+```{r PreselectionClimVariables}
+clim.var.to.rm <- c("bio7","TD", # we keep bio4
+                       "bio6","bio11","EMT","NFFD","eFFP", # we keep MCMT
+                       "GDD0","GDD5", # we keep bio1
+                       "bio17","bio18","bio14", # we keep MSP
+                       "DMA","bio19","bio16", # we keep bio12
+                       "bio2","CMD", # we keep Eref
+                       "bio10", # we keep MWMT
+                       "MOP","AOP", # we rm these variables because there is no metadata for them in the ClimateDT website!
+                       "PAS","bio13", # low biological interest
+                       "bFFP"
+                       )
+
+clim <- clim %>% dplyr::select(-all_of(clim.var.to.rm))
+
+# we check that there are no more pairs of highly correlated variables
+IdentifyCorrelatedVariables(df=clim,correlation.threshold = 0.95) %>% nrow()
+```
+
+We can look at the distribution of the variables.
+
+```{r PlotDistributionClimaticVariables, fig.height=12, fig.width=15}
+p <- clim %>% 
+  dplyr::select(-pop,-contains("itude"),-elevation) %>% 
+  pivot_longer(everything(),names_to="variable") %>% 
+  ggplot(aes(x=value)) +  
+  geom_histogram(aes(y=after_stat(density)), colour="blue",fill="white",bins = 34) +
+  geom_density(alpha=.2,fill="pink") +
+  facet_wrap(~variable,scales="free") + 
+  theme_bw() 
+
+p %>% ggsave(file="figs/ExploratoryAnalyses/DistributionClimaticVariables_selected.png",
+               width=15,height=12)
+```
+
+
+
+```{r CorrelationsPanels,fig.height=9,fig.width=12}
 # Chunk to generate figures to vizualize the correlations among the climatic variables
 
 allvar <- colnames(clim)[-1] # we keep long, lat, elev and clim variables
@@ -162,7 +246,7 @@ cor <- cor(clim[,allvar])
 p.mat <- corpmat(cor)
 
 # Generate a correlation plot
-png(file = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",width=1300,height=1300)
+png(file = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",width=1000,height=1000,res=100)
 corrplot::corrplot(cor, method="color", col=col(200),  
                    type="upper", order="hclust", 
                    addCoef.col = "black", # Add coefficient of correlation
@@ -186,7 +270,7 @@ p <- ggbiplot(pca,varname.size =4) +
 
 
 p
-ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=20,height=20,
+ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=8,height=8,
        bg="white")
 ```
 
@@ -218,10 +302,14 @@ df.var.ind[1:10,1:14] %>%
 # We create a df with standardized variables (ie centered and scaled)
 df.var.ind.sc <- df.var.ind %>% 
   dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
+
+df.var.ind.sc[1:10,1:14] %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
 ```
 
-### PC scores
 
+### PC scores
 
 Another way to account for population structure in the RDA models is to use PCs from a *principal component analysis* (PCA) as proxies of the population evolutionary history. This is the method used in @capblancq2021redundancy.
 
@@ -249,7 +337,7 @@ Based on the screeplot, retaining three or four PCs may be reasonable to account
 
 In our case, we decide to keep the first three PCs.
 
-```{r}
+```{r ExtractPCs}
 ## Neutral population structure table
 PCs <- scores(pca, choices=c(1:3), display="sites", scaling=0)
 pgs <- data.frame(pop = genomaf[,1], PCs) %>% 
@@ -280,7 +368,7 @@ df.var.sc[,colnames(df.var.sc2)]  <-  df.var.sc2
 
 # Selecting the climatic variables
 
-## Criteria 1: exposure to climate change
+## Criteria 1: exposure to climate change{#ExpCC}
 
 
 For each climatic variable:
@@ -298,16 +386,12 @@ max.fut.clim <- 2050
 # Do we average the z-scores across future years?
 avg <- FALSE
 
-# Climatic variables that we want to remove
-removed.clim <- c("bFFP") # weird values
-
-
 # We load ClimateDT outputs 
 clim2 <-  read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_2098.csv",
                show_col_types = FALSE)
 
 # selected clim variables
-var.clim <- colnames(clim2)[!colnames(clim2) %in% c("ID","Year","Longitude","Latitude","Elevation",removed.clim)]
+var.clim <- colnames(clim2)[!colnames(clim2) %in% c("ID","Year","Longitude","Latitude","Elevation",clim.var.to.rm)]
 
 
 # calculating the z-scores
@@ -351,9 +435,9 @@ abs.mean.zscore <- zscores %>%
   arrange(value)
 ```
 
-```{r ViolinPlotExposureCC, fig.cap="\\large Deviation of future values of the climatic variables from the reference period 1901-1950. A point is specific to a given year and a given population", fig.height=15,fig.width=13, fig.align="center"}
+```{r ViolinPlotExposureCC, fig.cap="\\large Deviation of future values of the climatic variables from the reference period 1901-1950. A point is specific to a given year and a given population", fig.height=10,fig.width=10, fig.align="center"}
 # Violin plots
-zscores %>%
+p <- zscores %>%
   mutate(var=factor(var,levels=c(abs.mean.zscore$variable))) %>% 
   ggplot(aes(x=var, y=zscore)) + 
   geom_jitter(shape=16,aes(colour = Year),position=position_jitter(0.2),size=0.5) +
@@ -367,6 +451,10 @@ zscores %>%
         legend.text = element_text(size = 15),
         axis.text = element_text(size = 14),
         axis.title = element_text(size=16))
+
+p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange.png",
+             width=10,height=10)
+p
 ```
 
 *Temperature*-related variables show the *highest deviations* from their distribution under the reference period 1901-1950 and also all show a consistent increase across populations and years.
@@ -387,15 +475,17 @@ We have to specify two models:
 
   - a *full* model including all variables. 
 
+### At the genotype level 
+
 ```{r ForwardSelectionNullModel}
-rda.null <- rda(geno ~ 1, df.var.sc)
+rda.null <- rda(geno ~ 1, df.var.ind.sc)
 ```
 
 ```{r ForwardSelectionFullModel}
 rda.full <- rda(geno ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
                   bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
                   bio19 + Eref + CMD + MCMT + MOP + MSP + MWMT + AOP + GDD0 + GDD5 + GDD18 + 
-                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var.sc)
+                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var.ind.sc)
 ```
 
 
@@ -406,11 +496,11 @@ We use the following stopping criteria: variable significance of p < 0.01 using 
 ```{r StepwiseSelectionProcedure, message=FALSE, results='hide', eval=F}
 ## Stepwise procedure with ordiR2step function
 mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
-saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel.rds")
+saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel_GenotypeLevel.rds")
 ```
 
 ```{r OutputsStepwiseSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
-mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel.rds")
+mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel_GenotypeLevel.rds")
 mod
 mod$anova
 ```
@@ -424,11 +514,11 @@ We try the *forward* selection procedure of the `ordi2step` function.
 ```{r ForwardSelectionProcedure, message=FALSE, results='hide', eval=F}
 ## forward selection procedure with ordiR2step function
 mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T, direction="forward")
-saveRDS(mod,file="outputs/VariableSelection/ForwardSelectionModel.rds")
+saveRDS(mod,file="outputs/VariableSelection/ForwardSelectionModel_GenotypeLevel.rds")
 ```
 
 ```{r OutputsForwardSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
-mod <- readRDS("outputs/VariableSelection/ForwardSelectionModel.rds")
+mod <- readRDS("outputs/VariableSelection/ForwardSelectionModel_GenotypeLevel.rds")
 mod
 mod$anova
 ```
@@ -437,6 +527,29 @@ mod$anova
 
 The stepwise selection procedure also selects all variables `r emo::ji("confounded")`.
 
+### At the population level 
+
+```{r StepwiseSelectionPopLevel}
+clim.sc <- clim %>% dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
+
+rda.null <- rda(genofreq ~ 1, clim.sc)
+
+rda.full <- rda(genofreq ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
+                  bio10 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
+                  bio19 + Eref + CMD + MCMT + MSP + MWMT + AOP + GDD5 + GDD18 + 
+                  NFFD + DMA + EPQ + RMT + AHM + SHM +  EMT + eFFP + PAS, clim.sc)
+
+
+## Stepwise procedure with ordiR2step function
+mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
+saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel_PopLevel.rds")
+```
+
+```{r OutputsStepwiseSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
+mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel_PopLevel.rds")
+mod
+mod$anova
+```
 
 ## Criteria 3: biological meaning and study goals
 
@@ -481,10 +594,10 @@ Selected variables:
 
   - `bio17`: the precipitation of driest quarter (in mm).
   
-  - `MCMT`: the mean warmest month temperature (in °C).
+  - `MWMT`: the mean warmest month temperature (in °C).
   
 
-`MCMT` will increase a lot under climate change => strong exposure to climate change.
+`MWMT` will increase a lot under climate change => strong exposure to climate change.
 
 ```{r VizSelectedDroughtVar, fig.width=5,fig.height=5}
 ## Selected summer-drought variables
