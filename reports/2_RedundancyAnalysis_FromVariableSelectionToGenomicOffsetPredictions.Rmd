@@ -69,11 +69,60 @@ library(corrplot)
 library(vegan)
 library(xtable)
 library(reshape2)
+library(robust)
+library(qvalue)
+library(ggpubr)
+library(magrittr)
 ```
 
-```{r VizOptions, echo=F}
-source("scripts/functions/corpmat.R")
-col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+```{r FunctionsAndVizOptions}
+# Functions from other packages:
+source("scripts/functions/corpmat.R") # to compute the matrix of p-value
+source("scripts/functions/rdadapt.R") # to conduct a RDA based genome scan
+
+
+# Function to generate a corrplot
+GenerateCorrplot <- function(df,variables,fig.options){
+  
+  # correlation matrix
+  cor <- cor(df[,variables]) 
+  
+  # matrix of the p-value of the correlation
+  p.mat <- corpmat(cor)
+
+  # Generate a correlation plot
+  png(filename=fig.options$path,
+      width=fig.options$width,
+      height=fig.options$height,
+      res=fig.options$res)
+  corrplot::corrplot(cor, 
+                     method="color", 
+                     col=colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))(200),
+                     type="upper", 
+                     order="hclust",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     tl.col="black", 
+                     tl.srt=45, #Text label color and rotation
+                   
+                     # Combine with significance
+                     p.mat = p.mat, 
+                     sig.level = 0.01, 
+                     insig = "blank",
+                     
+                     # hide correlation coefficient on the principal diagonal
+                     diag=FALSE,
+                     number.cex=0.6)
+  dev.off()
+  
+}
+
+# Function to build tables
+KableMyDf <- function(x, boldfirstcolumn){
+  x %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F) %>% 
+  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
 ```
 
 <br>
@@ -88,9 +137,11 @@ Most analyses conducted in this document are based on:
 
 RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). In the present study, it seems more relevant to work with allele frequencies as several genotypes were collected at each sampling site (i.e. source population) and therefore experience the same climatic conditions. Moreover, the sample sizes varies across populations.
 
-However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \ref(VarPart)), correcting for population structure with the ancestry coefficient has most likely resulted in overcorrection for population structure. 
+However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \ref(VarPart)), correcting for population structure with the ancestry coefficient most likely resulted in overcorrection for population structure. 
 
-In the present document,  we will therefore use *population-based allele frequencies*. Except for variance partitioning, in which we will estimate the relative contribution of climate, population structure and geography either using the ancestry coefficients at the genotype level from @jaramillo2015molecular or the firts PCs scores of and RDA to account for the population genetic structure.
+In the present document,  we will therefore use *population-based allele frequencies* to select the climatic variables with the stepwise selection procedure (section \ref(StepwiseSelection)), identify the candidate SNPs with RDA and calculate the genomic offset.
+
+We only use the *individual-based allele counts* for variance partitioning in section \ref(VarPart), in which we estimate the relative contribution of climate, population structure and geography. Population structure is either accounted for with the ancestry coefficients at the genotype level from @jaramillo2015molecular (section \ref(VarPartInd)), either using the first PCs of a PCA based on *population-level allele frequencies* (section \ref(VarPartPop)).
 
   
 # Downloading the data
@@ -101,35 +152,29 @@ In the present document,  we will therefore use *population-based allele frequen
 ```{r LoadGenomicData}
 # Individual-based allele counts
 # ==============================
-geno <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9817snps.csv",row.names = 1) %>% 
+geno.ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9817snps.csv",row.names = 1) %>% 
   t() %>% 
   as.data.frame()
 
-geno[1:10,1:10] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+KableMyDf(geno.ind[1:10,1:10], boldfirstcolumn = T)
 
 
 # Population-based allele frequencies
 # ===================================
-genofreq <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv",
+geno.pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv",
                      row.names = 1)
 
-genofreq[1:10,1:10] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+KableMyDf(geno.pop[1:10,1:10] %>% round(3), boldfirstcolumn = T)
 ```
 
-The genomic dataset with *individual-based allele counts* contains `r nrow(geno)` clones (i.e. genotypes) and `r ncol(geno)` SNPs. The genomic dataset with *population-based allele frequencies* contains `r nrow(genofreq)` populations and `r ncol(genofreq)` SNPs.
+The genomic dataset with *individual-based allele counts* contains `r nrow(geno.ind)` clones (i.e. genotypes) and `r ncol(geno.ind)` SNPs. The genomic dataset with *population-based allele frequencies* contains `r nrow(geno.pop)` populations and `r ncol(geno.pop)` SNPs.
 
 RDA requires complete data frames (i.e., no missing data). Missing data were imputed based on the main gene pool of the clone, i.e. using the most common allele at each SNP (see report `1_FormattingGenomicData.Rmd`).
 
 ## Climatic data
 
 
-### load data 
+### Load ClimateDT data 
 
 Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). Annual climatic variables were extracted between 1901 and 2098. 
 
@@ -148,16 +193,15 @@ clim <- read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_209
                 elevation=Elevation,
                 pop=ID)
 
-clim[1:10,1:10] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+KableMyDf(clim[1:10,1:10], boldfirstcolumn = F)
 ```
 
 The dataset contains `r nrow(clim)` populations and `r ncol(clim)-4` climatic variables. The description of the climatic variables is available [here](https://www.ibbr.cnr.it/climate-dt/?action=fldlist).
 
-### preselection
+### Filtering the climatic variables
 
-```{r}
+```{r IdCorrelatedClimaticVariables}
+# Function to identify climatic variable with a correlation coeff higher than a given threshold
 IdentifyCorrelatedVariables <- function(df,correlation.threshold){
 
 # calculate the correlation matrix among the variables
@@ -182,10 +226,7 @@ correlation.threshold <- 0.95
 # we ran the function to identify the highly correlated variables
 clim.cor <- IdentifyCorrelatedVariables(df=clim,correlation.threshold = correlation.threshold)
 
-
-clim.cor %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+KableMyDf(clim.cor, boldfirstcolumn = F)
 ```
 
 `r nrow(clim.cor)` pairs of variables have a correlation coefficient higher than `r correlation.threshold`.
@@ -198,7 +239,9 @@ We remove also some variables of low biological interest for maritime past adapt
 
 When estimating exposure to climate change in section \ref(ExpCC), we saw that `bFFP` has weird future climatic values, so we remove it also. 
 
-```{r PreselectionClimVariables}
+We remove `EPQ` (Emberger Pluviometric Quotient) because there is very low information about this variable in the litterature and its possible influence on forest trees.
+
+```{r FilteringClimVariables}
 clim.var.to.rm <- c("bio7","TD", # we keep bio4
                        "bio6","bio11","EMT","NFFD","eFFP", # we keep MCMT
                        "GDD0","GDD5", # we keep bio1
@@ -208,7 +251,8 @@ clim.var.to.rm <- c("bio7","TD", # we keep bio4
                        "bio10", # we keep MWMT
                        "MOP","AOP", # we rm these variables because there is no metadata for them in the ClimateDT website!
                        "PAS","bio13", # low biological interest
-                       "bFFP"
+                       "bFFP",
+                       "EPQ"
                        )
 
 clim <- clim %>% dplyr::select(-all_of(clim.var.to.rm))
@@ -217,7 +261,9 @@ clim <- clim %>% dplyr::select(-all_of(clim.var.to.rm))
 IdentifyCorrelatedVariables(df=clim,correlation.threshold = 0.95) %>% nrow()
 ```
 
-We can look at the distribution of the variables.
+### Viz 
+
+We can look at the distribution of the climatic variables.
 
 ```{r PlotDistributionClimaticVariables, fig.height=12, fig.width=15}
 p <- clim %>% 
@@ -231,47 +277,36 @@ p <- clim %>%
 
 p %>% ggsave(file="figs/ExploratoryAnalyses/DistributionClimaticVariables_selected.png",
                width=15,height=12)
+
+p
 ```
 
-
+We also generate a correlation plot and perform a PCA to look at the correlation among the remaining climatic variables.
 
 ```{r CorrelationsPanels,fig.height=9,fig.width=12}
-# Chunk to generate figures to vizualize the correlations among the climatic variables
+# Chunk to generate figures to visualize the correlations among the climatic variables
+fig.options <- list(
+  path = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",
+  width=1000,
+  height=1000,
+  res=100)
 
-allvar <- colnames(clim)[-1] # we keep long, lat, elev and clim variables
-
-cor <- cor(clim[,allvar])
-
-# matrix of the p-value of the correlation
-p.mat <- corpmat(cor)
-
-# Generate a correlation plot
-png(file = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",width=1000,height=1000,res=100)
-corrplot::corrplot(cor, method="color", col=col(200),  
-                   type="upper", order="hclust", 
-                   addCoef.col = "black", # Add coefficient of correlation
-                   tl.col="black", tl.srt=45, #Text label color and rotation
-                   # Combine with significance
-                   p.mat = p.mat, sig.level = 0.01, insig = "blank", 
-                   # hide correlation coefficient on the principal diagonal
-                   diag=FALSE,number.cex=0.6)
-dev.off()
-
+GenerateCorrplot(df = clim, 
+                 variables = colnames(clim)[-1], # we keep long, lat, elev and clim variables
+                 fig.options = fig.options)
 
 
 # Generate a PCA
-pca <- prcomp(clim[,allvar], center = TRUE,scale. = TRUE)
+pca <- prcomp(clim[,-1], center = TRUE,scale. = TRUE)
 
 p <- ggbiplot(pca,varname.size =4) +  
-  ylim(-3.5, 2.5) +    
+  ylim(-4, 2.5) +    
   xlim(-3, 3) + 
-  theme_minimal(base_size = 12) +
-  theme(plot.title = element_text(size=12))
+  theme_minimal(base_size = 12)
 
-
-p
 ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=8,height=8,
        bg="white")
+p
 ```
 
 
@@ -283,29 +318,30 @@ ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=8,height=8,
 
 The proportion of gene pool assignment was estimated in @jaramillo2015molecular for each genotype with the *STRUCTURE* software.
 
-```{r LoadingPopGenStructure}
-df.var.ind <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
-  filter(clon %in% rownames(geno)) %>% # keep the same clones as in the genomic data
+```{r GenerateListDfIndividualLevel}
+# We will store two datasets in a list: one with raw variables, the other one with mean-centered variables
+
+listdf.ind <- list()
+
+listdf.ind$df <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
+  filter(clon %in% rownames(geno.ind)) %>% # keep the same clones as in the genomic data
   unique() %>% 
   dplyr::rename(pop=prov) %>% 
   left_join(clim,by="pop") %>% # merge with the climatic variables
   dplyr::select(-max.Q) %>% 
   arrange(clon) # the clones have to be in the same order as in the genomic data.
 
-# Run this line to check that the order of the clones in the geno and pgs dataset is the same.
-# identical(as.vector(df.var.ind$clon),rownames(geno)) # should be TRUE 
+# Run this line to check that the order of the clones in the genomic data and explanatory variables data is the same.
+# identical(as.vector(listdf.ind$df$clon),rownames(geno.ind)) # should be TRUE 
 
-df.var.ind[1:10,1:14] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+KableMyDf(listdf.ind$df[1:10,1:14],boldfirstcolumn = F)
 
-# We create a df with standardized variables (ie centered and scaled)
-df.var.ind.sc <- df.var.ind %>% 
+
+# create df with standardized variables (ie centered and scaled)
+listdf.ind$df.sc <- listdf.ind$df %>% 
   dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
 
-df.var.ind.sc[1:10,1:14] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F)
+KableMyDf(listdf.ind$df.sc[1:10,1:14],boldfirstcolumn = F)
 ```
 
 
@@ -317,17 +353,15 @@ As advised in @capblancq2021redundancy, the estimation of the population genetic
 
 
 ```{r LoadImtGenDataMAF}
-genomaf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_10520snps.csv")
+geno.pop.maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_10520snps.csv")
 
-genomaf[1:10,1:8] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+KableMyDf(geno.pop.maf[1:10,1:8], boldfirstcolumn = F)
 ```
 
 We run the PCA with the `rda` function of the `vegan` package, which performs a PCA when no predictor is included.
 
 ```{r RunPCA, fig.height=4,fig.width=6}
-pca <- rda(genomaf[,-1], scale=T)
+pca <- rda(geno.pop.maf[,-1], scale=T)
 
 # Screeplot of the PCA eigenvalues
 screeplot(pca, type = "barplot", npcs=10, main="PCA Eigenvalues")
@@ -335,36 +369,112 @@ screeplot(pca, type = "barplot", npcs=10, main="PCA Eigenvalues")
 
 Based on the screeplot, retaining three or four PCs may be reasonable to account for neutral population structure in downstream analyses. 
 
-In our case, we decide to keep the first three PCs.
+In our case, we keep the first three PCs.
 
-```{r ExtractPCs}
-## Neutral population structure table
-PCs <- scores(pca, choices=c(1:3), display="sites", scaling=0)
-pgs <- data.frame(pop = genomaf[,1], PCs) %>% 
-  setNames(c("pop", "PC1", "PC2", "PC3")) 
+```{r GenerateListDfPopLevelNotScaled}
+# We store two datasets in a list: one with raw variables, the other one with mean-centered variables
 
-pgs %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+listdf.pop <- list()
+
+listdf.pop$df <- data.frame(pop = geno.pop.maf[,1], # population id
+                      PCs = scores(pca, choices=c(1:3), display="sites", scaling="none")) %>% #
+  setNames(c("pop", "PC1", "PC2", "PC3")) %>% 
+  inner_join(clim, by="pop")
+
+
+# extract mean and variance of the PC scores
+listdf.pop$df %>% 
+  dplyr::select(contains("PC")) %>% 
+  dplyr::summarise(across(everything(),list(mean=mean,sd=sd))) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(PC = str_sub(name,1,3),
+         index = str_sub(name,5,-1)) %>%
+  dplyr::select(-name) %>% 
+  pivot_wider(names_from="index",values_from="value") %>% 
+  KableMyDf(boldfirstcolumn = F)
+```
+
+The PC scores have a mean of O but a standard deviation of 0.2, so we scale them too so that they have the same standard deviation as the climatic variables.
+
+```{r GenerateListDfPopLevelNotScaled}
+listdf.pop$df.sc <- listdf.pop$df %>% 
+  dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
+
+KableMyDf(listdf.pop$df.sc[1:8,1:9], boldfirstcolumn = F)
 ```
 
 
-## Standardize the variables
+<!-- ## Standardize the variables -->
 
 
-```{r StandardizeVariables}
-df.var.sc <- df.var
+<!-- ```{r StandardizeVariables} -->
+<!-- df.var.sc <- df.var -->
 
-df.var.sc2 <- df.var.sc %>% 
-  dplyr::select(-c("pop","clon")) %>% 
-  scale(center=TRUE, scale=TRUE)
+<!-- df.var.sc2 <- df.var.sc %>%  -->
+<!--   dplyr::select(-c("pop","clon")) %>%  -->
+<!--   scale(center=TRUE, scale=TRUE) -->
 
-## Recovering scaling coefficients
-scale_coeff <- attr(df.var.sc2, 'scaled:scale')
-center_coeff <- attr(df.var.sc2, 'scaled:center')
+<!-- ## Recovering scaling coefficients -->
+<!-- scale_coeff <- attr(df.var.sc2, 'scaled:scale') -->
+<!-- center_coeff <- attr(df.var.sc2, 'scaled:center') -->
 
-df.var.sc[,colnames(df.var.sc2)]  <-  df.var.sc2
+<!-- df.var.sc[,colnames(df.var.sc2)]  <-  df.var.sc2 -->
+<!-- ``` -->
+
+### Population main gene pool
+
+We extract the main gene pool for each population.
+
+```{r IdAdmixturePopulations}
+# Split into dataframes specific to each population
+gp.pop <- listdf.ind$df %>% 
+  dplyr::select(clon,pop) %>% 
+  left_join(read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% dplyr::rename(pop=prov), by=c("pop","clon")) %>% 
+  group_by(pop) %>% 
+  group_split() %>% 
+  setNames(unique(sort(listdf.ind$df$pop)))
+
+# Are there some populations for which the main gene pool is not the same for all genotypes?
+gp.pop %>% 
+  map_dfr(\(x) {
+    data.frame(pop = unique(x$pop),
+               grou = x$max.Q %>% unique() %>% length())
+  }) %>% 
+  group_by(grou) %>% 
+  group_split()  %>% 
+  map_dfr(\(x) {
+    data.frame(Populations = paste0(x$pop, collapse =", "),
+               MainGenePoolNumber = unique(x$grou))
+  }) %>% 
+  KableMyDf(boldfirstcolumn = F)
 ```
+
+
+The LEI and QUA populations have genotypes that belong to two different main gene pool, the main gene pool corresponding to the gene pool with the highest proportion of assignment from the STRUCTURE analysis in @jaramillo2015molecular.
+
+We can visualize the admixture in the following tables.
+
+
+```{r AdmixturePopulations}
+gp.pop[["LEI"]] %>% KableMyDf(boldfirstcolumn = F)
+gp.pop[["QUA"]] %>% KableMyDf(boldfirstcolumn = F)
+```
+
+
+```{r CreateNewColumWithMainGenePoolPopulations}
+gp.pop <- gp.pop %>% 
+  modify(\(x) mutate(x, mainGPpop= x$max.Q  %>% table() %>% which.max() %>% names())) %>% 
+  list_rbind() %>% 
+  dplyr::select(pop, mainGPpop) %>% 
+  distinct()
+
+# We add this column to the dataframes in  listdf.pop
+listdf.pop <- listdf.pop %>% 
+  modify(\(x) right_join(gp.pop,x,by="pop"))
+
+KableMyDf(listdf.pop$df.sc[1:8,1:7], boldfirstcolumn = F)
+```
+
 
 # Selecting the climatic variables
 
@@ -399,14 +509,14 @@ zscores <- lapply(var.clim, function(x){
   
 past.clim <- clim2 %>% 
   dplyr::filter(Year<1951) %>%  # keep 1901 to 1950
-  dplyr::select(ID,x) %>% 
+  dplyr::select(ID,all_of(x)) %>% 
   group_by(ID) %>% 
   dplyr::summarise_all(list(mean="mean",sd="sd"))
 
 # z-scores
 zcores <- clim2 %>% 
   dplyr::filter(Year>min.fut.clim & Year<max.fut.clim) %>% 
-  dplyr::select(ID,Year,x) %>% 
+  dplyr::select(ID,Year,all_of(x)) %>% 
   dplyr::rename(var=x) %>% 
   left_join(past.clim,by="ID") %>% 
   dplyr::mutate(zscore=(var-mean)/sd) 
@@ -463,7 +573,7 @@ p
 
 **Notes on the graph interpretation:** Figure \@ref(fig:ViolinPlotExposureCC) quantifies the relative deviations of the values of the climate variables from their distribution over the reference period 1901-1950. The highest deviations of temperature-related variables do not imply that populations will be less affected by future changes in precipitation than in temperatures.  Indeed, for some climate variables, even minor changes can severely affect populations. For example, some populations may already be suffering from summer droughts and even a small decrease in precipitation could have dramatic consequences.
 
-## Criteria 2: a predictive approach
+## Criteria 2: a predictive approach{#StepwiseSelection}
 
 To select the variables of interest, we may also use a *predictive approach* using *RDA with stepwise selection*, where the goal is to *maximize the genetic variance* explained by a set of predictors [@capblancq2021redundancy].
 
@@ -474,82 +584,50 @@ We have to specify two models:
   - a *null* model where the response is explained only by an intercept.
 
   - a *full* model including all variables. 
-
-### At the genotype level 
-
-```{r ForwardSelectionNullModel}
-rda.null <- rda(geno ~ 1, df.var.ind.sc)
-```
-
-```{r ForwardSelectionFullModel}
-rda.full <- rda(geno ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
-                  bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
-                  bio19 + Eref + CMD + MCMT + MOP + MSP + MWMT + AOP + GDD0 + GDD5 + GDD18 + 
-                  NFFD + DMA + EPQ + RMT + AHM + SHM + TD + EMT + eFFP + FFP + PAS, df.var.ind.sc)
-```
-
-
+  
 In the `ordi2step` function, the default criteria for including the variables is based on both *significance* of the newly selected variables, and the comparison of *adjusted variation* ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. If the new variable is not significant or the $R^2_{adj}$ of the model including this new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
 
 We use the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.  
 
-```{r StepwiseSelectionProcedure, message=FALSE, results='hide', eval=F}
-## Stepwise procedure with ordiR2step function
-mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
-saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel_GenotypeLevel.rds")
+```{r NumberStewiseSelectionModels}
+# How many iterations of the stepwise selection procedure do we perform?
+nbmodels <- 100
 ```
 
-```{r OutputsStepwiseSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
-mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel_GenotypeLevel.rds")
-mod
-mod$anova
-```
 
-<br>
-
-The stepwise selection procedure selects all variables, which is not very useful `r emo::ji("unamused")`.
-
-We try the *forward* selection procedure of the `ordi2step` function.
-
-```{r ForwardSelectionProcedure, message=FALSE, results='hide', eval=F}
-## forward selection procedure with ordiR2step function
-mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T, direction="forward")
-saveRDS(mod,file="outputs/VariableSelection/ForwardSelectionModel_GenotypeLevel.rds")
-```
-
-```{r OutputsForwardSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
-mod <- readRDS("outputs/VariableSelection/ForwardSelectionModel_GenotypeLevel.rds")
-mod
-mod$anova
-```
-
-<br>
-
-The stepwise selection procedure also selects all variables `r emo::ji("confounded")`.
-
-### At the population level 
-
-```{r StepwiseSelectionPopLevel}
+```{r StepwiseSelectionPopLevel, eval=F}
+# we standardize the climatic variables
 clim.sc <- clim %>% dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
 
-rda.null <- rda(genofreq ~ 1, clim.sc)
+# null model
+rda.null <- rda(geno.pop ~ 1, clim.sc)
 
-rda.full <- rda(genofreq ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + 
-                  bio10 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + 
-                  bio19 + Eref + CMD + MCMT + MSP + MWMT + AOP + GDD5 + GDD18 + 
-                  NFFD + DMA + EPQ + RMT + AHM + SHM +  EMT + eFFP + PAS, clim.sc)
+# formula full model
+formula.full.model <- colnames(clim.sc)[!colnames((clim.sc)) %in% c("pop","elevation","latitude","longitude")] %>% 
+  paste(collapse= " + ") # climatic variables
+formula.full.model <- paste0("geno.pop ~ ",formula.full.model) %>% as.formula()
 
+# full model
+rda.full <- rda(formula.full.model, clim.sc)
 
-## Stepwise procedure with ordiR2step function
-mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
-saveRDS(mod,file="outputs/VariableSelection/StepwiseSelectionModel_PopLevel.rds")
+# Stepwise selection with ordiR2step function
+sumstepwise <- lapply(1:nbmodels, function(x) {
+  mod <- ordiR2step(rda.null, rda.full, Pin = 0.01, R2permutations = 1000, R2scope = T)
+  return(names(mod$CCA$envcentre))}) %>% 
+  setNames(paste0("model",1:nbmodels)) %>% 
+  ldply(function(x) data.frame(variables=x),.id="models") %>%  
+  dplyr::summarise(count(variables)) %>% 
+  setNames(c("variable","count"))
+
+saveRDS(sumstepwise,file=paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds"))
 ```
 
-```{r OutputsStepwiseSelectionProcedure, message=FALSE, eval=TRUE, echo=FALSE}
-mod <- readRDS("outputs/VariableSelection/StepwiseSelectionModel_PopLevel.rds")
-mod
-mod$anova
+```{r SummaryStepwiseSelection}
+sumstepwise <- readRDS(file=paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds"))
+
+KableMyDf(sumstepwise, boldfirstcolumn = F)
 ```
+
 
 ## Criteria 3: biological meaning and study goals
 
@@ -592,7 +670,7 @@ In this paper, we will follow the following workflow:
 
 Selected variables:
 
-  - `bio17`: the precipitation of driest quarter (in mm).
+  - `MSP`: the precipitation of driest quarter (in mm).
   
   - `MWMT`: the mean warmest month temperature (in °C).
   
@@ -603,28 +681,29 @@ Selected variables:
 ## Selected summer-drought variables
 drought.var <- list(name="Summer-drought variables",
                    code="Droughtvar",
-                   variables=c("bio17","MWMT"))
-
-
-clim %>%
-  dplyr::select(all_of(drought.var$variables)) %>%
-  unique() %>%
-  pairs.panels(scale=T,hist.col="palegreen1")
+                   variables=c("MSP","MWMT"))
 ```
 
 ### Global-climate variables
 
 Selected variables:
 
-  - `bio17`: the precipitation of driest quarter (in mm).
-  
-  - `MWMT`: the mean warmest month temperature (in °C).
+  - `bio1`: mean annual temperature (in °C). 
   
   - `bio12`: annual precipitation (in mm).
   
-  - `bio1`: mean annual temperature (in °C). 
+  - `MSP`: summer precipitation (in mm).
+  
+  - `MWMT`: the mean warmest month temperature (in °C).
   
   - `MCMT`: the mean coldest month temperature (in °C).
+  
+  - `bio15`: mean annual temperature (in °C). 
+  
+  - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
+  
+  - `bio4`: temperature seasonality (standard deviation x100) (in °C). 
+  
 
 `bio1`, and to a lesser extent `MWMT`, will increase a lot under climate change => strong exposure to climate change.
 
@@ -632,13 +711,33 @@ Selected variables:
 ## Selected global-climate variables
 global.var <- list(name="Global-climate variables",
                    code="GCvar",
-                   variables=c("bio1","bio12","bio17","MWMT","MCMT"))
+                   variables=c("bio1","bio12","bio15","bio3","bio4")) #"MCMT","MWMT", "MSP"
+```
 
-clim %>%
-  dplyr::select(all_of(global.var$variables)) %>%
+
+### Viz correlation
+
+We can look at the correlation amon variables and with the PCs scores and geographic variables.
+
+```{r VizCorrSelectedVariables, fig.height=12,fig.width=12}
+fig.options <- list(
+  path = "figs/ExploratoryAnalyses/CorrplotSelectedClimVariables.png",
+  width=900,
+  height=900,
+  res=100)
+
+corrplot.var <- colnames(listdf.pop$df)[colnames(listdf.pop$df) %in% c("longitude","latitude","PC1","PC2","PC3",global.var$variables)]
+
+GenerateCorrplot(df = listdf.pop$df, 
+                 variables = corrplot.var, # we keep long, lat, elev and clim variables
+                 fig.options = fig.options)
+
+listdf.pop$df %>%
+  dplyr::select(all_of(corrplot.var)) %>%
   unique() %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
+
 
 # Variance partitioning{#VarPart}
 
@@ -658,7 +757,7 @@ We will run:
   
   - three *partial* RDA in which the factor of interest is conditioned by the other two factors.
   
-## Individual-based allele counts
+
   
 ```{r FunctionVarPart}
 VarPart <- function(df.geno, select.clim.var, df.var, scale.rda, center.rda){
@@ -667,13 +766,14 @@ VarPart <- function(df.geno, select.clim.var, df.var, scale.rda, center.rda){
 df.var <- df.var %>% 
   dplyr::select(all_of(select.clim.var$variables),
                 starts_with("Q"),
+                starts_with("PC"),
                 ends_with("itude"))
 
 
 # Build formulas of the RDA models
 # ================================
 form.clim.var <- paste(select.clim.var$variables,collapse= " + ") # climatic variables
-form.pgs.var <- colnames(df.var) %>% stringr::str_subset("^Q") %>%  paste(collapse= " + ") # pop structure
+form.pgs.var <- colnames(df.var) %>% stringr::str_subset("^Q|^PC") %>%  paste(collapse= " + ") # pop structure
 form.geo.var <- colnames(df.var) %>% stringr::str_subset("itude") %>%  paste(collapse= " + ") # coordinates
 
 # complete model formulas
@@ -754,32 +854,254 @@ return(sum.tab.RDA)
 }
 ```
 
+## Individual-based allele counts{#VarPartInd}
 
-```{r VartPartGCvar}
-sum.tab.RDA  <- VarPart(df.geno=geno,
-                        select.clim.var=global.var, 
-                        df.var=df.var.sc, 
-                        scale.rda=F,center.rda=F)
+```{r VartPartIndividualLevel, eval=F}
+list.sumVarPart <- lapply(c(global.var,drought.var), function(x){
 
-sum.tab.RDA %>% 
-  kable(digits = 4) %>%  
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+  VarPart(df.geno=geno.ind,
+          select.clim.var=x,
+          df.var=listdf.ind$df.sc, 
+          scale.rda=F,center.rda=F)
+}) %>% setNames(c(global.var$name,drought.var$name))
+
+saveRDS(list.sumVarPart, file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
+```
+
+```{r ShowSummaryVarPartIndividualLevel}
+list.sumVarPart <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
+
+# Global-climate variables
+KableMyDf(list.sumVarPart[[1]], boldfirstcolumn = T)
+
+
+# Summer-drought climatic variables
+KableMyDf(list.sumVarPart[[2]], boldfirstcolumn = T)
+```
+
+## Population-based allele frequencies{#VarPartPop}
+
+```{r VartPartPopLevel, eval=F}
+list.sumVarPart <- lapply(list(global.var,drought.var), function(x){
+
+  VarPart(df.geno=geno.pop,
+          select.clim.var=x,
+          df.var=listdf.pop$df.sc, 
+          scale.rda=F,center.rda=F)
+}) %>% setNames(c(global.var$name,drought.var$name))
+
+saveRDS(list.sumVarPart, file="outputs/RDA/SummaryVartPartPopLevel.rds")
+```
+
+```{r ShowSummaryVarPartIndividualLevel}
+list.sumVarPart <- readRDS(file="outputs/RDA/SummaryVartPartPopLevel.rds")
+
+# Global-climate variables
+KableMyDf(list.sumVarPart[[1]], boldfirstcolumn = T)
+
+
+# Summer-drought climatic variables
+KableMyDf(list.sumVarPart[[2]], boldfirstcolumn = T)
 ```
 
 
-```{r VartPartDroughtvar}
-sum.tab.RDA  <- VarPart(df.geno=geno,
-                        select.clim.var=drought.var, 
-                        df.var=df.var.sc, 
-                        scale.rda=F,center.rda=F)
+# Identifying loci under selection
 
-sum.tab.RDA %>% 
-  kable(digits = 4) %>%  
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+
+Run a RDA for:
+  
+  - the 2 sets of climatic variables
+  
+  - with or without correction for PS
+  
+
+Select the SNPs
+  
+## Run the RDA
+```{r FunctionToRunRDAmodels}
+# Functions
+# =========
+
+
+# create a S3 object with the RDA model and some info
+new_RDA <- function(form.rda,mod.rda,r2,eigenvalues,model.significance,axis.significance,vif){
+  
+  structure(
+    .Data = list(form.rda=form.rda,
+                 mod.rda=mod.rda,
+                 r2=r2,
+                 eigenvalues=eigenvalues,
+                 model.significance=model.significance,
+                 axis.significance=axis.significance,
+                 vif=vif),
+    creation_time = Sys.time(),
+    class = "myrda"
+  )
+  
+}
+
+# function to print S3 object of class "myrda"
+print.myrda <- function(x,...){
+  
+  print_message <- c(paste0("  RDA formula: ", myRDA$form.rda),
+      paste0("  Creation time: ", format(attr(myRDA, "creation_time"))))
+  
+  cat(
+    print_message,
+    sep = "\n"
+  )
+  
+}
+
+# function to run the RDA models and store the info in a S3 object of class "myrda"
+runRDA <- function(df,geno.pop,selected.variables,pop.structure.correction){
+
+  # write RDA formulas
+form.clim.var <- paste(selected.variables$variables,collapse= " + ")
+if(pop.structure.correction==T) {
+  form.pgs.var <- colnames(df) %>% stringr::str_subset("^PC") %>%  paste(collapse= " + ")
+  form.rda <- paste("geno.pop ~ ", form.clim.var,"+ Condition(",paste(c(form.pgs.var),collapse=" + " ), ")")
+} else {
+  form.rda <- paste("geno.pop ~ ", form.clim.var) 
+  }
+mod.rda <- rda(as.formula(form.rda), df)
+r2 <- RsquareAdj(mod.rda)
+eigenvalues <- summary(eigenvals(mod.rda, model = "constrained"))
+model.significance <- anova.cca(mod.rda, parallel=getOption("mc.cores")) # default is permutation=999
+axis.significance <- anova.cca(mod.rda, by="axis", parallel=getOption("mc.cores"))
+vif <- vif.cca(mod.rda)
+
+return(new_RDA(form.rda=form.rda,
+               mod.rda=mod.rda,
+               r2=r2,
+               eigenvalues=eigenvalues,
+               model.significance=model.significance,
+               axis.significance=axis.significance,
+               vif=vif))
+  
+}
+
+
+
+# function to visualize RDA model outputs 
+vizRDA <- function(x){
+  
+  # check the class of x
+  stopifnot("x is not of class myrda" = class(x)=="myrda")
+  
+  # Generate R2 table
+r2.tab <- x$r2 %>% 
+  as.data.frame() %>%
+  pivot_longer(everything()) %>%  
+  column_to_rownames(var ="name") %>% 
+  round(2) %>% 
+  ggtexttable(rows = row.names(.),cols = NULL, theme = ttheme("blank"))
+  
+  # Generate table of eigenvalues and proportion of variance explained
+eigenvalues.tab <- x$eigenvalues %>% 
+  as.data.frame() %>% 
+  round(2) %>% 
+  ggtexttable(rows = rownames(.), theme = ttheme("blank")) %>% 
+  tab_add_hline(at.row = 1:2, row.side = "top", linewidth = 2)
+
+  # Generate table of model and axis significance
+signi.tab <- bind_rows(as.data.frame(x$model.significance[-nrow(x$model.significance),]),
+          as.data.frame(x$axis.significance[-nrow(x$axis.significance),])) %>% 
+  dplyr::mutate(across(!Df, ~ round(.x,3))) %>% 
+  ggtexttable(rows = rownames(.), theme = ttheme("blank")) %>% 
+  tab_add_hline(at.row = 1:2, row.side = "top", linewidth = 2) %>% 
+  tab_add_hline(at.row = 3, row.side = "top", linewidth = 0.01)
+
+  # Generate table for VIF (Variance Inflation Factors)
+vif.tab <- x$vif %>% 
+  as.data.frame() %>% 
+  round(2) %>% 
+  rownames_to_column("Variable") %>%
+  pivot_wider(values_from=".", names_from = "Variable") %>% 
+  ggtexttable(rows = "VIF", theme = ttheme("blank")) %>% 
+  tab_add_hline(at.row = 2, row.side = "top", linewidth = 2) 
+  
+  # Generate the screeplot of the eigenvalues
+ggscreeplot <- x$eigenvalues %>% #
+  as.data.frame() %>% 
+  dplyr::filter(row.names(.) == "Eigenvalue")  %>% 
+  pivot_longer(everything(),names_to="PC",values_to="eigenvalues") %>%
+  ggplot(aes(x= PC,
+             y=eigenvalues,
+             group=1)) +
+  geom_point(size=4)+
+  geom_line() +
+  ylab("Eigen values") + xlab("") + 
+  labs(title="Scree plot") + 
+  theme_bw()
+
+
+ggarrange(ggarrange(r2.tab,signi.tab,vif.tab,nrow=3),
+           ggarrange(eigenvalues.tab,ggscreeplot,nrow=2), 
+           nrow = 1, 
+           ncol = 2) %>% 
+annotate_figure(top = text_grob(x$form.rda, 
+                                size = 16, 
+                                color = 'black', 
+                                face = 'bold'))
+  
+}
 ```
 
-## Population-based allele frequencies
+
+
+```{r}
+# Combinations of selected variables and correction or not by population structure
+rda.combinations <- list(
+  list(selected.variables = global.var,
+       pop.structure.correction = FALSE),
+  list(selected.variables = global.var,
+       pop.structure.correction = TRUE),
+  list(selected.variables = drought.var,
+       pop.structure.correction = FALSE),
+  list(selected.variables = drought.var,
+       pop.structure.correction = TRUE))
+
+
+# Run the RDA models and store their information
+lists.rda <- lapply(rda.combinations, function(x){
+  runRDA(df = listdf.pop$df.sc,
+         geno.pop = geno.pop,
+         selected.variables = x$selected.variables,
+         pop.structure.correction = x$pop.structure.correction)})
+
+# save the RDA models and their information
+saveRDS(lists.rda, "outputs/RDA/RDAmodels.rds")
+
+# viz RDA models and their information
+pdf(width = 10, height = 6, "figs/RDA/RDAsummary.pdf")
+lapply(lists.rda, vizRDA)
+dev.off()
+```
+
+
+## Identify outliers
+
+
+
+```{r}
+## Running the function with K = 2
+GSout <- rdadapt(RDA, 2)
+
+## P-values threshold after Bonferroni correction
+thres <- 0.01/length(GSout$p.values)
+
+## Identifying the loci that are below the p-value threshold
+outliers <- which(GSout$p.values<thres)
+outliers <- data.frame(Loci = colnames(geno.pop)[outliers], 
+                       p.value = GSout$p.values[outliers], 
+                       contig = unlist(lapply(strsplit(colnames(geno.pop)[outliers], 
+                                                       split = "_"), function(x) x[1])))
+
+
+
+
+```
+
 
 # References
