@@ -1,3 +1,3 @@
-# Evalutating genomic offset predictions in maritine pine
+# Evaluating genomic offset predictions in maritime pine
 
 
