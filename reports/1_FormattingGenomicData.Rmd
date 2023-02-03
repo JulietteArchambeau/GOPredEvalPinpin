@@ -34,16 +34,16 @@ div.main-container {
 </style>
 
 
-```{css, echo=FALSE}
-pre {
-  max-height: 300px;
-  overflow-y: auto;
-}
+<!-- ```{css, echo=FALSE} -->
+<!-- pre { -->
+<!--   max-height: 300px; -->
+<!--   overflow-y: auto; -->
+<!-- } -->
 
-pre[class] {
-  max-height: 600px;
-}
-```
+<!-- pre[class] { -->
+<!--   max-height: 600px; -->
+<!-- } -->
+<!-- ``` -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
@@ -61,6 +61,18 @@ library(parallel)
 ```
 
 
+```{r Functions}
+# Function to build tables
+kable_mydf <- function(x, boldfirstcolumn,font_size){
+  x %>% 
+  kable() %>%  
+  kable_styling(font_size=font_size,
+                bootstrap_options = c("stripped","hover", "condensed"), full_width = F) %>% 
+  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
+```
+
+
 # Raw genomic data
 
 ## Loading
@@ -68,6 +80,9 @@ library(parallel)
 ```{r LoadRawGenomicData}
 # Load the raw genomic data:
 data <- read.csv("data/DryadRepo/RawGenomicData.csv")
+
+# viz
+data[40:50,1:13] %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
 Below is a subset of the whole genomic dataset. NAs are indicated with `---`.
@@ -81,13 +96,6 @@ Meaning of the columns:
   - `snp_1` --> `snp_14016`:  genotype for each of the 14,016 SNPs.
 
 
-```{r VizRawGenomicData, echo=F}
-# Visualizing the dataset:
-data[40:50,1:13]  %>% 
-  kable() %>%  
-  kable_styling(font_size=11,
-                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
-```
 
 ## Formatting
 
@@ -95,9 +103,9 @@ For each SNP, we convert the letters (e.g. A/A, A/G) to numbers (0,1 or 2).
 
 ```{r FormattingRawGenomicDataFromLettersToNumbers}
 # We apply a function to each column (i.e SNP) of the raw genomic data, 
-# after remonving the first two columns, i.e. the clone ID and the assay in which the clone was genotyped
+# after removing the first two columns, i.e. the clone ID and the assay in which the clone was genotyped
 
-list.alleles <- lapply(colnames(data[,-c(1,2)]), function(x){ 
+list_alleles <- lapply(colnames(data[,-c(1,2)]), function(x){ 
   
   vec <- data[,x]
   
@@ -134,20 +142,16 @@ list.alleles <- lapply(colnames(data[,-c(1,2)]), function(x){
   }
 })
 
-names(list.alleles) <- colnames(data[,-c(1,2)]) # reattribute the SNP ID to list names
+names(list_alleles) <- colnames(data[,-c(1,2)]) # re-attribute the SNP ID to list names
 
-df <- list.alleles %>% 
+df <- list_alleles %>% 
   as_tibble() %>% 
   t()
 
 colnames(df) <- data$clone # attribute clone ID
-```
 
-```{r VizFormattedGenomicData, echo=F}
-df[1:11,40:50]  %>% 
-  kable() %>%  
-  kable_styling(font_size=11,
-                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+# viz
+df[1:11,40:50] %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
 # Filtering genomic data
@@ -197,29 +201,29 @@ tab <- df %>%
   as_tibble() %>% 
   sapply(function(x) sum(is.na(x))*100/nrow(df)) %>% 
   as.data.frame() %>%
-  set_colnames(c("freq.NAs")) %>% 
+  set_colnames(c("na_freq")) %>% 
   rownames_to_column(var = "clone") %>% 
   as_tibble() %>% 
-  arrange(freq.NAs) %>% 
+  arrange(na_freq) %>% 
   mutate(id=1:nrow(.))
 
-plot(tab$id,tab$freq.NAs,
+plot(tab$id,tab$na_freq,
      pch=20,
      xlab="Clone number",
      ylab="Percentage of missing data per clone")
 ```
 
-`r nrow(tab[tab$freq.NAs<20,])` clones have less than 20% missing data, `r nrow(tab[tab$freq.NAs<18,])` clones have less than 18% and `r nrow(tab[tab$freq.NAs<15,])` have less than 15%.
+`r nrow(tab[tab$na_freq<20,])` clones have less than 20% missing data, `r nrow(tab[tab$na_freq<18,])` clones have less than 18% and `r nrow(tab[tab$na_freq<15,])` have less than 15%.
 
 ```{r RemoveCloneMissingData}
 # Specifying the chosen threshold:
-threshold.NA.per.clone <- 18
+threshold_NA_per_clone <- 18
 
 # Removing clones with more than 18% missing data
-df <- df %>% dplyr::select(tab[tab$freq.NAs<threshold.NA.per.clone,]$clone)
+df <- df %>% dplyr::select(tab[tab$na_freq<threshold_NA_per_clone,]$clone)
 ```
 
-**<span style="color: red;">We keep the `r nrow(tab[tab$freq.NAs<threshold.NA.per.clone,])` clones that have less than `r threshold.NA.per.clone`% missing data.</span>**
+**<span style="color: red;">We keep the `r nrow(tab[tab$na_freq<threshold_NA_per_clone,])` clones that have less than `r threshold_NA_per_clone`% missing data.</span>**
 
 ### Minor allele frequencies
 
@@ -248,46 +252,46 @@ plot(tab$id,tab$MAF,
 We remove the SNPs with MAF < 1%.
 
 ```{r RmMissingDataMAF}
-list.geno <- list(list.maf=list(df = df),
-                  list.nomaf=list(df = df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]))
+list_geno <- list(list_maf=list(df = df),
+                  list_nomaf=list(df = df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]))
 ```
 
-**<span style="color: red;">In the dataset without MAF, there are `r nrow(list.geno$list.nomaf$df)` SNPs left.</span>** 
+**<span style="color: red;">In the dataset without MAF, there are `r nrow(list_geno$list_nomaf$df)` SNPs left.</span>** 
 
 
 ### Missing data per SNP
 
 ```{r MissingDataPerSNP, warning=F}
-RmMissingDataPerSNP <- function(x){
+remove_NA_perSNP <- function(x){
   
 tab <- x$df %>% 
   t() %>% 
   as_tibble() %>% 
   sapply(function(x) sum(is.na(x))*100/nrow(.)) %>% 
   as.data.frame() %>%
-  set_colnames(c("freq.NAs")) %>% 
+  set_colnames(c("na_freq")) %>% 
   rownames_to_column(var = "snp") %>% 
   as_tibble() %>% 
-  arrange(freq.NAs) %>% 
+  arrange(na_freq) %>% 
   mutate(id=1:nrow(.))
 
-df <- x$df[(row.names(x$df) %in% tab[tab$freq.NAs<20,]$snp),] %>% 
+df <- x$df[(row.names(x$df) %in% tab[tab$na_freq<20,]$snp),] %>% 
   dplyr::select(order(colnames(x$df)))
 
 list(df=df,tab=tab)
 }
 
-list.geno <- lapply(list.geno,RmMissingDataPerSNP)
+list_geno <- lapply(list_geno,remove_NA_perSNP)
 ```
 
 
-`r nrow(list.geno$list.nomaf$tab[list.geno$list.nomaf$tab$freq.NAs<20,])` SNPs have the percentage of missing data lower than 20% and `r nrow(list.geno$list.nomaf$tab[list.geno$list.nomaf$tab$freq.NAs<15,])` lower than 15%.
+`r nrow(list_geno$list_nomaf$tab[list_geno$list_nomaf$tab$na_freq<20,])` SNPs have the percentage of missing data lower than 20% and `r nrow(list_geno$list_nomaf$tab[list_geno$list_nomaf$tab$na_freq<15,])` lower than 15%.
 
-**<span style="color: red;">We keep SNPs with missing data lower than 20% and so there are `r nrow(list.geno$list.nomaf$df)` SNPs left.</span>**
+**<span style="color: red;">We keep SNPs with missing data lower than 20% and so there are `r nrow(list_geno$list_nomaf$df)` SNPs left.</span>**
 
 
 ```{r PlotMissingDataPerSNP, fig.height=6,fig.width=10}
-plot(list.geno$list.nomaf$tab$id,list.geno$list.nomaf$tab$freq.NAs,
+plot(list_geno$list_nomaf$tab$id,list_geno$list_nomaf$tab$na_freq,
      pch=20,
      xlab="SNP number",
      ylab="Percentage of missing data per SNP",
@@ -300,14 +304,14 @@ plot(list.geno$list.nomaf$tab$id,list.geno$list.nomaf$tab$freq.NAs,
 
 
 ```{r ExportingFormattedGenomicDataAlleleCounts}
-for(i in 1:length(list.geno)){
-  specMAF <- names(list.geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+for(i in 1:length(list_geno)){
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
   
-  list.geno[[i]]$df %>% 
+  list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
   write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",
                    specMAF,"_",
-                   ncol(list.geno[[i]]$df),"clones_",nrow(list.geno[[i]]$df),"snps.csv"),
+                   ncol(list_geno[[i]]$df),"clones_",nrow(list_geno[[i]]$df),"snps.csv"),
             append=FALSE)
 }
 
@@ -316,7 +320,7 @@ for(i in 1:length(list.geno)){
 # to download the dataset with snp_ID as row names: use `read.csv` with row.names = 1
 ```
 
-`r sum(is.na(list.geno$list.maf$df))` missing data in the dataset with MAF, and `r sum(is.na(list.geno$list.nomaf$df))` missing data in the dataset without MAF.
+`r sum(is.na(list_geno$list_maf$df))` missing data in the dataset with MAF, and `r sum(is.na(list_geno$list_nomaf$df))` missing data in the dataset without MAF.
 
 ##  Allele frequencies
 
@@ -324,7 +328,7 @@ for(i in 1:length(list.geno)){
 ```{r ExportingFormattedGenomicDataAllelefrequencies}
 # Only useful for the dataset without MAF
 
-CalcAlleleFreq <- function(x){
+compute_allele_freq <- function(x){
   
 x %>% 
   t() %>% 
@@ -336,19 +340,19 @@ x %>%
   
 }
 
-df.freq <- CalcAlleleFreq(list.geno$list.nomaf$df) 
+df_freq <- compute_allele_freq(list_geno$list_nomaf$df) 
 
-df.freq %>% 
+df_freq %>% 
   write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_NOMAF_",
-                   ncol(df.freq),"clones_",nrow(df.freq),"snps.csv"),
+                   ncol(df_freq),"clones_",nrow(df_freq),"snps.csv"),
             append=FALSE)
 
-df.freq[1:10,1:8] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+df_freq[1:10,1:8] %>% 
+  mutate(across(where(is.numeric), round, 2)) %>% 
+  kable_mydf(boldfirstcolumn = T, font_size = 12)
 ```
 
-`r sum(is.na(df.freq))` missing data in this dataset.
+`r sum(is.na(df_freq))` missing data in this dataset.
 
 
 # Collinearity among SNPs
@@ -370,22 +374,20 @@ There are `r nrow(dup)` duplicates (=SNPs that have exactly the same genotype as
 Then, we determine how many copies there are for each duplicate. 
 
 ```{r CountCopiesDuplicates}
-count.duplicates <- function(DF){
+count_duplicates <- function(DF){
   x <- do.call('paste', c(DF, sep = '\r'))
   ox <- order(x)
   rl <- rle(x[ox])
   cbind(DF[ox[cumsum(rl$lengths)],,drop=FALSE],count = rl$lengths)
   
 }
-countdup <- count.duplicates(df %>% as.data.frame()) 
+countdup <- count_duplicates(df %>% as.data.frame()) 
 
 tab <- table(countdup$count) %>% 
   as.data.frame() %>% 
   setNames(c("SnpNumberWithinGroups","GroupNumber"))
   
-tab  %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+tab  %>% kable_mydf(boldfirstcolumn = T, font_size = 12)
 ```
 
 In this table, `r colnames(tab)[1]` is the number of duplicated SNPs within each group (ie groups of 2 SNPs, 3 SNPs, 4 SNPs, etc) and  `r colnames(tab)[2]` is the number of groups (or the number of non-duplicated SNPs for the first row). 
@@ -404,13 +406,13 @@ So it means that there are:
 # checking that the numbers are coherent
 
 # we should recover the total number of SNPs
-TotNbSNPs <- tab %>% 
+nb_duplicates <- tab %>% 
   dplyr::mutate(product=as.numeric(SnpNumberWithinGroups)*as.numeric(GroupNumber)) %>% 
   dplyr::summarise(sum=sum(product))
-TotNbSNPs # that's ok!
+nb_duplicates # that's ok!
 
 # we should recover the total number of duplicated SNPs
-TotNbSNPs - tab$GroupNumber[1] # that's ok too!
+nb_duplicates - tab$GroupNumber[1] # that's ok too!
 ```
 
 But, there are two situations not accounted for by the function `duplicated`. 
@@ -426,17 +428,17 @@ To add these situations in the count of duplicated SNPs, I selected all the pair
 # Invert the genomic matrix
 tdf <- df %>% t() %>% as.data.frame() 
 
-# Create a matrix of correlation for all SNPs (12483snps x 12483snps)
+# Create a matrix of correlation for all SNPs
 matcor <- cor(tdf, use = "pairwise.complete.obs")
-matcor[1:10,1:10] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+matcor[1:10,1:10] %>%  
+  round(2) %>% 
+  kable_mydf(boldfirstcolumn = T, font_size = 12)
 
 # Keep only the upper triangle of the matrix and remove values in the diagonal
 matcor[lower.tri(matcor,diag=T)] <- NA
-matcor[1:10,1:10] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+matcor[1:10,1:10]  %>%  
+  round(2) %>% 
+  kable_mydf(boldfirstcolumn = T, font_size = 12)
 ```
 
 
@@ -510,24 +512,24 @@ We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric
 ```{r NumberSNPgenotypedAssays}
 codes <- read.csv("data/DryadRepo/SnpCodesMatching.csv")
 
-temp.df <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
+temp_df <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
   merge(df %>% rownames_to_column(var="snp_ID"),by="snp_ID")
 
-nb <- sapply(temp.df[,1:4], function(x) sum(!(is.na(x))))
+nb <- sapply(temp_df[,1:4], function(x) sum(!(is.na(x))))
 ```
 
-Among the `r nb[[1]]` SNPs used in this paper (after filtering), **`r nb[[3]]` were genotyped in the Affymetrix assay**, **`r nb[[4]]` in the Infinium assay** and **`r temp.df[,c(1,3,4)] %>% drop_na() %>% nrow()` were genotyped by both assays**.
+Among the `r nb[[1]]` SNPs used in this paper (after filtering), **`r nb[[3]]` were genotyped in the Affymetrix assay**, **`r nb[[4]]` in the Infinium assay** and **`r temp_df[,c(1,3,4)] %>% drop_na() %>% nrow()` were genotyped by both assays**.
 
 ## How many clones genotyped in each assay?
 
 We want to know the same for the clones, i.e. how many clones were genotyped by each assay and by both.
 
 ```{r NumberClonesGenotypedAssays}
-temp.df <- data[,1:2] %>% filter(clone %in% colnames(df))
+temp_df <- data[,1:2] %>% filter(clone %in% colnames(df))
 
-# sapply(temp.df, function(x) sum(is.na(x))) # (to check) No NAs, great .
+# sapply(temp_df, function(x) sum(is.na(x))) # (to check) No NAs, great .
 
-table(temp.df$assay)
+table(temp_df$assay)
 ```
 
 All clones were genotyped with both the Affymetrix and Infinium assays.
@@ -540,28 +542,24 @@ Frequency of missing data per clone:
 tab <- df %>% 
   sapply(function(x) sum(is.na(x))*100/nrow(df)) %>% 
   as.data.frame() %>%
-  set_colnames(c("freq.NAs")) %>% 
+  set_colnames(c("na_freq")) %>% 
   rownames_to_column(var = "clone") %>% 
   as_tibble() %>% 
-  arrange(desc(freq.NAs)) %>% 
+  arrange(desc(na_freq)) %>% 
   mutate(id=1:nrow(.))
 
 # Visualization
-plot(tab$id,tab$freq.NAs,
+plot(tab$id,tab$na_freq,
      pch=20,
      xlab="Clone number",
      ylab="Percentage of missing data per clone")
 
 # Table ordered in decreasing order
 # so clones with the highest frequencies of missing data are first
-tab[c(1:10),1:2] %>%
-  kable() %>%  
-  kable_styling(font_size=11,
-                bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
-  
+tab[c(1:10),1:2]  %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
-The **maximum frequency of missing data per clone** is **`r round(max(tab$freq.NAs),2)`%** and the **average frequency of missing data per clone** is **`r round(mean(tab$freq.NAs),2)`%**.
+The **maximum frequency of missing data per clone** is **`r round(max(tab$na_freq),2)`%** and the **average frequency of missing data per clone** is **`r round(mean(tab$na_freq),2)`%**.
 
 ## Number of clones per population
 
@@ -569,7 +567,7 @@ The **maximum frequency of missing data per clone** is **`r round(max(tab$freq.N
 # We generate a table for the Supplementary Information of the paper, with the number of clones (i.e. trees) per provenance:
 tibble(Provenance=str_sub(colnames(df),1,3),clon=colnames(df)) %>% 
   group_by(Provenance) %>% 
-  count(name="Nb.clones") %>% 
+  count(name="Number of clones") %>% 
   xtable(type="latex",digits=3) %>% 
   print(file='tables/NbclonesPerPopulationGenomicData.tex',include.rownames=FALSE)
 ```
@@ -580,9 +578,9 @@ We will impute the missing data in both datasets with or without minor allele fr
 
 Percentage of missing data:
   
-  - in the genomic dataset with MAF: `r round(sum(is.na(list.geno$list.maf$df)) * 100 / (dim(list.geno$list.maf$df)[1]*dim(list.geno$list.maf$df)[2]),2)`%.
+  - in the genomic dataset with MAF: `r round(sum(is.na(list_geno$list_maf$df)) * 100 / (dim(list_geno$list_maf$df)[1]*dim(list_geno$list_maf$df)[2]),2)`%.
   
-  - in the genomic dataset without MAF:`r round(sum(is.na(list.geno$list.nomaf$df)) * 100 / (dim(list.geno$list.nomaf$df)[1]*dim(list.geno$list.nomaf$df)[2]),2)`%.
+  - in the genomic dataset without MAF:`r round(sum(is.na(list_geno$list_nomaf$df)) * 100 / (dim(list_geno$list_nomaf$df)[1]*dim(list_geno$list_nomaf$df)[2]),2)`%.
 
 We are going to impute the missing values using the most common allele at each SNP within the main gene pool of the clone. So here, the genotypes are classified according to the main gene pool they belong to (although we acknowledge that some genotypes are admixed and belong to different gene pools).
 
@@ -593,12 +591,12 @@ prop <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>%
   dplyr::select(clon,prov,paste0(rep("Q",6),1:6),max.Q)
 
 # To check whether some clones in the genomic data have no population structure data.
-setdiff(colnames(list.geno$list.maf$df),prop$clon) # this is ok :)
+setdiff(colnames(list_geno$list_maf$df),prop$clon) # this is ok :)
 
 mainGP <- prop %>% dplyr::select(clon,max.Q) # extract the main gene pool for each clone.
 
 
-list.geno <- lapply(list.geno, function(x){
+list_geno <- lapply(list_geno, function(x){
  
 df <-  x$df %>% 
   t() %>% 
@@ -612,10 +610,7 @@ list(df=df)
 })
 
 # viz geno data without MAF
-list.geno$list.nomaf$df[1:10,1:10] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
 ```
 
 ```{r CheckingImputation1}
@@ -623,7 +618,7 @@ list.geno$list.nomaf$df[1:10,1:10] %>%
 # For that, before imputing, we find some SNPs with NAs
 # we do it in the geno dataset without MAF
 
-subset <- list.geno$list.nomaf$df[list.geno$list.nomaf$df$max.Q=="Q5",]
+subset <- list_geno$list_nomaf$df[list_geno$list_nomaf$df$max.Q=="Q5",]
 sample(colnames(subset)[colSums(is.na(subset)) > 0],3,replace=F) #extract some SNPs with NAs
 sum(is.na(subset)) # 14,902 NAs in Q5 gene pool
 
@@ -637,7 +632,7 @@ We impute the missing data:
 
 ```{r NAsImputation}
 # Replace NAs by (1) subseting by GP, (2) imputing NAs, (3) reassembling the GP.
-list.geno <- mclapply(list.geno, function(x){
+list_geno <- mclapply(list_geno, function(x){
  
 for(i in unique(x$df$max.Q)){
   subset <- x$df[x$df$max.Q==i,]
@@ -654,7 +649,7 @@ list(df=x$df)
 ```{r CheckingImputation2}
 # If we want to check that the imputation worked fine
   # Look at the SNPs that had NAs before imputation
-subset <- list.geno$list.nomaf$df[list.geno$list.nomaf$df$max.Q=="Q5",]
+subset <- list_geno$list_nomaf$df[list_geno$list_nomaf$df$max.Q=="Q5",]
 sum(is.na(subset)) # 0 NAs now!
 
 table(subset[,"snp_12238"]) # great! (NAs of this SNP has taken the values '2' after imputation)
@@ -665,7 +660,7 @@ table(subset[,"snp_7628"])  # great! (The missing value of this SNP has taken th
 Formating the dataset (reattributing clone names, clones in columns and snp in rows, etc.):
 
 ```{r ReformatImputedDataset}
-list.geno <- mclapply(list.geno, function(x){
+list_geno <- mclapply(list_geno, function(x){
   
 x$df <- x$df %>% 
   column_to_rownames(var="clon") %>% 
@@ -679,10 +674,7 @@ list(df=x$df)
 
 
 # Visualization:
-list.geno$list.nomaf$df[1:10,1:10] %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("hover", "condensed"), full_width = F) %>%
-  column_spec(1, bold = T)
+list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
 ```
 
  
@@ -692,14 +684,14 @@ list.geno$list.nomaf$df[1:10,1:10] %>%
 ## Allele counts
 
 ```{r ExportImputedGenomicDataAlleleCounts}
-for(i in 1:length(list.geno)){
-  specMAF <- names(list.geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+for(i in 1:length(list_geno)){
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
   
-  list.geno[[i]]$df %>% 
+  list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
   write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",
                    specMAF,"_",
-                   ncol(list.geno[[i]]$df),"clones_",nrow(list.geno[[i]]$df),"snps.csv"),
+                   ncol(list_geno[[i]]$df),"clones_",nrow(list_geno[[i]]$df),"snps.csv"),
             append=FALSE)
 }
 ```
@@ -708,29 +700,27 @@ for(i in 1:length(list.geno)){
 
 ```{r ExportImputedGenomicDataAllelefrequencies}
 # Calculate allele frequencies
-list.geno <- mclapply(list.geno, function(x){
+list_geno <- mclapply(list_geno, function(x){
 
-list(df=CalcAlleleFreq(x$df))
+list(df=compute_allele_freq(x$df))
 
 })
 
 
 # export in csv
-for(i in 1:length(list.geno)){
-  specMAF <- names(list.geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+for(i in 1:length(list_geno)){
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
   
-  list.geno[[i]]$df %>% 
+  list_geno[[i]]$df %>% 
   write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_",
                    specMAF,"_",
-                   nrow(list.geno[[i]]$df),"pops_",ncol(list.geno[[i]]$df[,-1]),"snps.csv"),
+                   nrow(list_geno[[i]]$df),"pops_",ncol(list_geno[[i]]$df[,-1]),"snps.csv"),
             append=FALSE)
 }
 
 
 
-list.geno$list.nomaf$df[1:10,1:8] %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F)
+list_geno$list_nomaf$df[1:10,1:8]  %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
 
