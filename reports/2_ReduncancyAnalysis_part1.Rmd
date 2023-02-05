@@ -1,6 +1,6 @@
 ---
-title: "Climatic variable selection, candidate SNPs identification, genomic offset predictions"
-subtitle: "Based on RDA"
+title: "Redundancy analysis - Part 1"
+subtitle: "Climatic variable selection, variance partitionning & candidate SNPs identification"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
@@ -22,35 +22,25 @@ always_allow_html: true
 ---
 
 
-<style>
-pre {
-  overflow-x: auto;
-}
-pre code {
-  word-wrap: normal;
-  white-space: pre;
-}
-</style>
-
-<style type="text/css">
-div.main-container {
-  max-width: 2000px;
-  margin-left: auto;
-  margin-right: auto;
-}
-</style>
-
-
-<!-- ```{css} -->
+<!-- <style> -->
 <!-- pre { -->
-<!--   max-height: 300px; -->
-<!--   overflow-y: auto; -->
+<!--   overflow-x: auto; -->
 <!-- } -->
+<!-- pre code { -->
+<!--   word-wrap: normal; -->
+<!--   white-space: pre; -->
+<!-- } -->
+<!-- </style> -->
 
-<!-- pre[class] { -->
-<!--   max-height: 600px; -->
+<!-- <style type="text/css"> -->
+<!-- div.main-container { -->
+<!--   max-width: 2000px; -->
+<!--   margin-left: auto; -->
+<!--   margin-right: auto; -->
 <!-- } -->
-<!-- ``` -->
+<!-- </style> -->
+
+
 
 
 ```{r setup, include=FALSE}
@@ -76,11 +66,11 @@ library(cowplot)
 library(ggVennDiagram)
 ```
 
-```{r Functions}
-# Functions from other packages:
+```{r Functions, echo=F}
+# Functions from other sources:
 source("scripts/functions/corpmat.R") # to compute the matrix of p-value
-source("scripts/functions/rdadapt.R") # to conduct a RDA based genome scan
-source("scripts/functions/detectoutliers.R") # to identify outliers based on their RDA loadings
+source("scripts/functions/rdadapt.R") # to conduct a RDA based genome scan (from Capblancq & Forester 2021)
+source("scripts/functions/detectoutliers.R") # to identify outliers based on their RDA loadings (from  Forester et al. 2018)
 
 # Function to generate a corrplot
 make_corrplot <- function(df,variables,fig_options){
@@ -725,7 +715,8 @@ listdf_pop$df %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
 
-```{r COlorClimVar}
+```{r ColorClimVar}
+# Define the colors associated with each climatic variable for the following visualizations
 color_clim_var <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99') %>% 
   setNames(c(global_var$variables, drought_var$variables) %>% unique()) 
 ```
@@ -850,11 +841,11 @@ return(sum_tab_RDA)
 ## Individual-based allele counts{#VarPartInd}
 
 ```{r VartPartIndividualLevel, eval=F}
-list_sum_var_part <- lapply(c(global_var,drought_var), function(x){
+list_sum_var_part <- lapply(list(global_var,drought_var), function(x){
 
   var_part(df_geno=geno_ind,
           select_clim_var=x,
-          df_var=listdf_ind$dfsc, 
+          df_var=listdf_ind$dfsc %>% as_tibble(), 
           scale_rda=F,center_rda=F)
 }) %>% setNames(c(global_var$name,drought_var$name))
 
@@ -886,7 +877,7 @@ list_sum_var_part <- lapply(list(global_var,drought_var), function(x){
 saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartPopLevel.rds")
 ```
 
-```{r ShowSummaryVarPartPopLevel, eval=F}
+```{r ShowSummaryVarPartPopLevel, eval=T}
 list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartPopLevel.rds")
 
 # Global-climate variables
@@ -903,11 +894,25 @@ kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
   
 ## Run the RDA
 
-```{r FunctionToRunRDAmodels, eval=F}
-# Functions
+We perform RDA models the four combinations of the two sets of selected climatic variables and accounting or not for the neutral genetic population structure:
+
+  - Allele frequencies ~ global climatic variables + Condition(PC1 + PC2 + PC3)
+  
+  - Allele frequencies ~ global climatic variables
+  
+  - Allele frequencies ~ drought-summer variables + Condition(PC1 + PC2 + PC3)
+  
+  - Allele frequencies ~ drought-summer variables 
+  
+  
+```{r FunctionToRunRDAmodels}
+# =========
+# FUNCTIONS
 # =========
 
-# create a S3 object with the RDA model and some info
+
+# Function to create a S3 object with the RDA model and some info
+# ===============================================================
 new_RDA <- function(form_rda,selected_var,PCs,mod_rda,r2,eigenvalues,model_significance,axis_significance,vif){
   
   structure(
@@ -923,10 +928,12 @@ new_RDA <- function(form_rda,selected_var,PCs,mod_rda,r2,eigenvalues,model_signi
     creation_time = Sys.time(),
     class = "myrda"
   )
-  
-}
+  }
 
-# function to print S3 object of class "myrda"
+
+
+# Function to print S3 object of class 'myrda'
+# ============================================
 print.myrda <- function(x,...){
 
   print_message <- c(
@@ -942,7 +949,9 @@ print.myrda <- function(x,...){
 
 }
 
-# function to run the RDA models and store the info in a S3 object of class "myrda"
+
+# Function to run the RDA models and store the info in a S3 object of class 'myrda'
+# =================================================================================
 runRDA <- function(df,geno_pop,selected_var,pop_structure_correction){
 
 
@@ -978,7 +987,8 @@ return(new_RDA(form_rda=form_rda,
 
 
 
-# function to visualize RDA model outputs 
+# Function to generate a pdf with the RDA model outputs
+# =====================================================
 viz_RDAsummary <- function(x){
   
   # check the class of x
@@ -1043,7 +1053,8 @@ annotate_figure(top = text_grob(x$form_rda,
 }
 
 
-# function to plot the RDA models
+# Function to plot the RDA models
+# ==============================
 plot_RDA <- function(df,x){
   
   # check the class of x
@@ -1079,13 +1090,14 @@ plot_RDA <- function(df,x){
   
   title(x$form_rda, line=-3,outer = TRUE)
 }
-
 ```
 
 
 
 ```{r RunRDAmodels, eval=F}
-# Combinations of selected variables and correction or not by population structure
+# We store in a list the four combinations of: 
+  # - the two sets of selected climatic variables
+  # - correction or not by population structure
 rda_combinations <- list(
   list(selected_var = global_var,
        pop_structure_correction = FALSE),
@@ -1124,7 +1136,7 @@ dev.off()
 
 Two ways of identifying the outliers with the RDA:
 
-  - identifying outliers based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). Method used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)).
+  - identifying outliers based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). Method used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). To conduct the RDA-based genome scan, we use the `rdadapt` function from @capblancq2021redundancy.
 
   - identifying RDA outliers is to search for *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)
 
@@ -1136,6 +1148,9 @@ listdf_pop <- readRDS("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds")
 
   
 ```{r FunctionToIdentifyOutliers}
+# ====================================
+# Function to identify the outlier SNPs
+# =====================================
 
 identify_outliers <- function(rda_model, explanatory_data, geno_data){
 
@@ -1143,7 +1158,7 @@ identify_outliers <- function(rda_model, explanatory_data, geno_data){
 # =============================================================================
 
 # Genome scan with K = 2 (degrees of freedom of the X2 distribution)
-GSout <- rdadapt(rda_model$mod_rda, 2) %>% 
+GSout <- rdadapt(rda_model$mod_rda, 2) %>%  # rdadapt is a function to conduct a RDA based genome scan (from Capblancq & Forester 2021)
   mutate(snp=colnames(geno_data)) 
 
 # P-values threshold after Bonferroni correction
@@ -1166,7 +1181,7 @@ loads <- scores(rda_model$mod_rda, choices=c(1:(nrow(as.data.frame(rda_model$axi
   
 
 outliers_loads <- lapply(1:nb_signi_axis, function(id.axis){
-  out <- detectoutliers(loads[,id.axis],3)
+  out <- detectoutliers(loads[,id.axis],3) # function to identify outliers based on their RDA loadings (from  Forester et al. 2018)
   tibble(
     #axis=rep(id.axis,times=length(out)), # we do not keep the information about the axis
     snp = names(out),
@@ -1177,7 +1192,6 @@ outliers_loads <- lapply(1:nb_signi_axis, function(id.axis){
   list_rbind() %>% 
   distinct()
 
- # nb_outliers_loads <- nrow(outliers_loads)
 
 
 # Merge outliers identified by the two methods
@@ -1207,12 +1221,16 @@ list(rda_model = rda_model,
 ```
 
 ```{r IdentifyOutliers}
+# we identify the outlier SNPs for the four RDA models
 rda_outliers <- rda_models %>% 
   lapply(function(x) {
     identify_outliers(rda_model = x, explanatory_data = listdf_pop$dfsc, geno_data = geno_pop)
   })
 ```
 
+## Outlier visualization
+
+We visualize the outliers with RDA plots following @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)).
 
 ```{r FunctionToPlotRDAoutliers}
 # Function to make one RDA plot with different colors for outlier SNPs
@@ -1340,13 +1358,13 @@ par(mfrow=c(1,2))
 
 
 ```{r PlotRDAoutliers, results='hide'}
-# Plot RDA outliers with different colors based either on the detection method or the most asspciated climatic variable
+# Plot RDA outliers with different colors based either on the detection method or the most associated climatic variable
 pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers.pdf")
 lapply(rda_outliers, function(x) combine_rda_outlier_plots(rda_out = x,color_clim_var = color_clim_var))
 dev.off()
 ```
 
-
+We visualize the outliers with RDA and Manhattan plots following @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)).
 
 
 ```{r FunctionToGGPlotRDAoutliers}
@@ -1501,6 +1519,10 @@ lapply(rda_outliers, function(x) combine_rda_outlier_ggplots(rda_out = x, color_
 dev.off()
 ```
 
+
+## Common outliers
+
+We identify the common outliers among the four RDA models with Venn diagrams. 
 
 ```{r VennDiagramOutliers, fig.height=8, fig.width=8, message=F}
 list_outliers <- list("global clim" = rda_outliers[[1]]$outliers$snp,
