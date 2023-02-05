@@ -72,6 +72,8 @@ library(robust)
 library(qvalue)
 library(ggpubr)
 library(magrittr)
+library(cowplot)
+library(ggVennDiagram)
 ```
 
 ```{r Functions}
@@ -723,6 +725,12 @@ listdf_pop$df %>%
   pairs.panels(scale=T,hist.col="palegreen1")
 ```
 
+```{r COlorClimVar}
+color_clim_var <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99') %>% 
+  setNames(c(global_var$variables, drought_var$variables) %>% unique()) 
+```
+
+
 
 # Variance partitioning{#VarPart}
 
@@ -1111,9 +1119,6 @@ lapply(rda_models, function(x) plot_RDA(df=listdf_pop$dfsc,x=x))
 dev.off()
 ```
 
-```{r LoadListRDAModels}
-rda_models <- readRDS("outputs/RDA/RDAmodels.rds")
-```
 
 ## Identify outliers
 
@@ -1122,7 +1127,7 @@ Two ways of identifying the outliers with the RDA:
   - identifying outliers based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). Method used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)).
 
   - identifying RDA outliers is to search for *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)
-  
+
 ```{r echo=F}
 # !!! Temporary chunk !!!
 rda_models <- readRDS("outputs/RDA/RDAmodels.rds")
@@ -1138,19 +1143,15 @@ identify_outliers <- function(rda_model, explanatory_data, geno_data){
 # =============================================================================
 
 # Genome scan with K = 2 (degrees of freedom of the X2 distribution)
-GSout <- rdadapt(rda_model$mod_rda, 2)
+GSout <- rdadapt(rda_model$mod_rda, 2) %>% 
+  mutate(snp=colnames(geno_data)) 
 
 # P-values threshold after Bonferroni correction
-thres <- 0.01/length(GSout$p.values)
+outliers_maha <- GSout %>% 
+  filter(pvalues <  0.01/length(pvalues)) %>% 
+  mutate(maha_meth = TRUE) %>% 
+  dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
 
-# Identifying the loci that are below the p-value threshold
-outliers_maha <- which(GSout$p.values<thres)
-outliers_maha <- tibble(snp = colnames(geno_data)[outliers_maha], 
-                        maha_meth = TRUE,
-                        #pvalue = GSout$p.values[outliers_maha]
-                        )
-
-# nb_outliers_maha <- nrow(outliers_maha)
 
 # outlier detection based on  extreme axis loadings
 # =================================================
@@ -1199,6 +1200,7 @@ all_outliers <- map(all_outliers$snp, function(snp){
 
 
 list(rda_model = rda_model,
+     GSout = GSout, # keep the p.values for the Manhattan plot
      outliers = all_outliers)
 
 }
@@ -1233,7 +1235,7 @@ recordPlot()
   # plots in which outliers are colored according to the detection method used to identify them:
       # a method based on the Mahalanobis distances from the center of the RDA space
       # a method based on the extreme SNP loadings on each significant axis
-combine_rda_outlier_plots <- function(rda_out){
+combine_rda_outlier_plots <- function(rda_out,color_clim_var){
 
 # Storing data and options to generate the plots in a list
 list_data_plots <- list(clim=list(), # options/data specific to plots with colors based on the climatic variables
@@ -1253,10 +1255,8 @@ transparent_col <- rgb(0,1,0, alpha=0)
 # ==================================================================
 
 # Attribute one color to each climatic variable 
-selected_var <- c(global_var$variables, drought_var$variables) %>% unique()
-some_colors <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99','#b2df8a')
-selected_var_colors <- tibble(max_var_clim = selected_var,
-                              outlier_bg = some_colors[1:length(selected_var)]) %>% 
+selected_var_colors <- tibble(max_var_clim = names(color_clim_var),
+                              outlier_bg = color_clim_var) %>% 
   dplyr::filter(max_var_clim %in% rda_out$rda_model$selected_var$variables)
 
 # Generate a dataframe with color information for outliers
@@ -1339,139 +1339,185 @@ par(mfrow=c(1,2))
 
 
 
-```{r PlotRDAoutliers}
+```{r PlotRDAoutliers, results='hide'}
 # Plot RDA outliers with different colors based either on the detection method or the most asspciated climatic variable
 pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers.pdf")
-lapply(rda_outliers, combine_rda_outlier_plots)
+lapply(rda_outliers, function(x) combine_rda_outlier_plots(rda_out = x,color_clim_var = color_clim_var))
 dev.off()
 ```
 
 
 
-```{r OldFunctionsPlotOutliersRDA, eval=F, echo=F}
-# Function to plot outliers in RDA plots and color them based on their most associated climatic variable
-plot_outliers_clim <- function(rda_out){
 
-# attribute one color to each climatic variable 
-selected_var <- c(global_var$variables, drought_var$variables) %>% unique()
-some_colors <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99','#b2df8a')
-selected_var_colors <- tibble(max_var_clim = selected_var,
-                              outlier_bg = some_colors[1:length(selected_var)]) %>% 
-  dplyr::filter(max_var_clim %in% rda_out$rda_model$selected_var$variables)
+```{r FunctionToGGPlotRDAoutliers}
+make_rda_ggplot <- function(data_plots,TAB_var){ 
 
-
-# Some color options for the figures
-nooutliers_bg <- '#f1eef6'
-outline_col <- 'gray32'
-transparent_col <- rgb(0,1,0, alpha=0)
-legend_title <- 'Most associated climatic variable'
-legend_names <- selected_var_colors$max_var_clim
-legend_colors <- selected_var_colors$outlier_bg
+  data_plots$tab[order(data_plots$tab$snp_type),] %>% 
+  ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(aes(x=RDA1*20, y=RDA2*20, colour = snp_type), size = 1.4) +
+  scale_color_manual(values = data_plots$legend_colors) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), 
+               colour="black", linewidth=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5) +
+  xlab("RDA 1") + ylab("RDA 2") +
+  facet_wrap(~"RDA space") +
+  guides(color=guide_legend(title=data_plots$legend_title)) +
+  theme_bw(base_size = 11) +
+  theme(panel.background = element_blank(), 
+        legend.background = element_blank(), 
+        panel.grid = element_blank(), 
+        plot.background = element_blank(), 
+        legend.text=element_text(size=rel(.8)), 
+        strip.text = element_text(size=11))
   
-# attribute colors to the outliers
-outliers <- rda_out$outliers %>% 
-  dplyr::select(snp, max_var_clim) %>% 
-  left_join(selected_var_colors, by="max_var_clim")
-
-# attribute colors to all SNPs
-allsnps <- tibble(snp=rownames(rda_out$rda_model$mod_rda$CCA$v)) %>% 
-  left_join(outliers, by="snp") %>% 
-  mutate(outlier_bg = replace_na(outlier_bg,transparent_col),
-         outlier_color = ifelse(outlier_bg == transparent_col, transparent_col, outline_col),
-         nooutlier_bg = ifelse(outlier_bg == transparent_col, nooutliers_bg, transparent_col),
-         nooutlier_color = ifelse(outlier_bg == transparent_col, outline_col, transparent_col))
-
-# Generate the rda plots
-if(rda_out$rda_model$axis_significance %>% as.data.frame() %>% nrow()-1>2) {
-par(mfrow=c(1,2))
-rdaplots <-  lapply(2:3, function(second.axis){
-    
-plot(rda_out$rda_model$mod_rda, type="n", scaling=3, xlim=c(-1,1), ylim=c(-0.5,0.5), choices=c(1,second.axis))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$nooutlier_color, bg=allsnps$nooutlier_bg , scaling=3, choices=c(1,second.axis))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$outlier_color, bg=allsnps$outlier_bg, scaling=3, choices=c(1,second.axis))
-text(rda_out$rda_model$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, arrow.mul=1.25, choices=c(1,second.axis))
-if(second.axis==2) legend("topleft", legend=legend_names, bty="n", col=outline_col, pch=21, cex=1, pt.bg=legend_colors,ncol=1,title=legend_title)
-    recordPlot()
-  })} else {
-    par(mfrow=c(1,1))
-
-plot(rda_out$rda_model$mod_rda, type="n", scaling=3, xlim=c(-0.3,0.3), ylim=c(-0.5,0.5), choices=c(1,2))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$nooutlier_color, bg=allsnps$nooutlier_bg , scaling=3, choices=c(1,2))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$outlier_color, bg=allsnps$outlier_bg, scaling=3, choices=c(1,2))
-text(rda_out$rda_model$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, arrow.mul=0.7, choices=c(1,2))
-legend("topleft", legend=legend_names, bty="n", col=outline_col, pch=21, cex=1, pt.bg=legend_colors,ncol=1,title=legend_title)    
-    
-  }
-
-  title(rda_out$rda_model$form_rda, line=-3,outer = TRUE)
+  
+  
 }
 
+make_manhattan_plot <- function(data_plots){ 
 
-
-
-
-# Function to plot outliers in RDA plots and color them based on the detection method
-plot_outliers_meth <- function(rda_out){
-
-# attribute one color to each climatic variable 
-method_colors <- c('#FCF926','#3BCD24','#CD24B2')
-names(method_colors) <- c("Mahalanobis distance","Axis loadings", "Both")
-
-# Some color options for the figures
-nooutliers_bg <- '#f1eef6'
-outline_col <- 'gray32'
-transparent_col <- rgb(0,1,0, alpha=0)
-legend_title <- 'Outlier detection method'
-
-# attribute colors to the outliers
-outliers <- rda_out$outliers %>% 
-  dplyr::select(snp, load_meth, maha_meth)
-
-# attribute colors to all SNPs
-allsnps <- tibble(snp=rownames(rda_out$rda_model$mod_rda$CCA$v)) %>% 
-  left_join(outliers, by="snp") %>% 
-  mutate(outlier_bg = case_when(load_meth == TRUE & maha_meth == TRUE ~ method_colors["Both"],
-                                load_meth == TRUE & maha_meth == FALSE ~ method_colors["Axis loadings"],
-                                load_meth == FALSE & maha_meth == TRUE ~ method_colors["Mahalanobis distance"],
-                                is.na(load_meth) & is.na(maha_meth) ~ transparent_col),
-         outlier_color = ifelse(outlier_bg == transparent_col, transparent_col, outline_col),
-         nooutlier_bg = ifelse(outlier_bg == transparent_col, nooutliers_bg, transparent_col),
-         nooutlier_color = ifelse(outlier_bg == transparent_col, outline_col, transparent_col))
-
-# Generate the rda plots
-if(rda_out$rda_model$axis_significance %>% as.data.frame() %>% nrow()-1>2) {
-par(mfrow=c(2,2))
-rdaplots <-  lapply(2:3, function(second.axis){
-    
-plot(rda_out$rda_model$mod_rda, type="n", scaling=3, xlim=c(-1,1), ylim=c(-0.5,0.5), choices=c(1,second.axis))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$nooutlier_color, bg=allsnps$nooutlier_bg , scaling=3, choices=c(1,second.axis))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$outlier_color, bg=allsnps$outlier_bg, scaling=3, choices=c(1,second.axis))
-text(rda_out$rda_model$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, arrow.mul=1.25, choices=c(1,second.axis))
-if(second.axis==2) legend("topleft", legend=names(method_colors), bty="n", col=outline_col, pch=21, cex=1, pt.bg=method_colors,ncol=1, title=legend_title)
-    recordPlot()
-  })} else {
-    par(mfrow=c(1,1))
-
-plot(rda_out$rda_model$mod_rda, type="n", scaling=3, xlim=c(-0.3,0.3), ylim=c(-0.5,0.5), choices=c(1,2))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$nooutlier_color, bg=allsnps$nooutlier_bg , scaling=3, choices=c(1,2))
-points(rda_out$rda_model$mod_rda, display="species", pch=21, cex=1, col=allsnps$outlier_color, bg=allsnps$outlier_bg, scaling=3, choices=c(1,2))
-text(rda_out$rda_model$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, arrow.mul=0.7, choices=c(1,2))
-legend("topleft", legend=names(method_colors), bty="n", col=outline_col, pch=21, cex=1, pt.bg=method_colors,ncol=1, title=legend_title)    
-    
+data_plots$tab[order(data_plots$tab$snp_type),] %>% 
+ggplot() +
+  geom_hline(yintercept=-log10(0.01/length(data_plots$tab$pvalues)), linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(aes(x=pos, y=-log10(pvalues), col = snp_type), size=1.4) +
+  scale_color_manual(values = data_plots$legend_colors) +
+  xlab("Loci") + ylab("-log10(p-values)") +
+  facet_wrap(~"Manhattan plot", nrow = 3) +
+  guides(color=guide_legend(title=data_plots$legend_title)) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(legend.position="right", legend.background = element_blank(), panel.grid = element_blank(), legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
   }
 
-  title(rda_out$rda_model$form_rda, line=-3,outer = TRUE)
+
+# Function that combines two types of plot:
+  # plots in which outliers are colored according to their most associated climatic variable
+  # plots in which outliers are colored according to the detection method used to identify them:
+      # a method based on the Mahalanobis distances from the center of the RDA space
+      # a method based on the extreme SNP loadings on each significant axis
+combine_rda_outlier_ggplots <- function(rda_out,color_clim_var){
+
+# Storing data and options to generate the plots in a list
+list_data_plots <- list(clim=list(), # options/data specific to plots with colors based on the climatic variables
+                        meth=list()) # options/data specific to plots with colors based on the detection methods
+
+
+# Figure options shared between the two types of plot
+# ===================================================
+
+nooutliers_bg <- "gray90"
+nooutliers_legend <- "No detection"
+
+locus_scores <- scores(rda_out$rda_model$mod_rda, choices=c(1:2), 
+                       display="species", # 'species' in the vegan package correspond to the loci
+                       scaling="none") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("snp") %>% 
+  as_tibble() %>% 
+  inner_join(rda_out$GSout, by="snp") %>% 
+  mutate(pos=seq(1:nrow(.)))
+
+TAB_var <- as.data.frame(scores(rda_out$rda_model$mod_rda, choices=c(1,2), display="bp"))
+  
+# Fig options/data specific to plots based on the climatic variables
+# ==================================================================
+
+# Legend options
+vec_color_clim_var <- color_clim_var[names(color_clim_var) %in% unique(rda_out$outliers$max_var_clim)]
+list_data_plots$clim$legend_title <- 'Climatic variable'
+list_data_plots$clim$legend_names <- c(nooutliers_legend,names(vec_color_clim_var))
+list_data_plots$clim$legend_colors <- c(nooutliers_bg,vec_color_clim_var) %>% unname()
+
+
+list_data_plots$clim$tab <-  locus_scores %>% 
+  left_join(rda_out$outliers[,c("snp", "max_var_clim")],by="snp") %>%  
+  mutate(max_var_clim = replace_na(max_var_clim,nooutliers_legend)) %>% 
+  mutate(max_var_clim =factor(max_var_clim,levels=list_data_plots$clim$legend_names)) %>% 
+  dplyr::rename(snp_type = max_var_clim)
+
+
+# Fig options/data specific to plots based on the detection methods
+# =================================================================
+
+
+# Legend options
+list_data_plots$meth$legend_colors <- c(nooutliers_bg,'#FCF926','#3BCD24','#CD24B2')
+list_data_plots$meth$legend_names <- c(nooutliers_legend,"Mahalanobis distance","Axis loadings", "Both")
+list_data_plots$meth$legend_title <- 'Outlier detection'
+
+
+list_data_plots$meth$tab <-   locus_scores %>% 
+  left_join(rda_out$outliers[,c("snp", "load_meth", "maha_meth")],by="snp") %>%  
+  mutate(snp_type = case_when(load_meth == TRUE & maha_meth == TRUE ~  list_data_plots$meth$legend_names[[4]],
+                              load_meth == TRUE & maha_meth == FALSE ~ list_data_plots$meth$legend_names[[3]],
+                              load_meth == FALSE & maha_meth == TRUE ~ list_data_plots$meth$legend_names[[2]],
+                              is.na(load_meth) & is.na(maha_meth) ~ list_data_plots$meth$legend_names[[1]])) %>% 
+  mutate(snp_type=factor(snp_type,levels=list_data_plots$meth$legend_names)) 
+
+
+
+# Generate the RDA plots
+# =====================
+
+
+p1 <- lapply(list_data_plots, function(x) make_rda_ggplot(data_plots = x,
+                                                         TAB_var=TAB_var))
+
+p2 <- lapply(list_data_plots, function(x) make_manhattan_plot(data_plots = x))
+
+plot_row <- plot_grid(p1$clim, p1$meth,p2$clim,p2$meth, ncol=2)
+
+# Title options
+title <- ggdraw() + 
+  draw_label(
+    rda_out$rda_model$form_rda,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+
+# merge title and plots
+plot_grid(
+  title, plot_row,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+
+   
 }
-
-
-# plot RDA models with outliers
-pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers.pdf")
-lapply(rda_outliers, plot_outliers_clim)
-lapply(rda_outliers, plot_outliers_meth)
-dev.off()
-
 ```
 
+```{r GGPlotRDAoutliers, results='hide'}
+# Plot RDA outliers with different colors based either on the detection method or the most asspciated climatic variable
+pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_2.pdf")
+lapply(rda_outliers, function(x) combine_rda_outlier_ggplots(rda_out = x, color_clim_var=color_clim_var))
+dev.off()
+```
+
+
+```{r VennDiagramOutliers, fig.height=8, fig.width=8, message=F}
+list_outliers <- list("global clim" = rda_outliers[[1]]$outliers$snp,
+                      "global clim + PS" = rda_outliers[[2]]$outliers$snp,
+                      "drought clim" = rda_outliers[[3]]$outliers$snp,
+                      "drought clim + PS" = rda_outliers[[4]]$outliers$snp)
+
+p <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
+  guides(fill = "none") + 
+  theme(text = element_text(size=16)) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+
+ggsave("figs/RDA/VennDiagramOutliers.pdf",p)
+
+p
+```
 
 
 
