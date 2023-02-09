@@ -5,7 +5,7 @@
 
 ## REPORTS
 
-In the folder `/reports`._
+In the folder `/reports`.
 
 - `1_FormattingGenomicData.Rmd` Formatting and filtering of the genomic data and imputation of missing data.
 
