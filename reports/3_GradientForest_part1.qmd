@@ -1,0 +1,409 @@
+---
+title: "Gradient Forest analysis - Part 1"
+subtitle: "Candidate SNPs identification"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+</style>
+
+
+```{r setup, include=F}
+knitr::opts_chunk$set(cache=F, size="tiny")
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)
+library(gradientForest)
+library(parallel)
+library(foreach)
+library(doParallel)
+library(here)
+library(data.table)
+library(cowplot)
+library(ggVennDiagram)
+```
+
+
+
+# Introduction
+
+
+Most analyses conducted in this document are based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental.
+
+
+In this report, the GF algorithm is used to identify potential outliers using the raw estimates of population minor allele frequencies [GF-raw in @fitzpatrick2021experimental].
+
+
+**Strengths** of the GF algorithm: incorporation of multivariate predictors, interactions between predictors, and nonlinear allele frequency gradients.
+**Weakness**: not controlling for demographic history.
+
+GF models are fitted to each locus individually and a $R^2$ is obtained for each locus. Empirical p-values are then calculated.
+
+The **empirical p-value approach** is described in @lotterhos2014evaluation: '[...] if the set of neutral loci is large enough, the statistical significance of a putatively selected outlier locus could be assessed by its quantile in the empirical distribution of differentiation measures obtained from the neutral set.'
+
+ 
+In @fitzpatrick2021experimental, the authors use a set of intergenic SNPs to obtain a distribution of $R^2$ values, which is considered as the empirical null distribution of $R^2$ values. They calculate the empirical p-values by determining the rank of the $R^2$ value for each locus within the distribution of $R^2$ values from the intergenic SNPs.
+
+In the present report, we randomly sample $n$ SNPs and we compare $R^2$ value of each locus to the $R^2$ distribution of the $n$ randomly selected SNPs. Thus, the **empirical p-value** $\hat{p}$ of the locus $l$ is equal to:
+
+$$\hat{p}_l = 1 - (r_l / n)$$
+ with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the  $n$ randomly selected SNPs. 
+
+# Options, parameters and functions
+
+```{r FunctionToGenerateMyKables}
+# my function to build tables
+kable_mydf <- function(x, boldfirstcolumn){
+  x %>% 
+  kable() %>%  
+  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F,font_size =11) %>% 
+  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
+```
+
+## Functions from @fitzpatrick2021experimental
+
+The following functions are based on the functions written by MC Fitzpatrick (Appalachian Lab, Frostburg, MD) and available in the Github repository:  <https://github.com/fitzLab-AL/geneticOffsetR>
+
+
+### `format_geno`
+
+Function to format the genomic data used in the GF analysis.
+
+Inputs:
+
+  - `genodata`: the genomic dataset with SNPs in columns and populations in rows (with population names as row names)
+  - `selected_snps`: SNPs selected for the analysis. If 'all', all SNPs are selected.
+  - `rm_rare_alleles`: specify whether rare alleles are removed or not. The rare alleles are the alleles that are polymorphic in fewer than five populations.
+  - `selected_random_snps`: number of random SNPs selected for the analysis. If `selected_random_snps` = 0,  > 0, no random SNPs are selected.
+
+```{r FunctionFormatGeno}
+format_geno <- function(genodata, selected_snps, rm_rare_alleles, selected_random_snps){
+
+  # run GF on all SNPs or a subset of selected SNPs?
+  if(length(selected_snps)>1){genodata <- genodata %>% dplyr::select(all_of(selected_snps))}
+  
+  # remove SNPs that are polymorphic in fewer than five populations?
+  if(rm_rare_alleles==T){genodata  <- genodata %>% dplyr::select(which(unlist(lapply(apply(., 2, unique), length))>=6))}
+  
+  # run GF on a random subset of SNPs?
+  if(selected_random_snps>0){genodata <- genodata %>% dplyr::select(sample(colnames(.),selected_random_snps))}
+  
+  return(genodata)
+  }
+```
+
+### `run_gf_ind`
+
+Function to run the GF models individually for each locus.
+
+Inputs:
+
+  - `genodata`: the genomic dataset with SNPs in columns and populations in rows (with population names as row names)
+  - `climdata`: table with the climatic variables with a row for each population
+  - `climvars`: vector with the names of the climatic variables to be used in the GF models
+  - `ntree`: number of trees to fit 
+  - `cores`: number of processors to use
+  
+```{r FunctionRunGFInd}
+run_gf_ind <- function(genodata, climdata, climvars, ntree, cores){
+
+  # create custom object to hold output 
+  gf_output_obj <- setClass("gf_output_obj", slots = c(gf_data="data.frame", gf_impts="list"))
+  
+  # check that populations are in the same order in the genomic and climatic datasets
+  if(identical(climdata$pop,rownames(genodata))==F){
+    stop("Populations are not in the same order in the genomic and climatic tables.")
+  }
+  
+  # check to make sure user has set the number of cores (min = 1)
+  if(is.na(cores)){
+    stop(paste0("You need to provide the number of processors to use (i.e., cores = 4). You have a maximum of ", detectCores(), " cores available."))
+  }
+  
+  if(cores>detectCores()){
+    stop(paste0("You have a maximum of ", detectCores(), " cores available."))
+  }
+  
+ 
+    # fit the GF model to each SNP individually and in parallel
+    cl <- makeCluster(cores, setup_strategy = "sequential")
+    registerDoParallel(cl)
+    
+    gf_impts <- foreach(k=1:ncol(genodata), .verbose=F, .packages=c("gradientForest")) %dopar%{
+      locus <- data.frame(genodata[,k])
+      names(locus) <- colnames(genodata)[k]
+      gf_mod <- gradientForest(data.frame(climdata[, climvars], locus), 
+                               predictor.vars=climvars, response.vars=colnames(genodata)[k], 
+                               corr.threshold=0.5, ntree=ntree, trace=F)
+
+      if(!is.null(gf_mod)){data.frame(variable=names(importance(gf_mod)),
+                                      impts = importance(gf_mod), 
+                                      snp = colnames(genodata)[k])}
+    }
+    
+    stopCluster(cl)
+    
+    
+    return(gf_output_obj(gf_data = data.frame(genodata), gf_impts = gf_impts))
+ 
+  }
+```
+
+
+
+### `extract_pvals`
+
+Function to calculate the empirical p-values
+
+Inputs:
+
+
+  - `gf_outputs`: output object from `run_gf_ind` function
+  - `neutral_snps`: subset of randomly selected SNPs used as 'neutral' SNPs to develop the empirical null model
+
+ 
+
+```{r FUnctionExtractPvals}
+extract_pvals <- function(gf_outputs, neutral_snps){
+
+# extract the R2 importance values from the GF outputs and arrange them in a
+  # dataframe with a row for each SNP with R2>0 and a column with the R2 of each climatic variable
+gf_R2 <-  gf_outputs@gf_impts %>% 
+    bind_rows() %>% 
+    pivot_wider(names_from = "variable", values_from = "impts") %>% 
+    rowwise() %>% 
+    mutate(totalR2 = sum(c_across(where(is.numeric)))) %>% 
+    arrange(snp)
+
+# extend the table to all the SNPs used in the GF analysis
+  dat <- gf_outputs@gf_data %>% 
+    t() %>% 
+    as.data.frame() %>% 
+    rownames_to_column("snp") %>% 
+    dplyr::select(snp) %>% 
+    as_tibble() %>% 
+    left_join(gf_R2, by="snp") %>% 
+    mutate(across(where(is.numeric), ~replace_na(.x, 0)))
+  
+  
+# subset of random SNPs considered as the 'neutral' SNPs
+  neutral_snps_R2 <- dat %>% 
+    filter(snp %in% neutral_snps)
+  
+pV <- sapply(1:nrow(dat), function(x, dat, neutral_snps, neutral_snps_R2){
+    snps2Rank <- rbind(dat[x,], neutral_snps_R2) %>% 
+      distinct() %>% 
+      dplyr::select(-snp)
+    P <- apply(snps2Rank, 2, function(y){
+      rankSNP <- frank(y)
+      return(1-rankSNP[1]/length(rankSNP))
+    })}, dat, neutral_snps, neutral_snps_R2)
+  
+  # format output as data.frame
+  pV <- t(pV)
+  colnames(pV) <- paste("pval_", colnames(pV), sep="")
+  pV <- data.frame(dat, pV)
+  return(pV)
+}
+```
+
+
+### `identify_GFoutliers`
+
+Function to identify the GF outliers
+
+Inputs:
+
+
+  - `list_climvars`: list of vectors with the names of the climatic variables to be used in the GF models
+  - `nb_neutral_snps`: number of random SNPs to sample from the genomic data to develop the empirical null model
+
+
+
+```{r FunctionToIdentifyGFoutliers}
+identify_GFoutliers <- function(genodata,
+                                climdata,
+                                list_climvars, 
+                                ntree, 
+                                rm_rare_alleles, 
+                                selected_snps, 
+                                cores, 
+                                selected_random_snps,
+                                nb_neutral_snps){
+  
+genodata <- format_geno(genodata,
+                        selected_snps,
+                        rm_rare_alleles,
+                        selected_random_snps)
+
+# we sample random SNPs that are considered as neutral SNPs
+neutral_snps <- sample(colnames(genodata),nb_neutral_snps,replace = F)
+
+
+gf_out <- lapply(list_climvars, function(x){
+  
+gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, climvars = x$variables, ntree = ntree, cores)
+
+gf_pvals <- extract_pvals(gf_outputs=gf_outputs,neutral_snps=neutral_snps)
+
+
+outliers005 <- gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp)
+outliers001 <- gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
+outliers_bonf <- gf_pvals %>% filter(pval_totalR2<0.01/length(gf_pvals$snp)) %>% pull(snp) # bonferroni correction
+  
+return(list(genodata = genodata,
+            climvars= x,
+            gf_pvals = gf_pvals, 
+            outliers = list(outliers005 = outliers005,
+                            outliers001 = outliers001, 
+                            outliers_bonf = outliers_bonf)))
+
+})
+
+names(gf_out) <- lapply(gf_out, function(x) x$climvars$code) %>% unlist()
+
+return(gf_out)
+}
+```
+
+
+# Downloading the data
+
+## Genomic data
+
+
+```{r LoadGenomicData}
+# Population-based allele frequencies
+# ===================================
+genodata <- read.csv(here::here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv"),
+                     row.names = 1) 
+
+genodata[1:10,1:10] %>% 
+  mutate(across(where(is.numeric), round, 2)) %>% 
+  kable_mydf(boldfirstcolumn = T)
+```
+
+The genomic dataset contains **population-based allele frequencies** of `r ncol(genodata)-1` populations and `r nrow(genodata)` SNPs.
+
+**Comment:** This data contains the population-based allele frequencies of the **minor allele**. The minor allele was identified as the minor allele across all individuals. However, as the populations do not contain the same number of individuals, the average of the population-based allele frequencies is higher than 0.5 for some SNPs.
+
+```{r HighFreqAlleles}
+high_freqs <- genodata %>% 
+  summarise_all(mean) %>% 
+  pivot_longer(everything(),names_to = "snp",values_to= "mean") %>% 
+  filter(mean>0.5)
+```
+
+
+`r length(high_freqs$snp)` SNPs have average population-based allele frequencies higher than 0.5. Can we still call them population minor allele frequencies?
+
+## Climatic data
+
+```{r LoadEnvData}
+# We load the scaled climatic variables
+climdata <- readRDS(here::here("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds"))[[2]]
+
+
+# Selected summer-drought variables
+# =================================
+drought_var <- list(name="Summer-drought variables",
+                   code="Droughtvar",
+                   variables=c("MSP","MWMT"))
+
+
+
+# Selected global-climate variables
+# =================================
+global_var <- list(name="Global-climate variables",
+                   code="GCvar",
+                   variables=c("bio1","bio12","bio15","bio3","bio4"))
+```
+
+
+# Identify GF outliers
+
+
+
+
+```{r IdentifyGFoutliers, eval=F}
+set.seed(55)
+
+gf_out <- identify_GFoutliers(genodata = genodata,
+                              climdata = climdata,
+                              list_climvars=list(global_var,drought_var),
+                              rm_rare_alleles = T, 
+                              selected_snps = "all", 
+                              ntree=500,
+                              cores = 9, 
+                              selected_random_snps = 0,
+                              nb_neutral_snps = 1000)
+
+saveRDS(gf_out, here::here("outputs/GF/gf_outliers.rds"))
+```
+
+# Common outliers with RDA
+
+```{r VennDiagrams, fig.height=8, fig.width=10}
+rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
+gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
+
+
+# Global climatic variables
+# -------------------------
+list_outliers <- list("RDA" = rda_outliers[[1]]$outliers$snp,
+                      "RDA + PS" = rda_outliers[[2]]$outliers$snp,
+                      "GF" = gf_out$GCvar$outliers$outliers001)
+
+p_gc <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
+  guides(fill = "none") + 
+  labs(caption='Global climatic variables') +
+  theme(text = element_text(size=16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+
+
+# Summer-drought variables
+# ------------------------
+
+list_outliers <- list("RDA" = rda_outliers[[3]]$outliers$snp,
+                      "RDA + PS" = rda_outliers[[4]]$outliers$snp,
+                      "GF" = gf_out$Droughtvar$outliers$outliers001)
+
+p_drought <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
+  guides(fill = "none") + 
+  labs(caption='Summer-drought variables') +
+  theme(text = element_text(size=16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+
+p <- plot_grid(p_gc,p_drought, ncol=2)
+
+ggsave(here::here("figs/GF/VennDiagramOutliers.pdf"),p,width = 10, height = 8)
+
+p
+```
+

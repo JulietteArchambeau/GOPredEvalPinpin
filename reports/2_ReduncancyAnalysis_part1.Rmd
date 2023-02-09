@@ -1226,6 +1226,8 @@ rda_outliers <- rda_models %>%
   lapply(function(x) {
     identify_outliers(rda_model = x, explanatory_data = listdf_pop$dfsc, geno_data = geno_pop)
   })
+
+saveRDS(rda_outliers, "outputs/RDA/RDA_outliers.rds")
 ```
 
 ## Outlier visualization
