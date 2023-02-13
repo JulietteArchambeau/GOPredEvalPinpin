@@ -5,7 +5,7 @@
 
 ## REPORTS
 
-In the folder `/reports`.
+The code (`.qmd` and `Rmd` files) used to generate the following reports can be found in the folder `/reports`.
 
 - [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data and imputation of missing data.
 
