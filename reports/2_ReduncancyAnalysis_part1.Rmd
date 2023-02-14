@@ -3,6 +3,7 @@ title: "Redundancy analysis - Part 1"
 subtitle: "Climatic variable selection, variance partitionning & candidate SNPs identification"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+output_dir: "docs"
 output:
   bookdown::html_document2:
     df_print: kable
@@ -12,35 +13,29 @@ output:
     toc_depth: 4
     toc_float:
       collapsed: no
-  pdf_document:
-    toc: yes
-    toc_depth: '4'
 editor_options:
   chunk_output_type: console
 bibliography: references.bib
 always_allow_html: true
 ---
 
+```{css, echo=FALSE}
+pre {
+  max-height: 150px;
+  overflow-y: auto;
+  overflow-x: auto;
+  font-size: 10px;
+}
 
-<!-- <style> -->
-<!-- pre { -->
-<!--   overflow-x: auto; -->
+<!-- pre[class] { -->
+<!--   max-height: 600px; -->
 <!-- } -->
-<!-- pre code { -->
-<!--   word-wrap: normal; -->
-<!--   white-space: pre; -->
-<!-- } -->
-<!-- </style> -->
 
-<!-- <style type="text/css"> -->
-<!-- div.main-container { -->
-<!--   max-width: 2000px; -->
-<!--   margin-left: auto; -->
-<!--   margin-right: auto; -->
-<!-- } -->
-<!-- </style> -->
+body{
+  font-size: 12px;
+}
 
-
+```
 
 
 ```{r setup, include=FALSE}
@@ -128,11 +123,11 @@ Most analyses conducted in this document are based on:
 
 RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). In the present study, it seems more relevant to work with allele frequencies as several genotypes were collected at each sampling site (i.e. source population) and therefore experience the same climatic conditions. Moreover, the sample sizes varies across populations.
 
-However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \ref(VarPart)), correcting for population structure with the ancestry coefficient most likely resulted in overcorrection for population structure. 
+However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \@ref(VarPart)), correcting for population structure with the ancestry coefficient most likely resulted in overcorrection for population structure. 
 
-In the present document,  we will therefore use *population-based allele frequencies* to select the climatic variables with the stepwise selection procedure (section \ref(StepwiseSelection)), identify the candidate SNPs with RDA and calculate the genomic offset.
+In the present document,  we will therefore use *population-based allele frequencies* to select the climatic variables with the stepwise selection procedure (section \@ref(StepwiseSelection)), identify the candidate SNPs with RDA and calculate the genomic offset.
 
-We only use the *individual-based allele counts* for variance partitioning in section \ref(VarPart), in which we estimate the relative contribution of climate, population structure and geography. Population structure is either accounted for with the ancestry coefficients at the genotype level from @jaramillo2015molecular (section \ref(VarPartInd)), either using the first PCs of a PCA based on *population-level allele frequencies* (section \ref(VarPartPop)).
+We only use the *individual-based allele counts* for variance partitioning in section \@ref(VarPart), in which we estimate the relative contribution of climate, population structure and geography. Population structure is either accounted for with the ancestry coefficients at the genotype level from @jaramillo2015molecular (section \@ref(VarPartInd)), either using the first PCs of a PCA based on *population-level allele frequencies* (section \@ref(VarPartPop)).
 
   
 # Downloading the data
@@ -228,11 +223,11 @@ We also remove the variables `MOP` and `AOP` because there is no metadata for th
 
 We remove also some variables of low biological interest for maritime past adaptation or adaptation to future climate: `PAS` (precipitation as snow between August and July), `bio13` (precipitation of the wettest month).
 
-When estimating exposure to climate change in section \ref(ExpCC), we saw that `bFFP` has weird future climatic values, so we remove it also. 
+When estimating exposure to climate change in section \@ref(ExpCC), we saw that `bFFP` has weird future climatic values, so we remove it also. 
 
 We remove `EPQ` (Emberger Pluviometric Quotient) because there is very low information about this variable in the litterature and its possible influence on forest trees.
 
-```{r FilteringClimVariables}
+```{r FilteringClimVariables, results="hide"}
 clim_var_to_rm <- c("bio7","TD", # we keep bio4
                     "bio6","bio11","EMT","NFFD","eFFP", # we keep MCMT
                     "GDD0","GDD5", # we keep bio1
@@ -274,7 +269,7 @@ p
 
 We also generate a correlation plot and perform a PCA to look at the correlation among the remaining climatic variables.
 
-```{r CorrelationsPanels,fig.height=9,fig.width=12}
+```{r CorrelationsPanels,fig.height=9,fig.width=12, results="hide"}
 # Chunk to generate figures to visualize the correlations among the climatic variables
 fig_options <- list(
   path = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",
@@ -285,8 +280,12 @@ fig_options <- list(
 make_corrplot(df = clim, 
               variables = colnames(clim)[-1], # we keep long, lat, elev and clim variables
               fig_options = fig_options)
+```
+
+![](../figs/ExploratoryAnalyses/CorrplotClimVariables.png)
 
 
+```{r PCAClimVariables,fig.height=9,fig.width=12, results="hide"}
 # Generate a PCA
 pca <- prcomp(clim[,-1], center = TRUE,scale. = TRUE)
 
@@ -325,14 +324,18 @@ listdf_ind$df <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>
 # Run this line to check that the order of the clones in the genomic data and explanatory variables data is the same.
 # identical(as.vector(listdf_ind$df$clon),rownames(geno_ind)) # should be TRUE 
 
-kable_mydf(listdf_ind$df[1:10,1:14],boldfirstcolumn = F)
+listdf_ind$df[1:10,1:14] %>% 
+  mutate(across(where(is.numeric), round, 2)) %>% 
+  kable_mydf(boldfirstcolumn = F)
 
 
 # create df with standardized variables (ie centered and scaled)
 listdf_ind$dfsc <- listdf_ind$df %>% 
   dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
 
-kable_mydf(listdf_ind$dfsc[1:10,1:14],boldfirstcolumn = F)
+listdf_ind$dfsc[1:10,1:14] %>% 
+  mutate(across(where(is.numeric), round, 2)) %>% 
+  kable_mydf(boldfirstcolumn = F)
 ```
 
 
@@ -552,7 +555,7 @@ p
 
 ## Criteria 2: a predictive approach{#StepwiseSelection}
 
-To select the variables of interest, we may also use a *predictive approach* using *RDA with stepwise selection*, where the goal is to *maximize the genetic variance* explained by a set of predictors [@capblancq2021redundancy].
+To select the climatic variables, we may also use a *predictive approach* using *RDA with stepwise selection*, where the goal is to *maximize the genetic variance* explained by a set of predictors [@capblancq2021redundancy].
 
 For that, we use the selection procedure from the `ordiR2step` function of the package `vegan`. 
 
@@ -564,13 +567,14 @@ We have to specify two models:
   
 In the `ordi2step` function, the default criteria for including the variables is based on both *significance* of the newly selected variables, and the comparison of *adjusted variation* ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. If the new variable is not significant or the $R^2_{adj}$ of the model including this new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
 
-We use the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.  
+We use the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.
 
 ```{r NumberStewiseSelectionModels}
 # How many iterations of the stepwise selection procedure do we perform?
 nbmodels <- 100
 ```
 
+We perform `r nbmodels` iterations of the stepwise selection procedure.
 
 ```{r StepwiseSelectionPopLevel, eval=F}
 # we standardize the climatic variables
@@ -606,29 +610,55 @@ kable_mydf(sumstepwise, boldfirstcolumn = F)
 ```
 
 
-## Criteria 3: biological meaning and study goals
+According to the stepwise selection procedure, the climatic variables that maximize the variance of the genomic data are:
+
+  - `bio15`: mean annual temperature (in °C). 
+  
+  - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
+  
+  - `bio4`: temperature seasonality (standard deviation x100) (in °C).
+  
+
+## Criteria 3: biological relevance to the study goals
 
 Study goals:
 
-  - evaluate the genomic offset predictions with different methods.
+  - *evaluate* the genomic offset predictions with different methods.
   
-  - provide GO estimates for the studied populations to identify populations that may be at risk of maladaptation under climate change (those estimates will be provided based on the "best performing" genomic offset predictions in the evaluation part).
+  - provide *GO estimates* for the studied populations to identify populations that will show the highest disruption of their current gene-environment relationships (those estimates will be provided based on the 'best performing' genomic offset predictions in the evaluation part).
   
-### Variable selection for the evaluation part
+It may be relevant not to select the same climatic variables for the different study goals and evaluation methods. 
 
-Importantly, it may be relevant not to select the same climatic variables for the different study goals and evaluation methods. 
+### Climatic variables relevant for the evaluation part
 
-Indeed, seedling survival in common gardens after a strong summer drought is likely to be mainly impacted by the differences in adaptation to drought conditions among populations. So, it may be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
 
-To evaluate genomic offset predictions using height of young trees in common gardens as a proxy of fitness, both winter and summer temperature and precipitation variables can be used as they may all impact tree growth. However, it may still be interesting to compare the *summer drought GO* predictions with the GO predictions based on climatic variables capturing both winter and summer conditions (ie *global-climate genomic offset*, *global-climate GO*), as winter conditions may also impact tree growth in common gardens. 
+> Evaluating genomic offset predictions with mortality data from common gardens after a strong summer drought
 
-In natural populations, climate change can *directly* impact tree mortality through more and more frequent and intense summer droughts. In contrast, an increase in winter temperatures is highly unlikely to directly impact the death of adult trees. Therefore, to determine whether current mortality rates in natural populations may be attributed to maladaptation to summer drought conditions, it may be relevant to evaluate the association between *drought genomic offset* predictions and mortality rates in National Forest Inventory plots.
-On the other hand, increased temperatures in winter can benefit to pests and pathogens, which can indirectly impact tree death. In such a case, it may also be relevant to evaluate the association between mortality rates in NFI plots and GO predictions considering both winter and summer climatic conditions.
+Differences among populations in their seedling survival in common gardens after a strong summer drought is likely to be mainly driven by their differences in adaptation to drought conditions. So, it may be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
+
+
+
+> Evaluating genomic offset predictions with height data from common gardens
+
+Height of young trees in common gardens is likely to be impacted by both winter and summer conditions, and both temperature and precipitation conditions. So it makes sense to evaluate GO predictions based on climatic variables capturing both temperature and precipitation conditions across the whole year (ie *global-climate genomic offset*, *global-climate GO*).
+
+However, it may still be interesting to compare height in common gardens with the *summer-drought GO* predictions. If the  *summer-drought GO* predictions are more associated with height in common gardens than *global-climate GO* predictions, it could mean that height is mostly impacted by summer conditions in the studied common gardens.
+
+> Evaluating genomic offset predictions with mortality data from natural populations
+
+
+In natural populations, climate change can *directly* impact tree mortality through more and more frequent and intense summer droughts. In contrast, an increase in winter temperatures is highly unlikely to directly impact the death of adult trees. Therefore, to determine whether current mortality rates in natural populations may be attributed to maladaptation to summer drought conditions, it may be relevant to evaluate the association between *summer-drought GO* predictions and mortality rates in National Forest Inventory plots.
+
+On the other hand, increased temperatures in winter can benefit to pests and pathogens, which can indirectly impact tree death. In such a case, it may also be relevant to evaluate the association between mortality rates in NFI plots and *global-climate GO* predictions considering both winter and summer climatic conditions.
 Note that in the NFI, a tree is not counted as dead if its death is attributed to pests. However, mortality is a multifactorial process and it can be very difficult (if not impossible) to determine the relative contributions of climate, pests and other factors to tree death.
 
-Evaluation of the genomic offset predictions with ecophysiological models: I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *global-climate GO* predictions.
+> Evaluating genomic offset predictions with predictions from ecophysiological models
 
-### Variable selection for providing GO predictions for the studied populations
+
+I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *global-climate GO* predictions.
+
+
+### Climatic variables relevant for providing GO predictions
 
 According to previous studies, maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures (eg [@grivet2011molecular]). Under climate change, cold temperatures are expected to increase in average at the location of the studied populations (Figure \@ref(fig:ViolinPlotExposureCC)). An increase in cold temperatures is unlikely to directly negatively impact the fitness of adult trees but it may impact the survival of young trees, the reproductive ability and the impact of pests and pathogens. 
 
@@ -652,7 +682,7 @@ Selected variables:
   - `MWMT`: the mean warmest month temperature (in °C).
   
 
-`MWMT` will increase a lot under climate change => strong exposure to climate change.
+`MWMT` will increase a lot under climate change => strong exposure to climate change (\@ref(fig:ViolinPlotExposureCC)).
 
 ```{r VizSelectedDroughtVar, fig.width=5,fig.height=5}
 ## Selected summer-drought variables
@@ -669,12 +699,6 @@ Selected variables:
   
   - `bio12`: annual precipitation (in mm).
   
-  - `MSP`: summer precipitation (in mm).
-  
-  - `MWMT`: the mean warmest month temperature (in °C).
-  
-  - `MCMT`: the mean coldest month temperature (in °C).
-  
   - `bio15`: mean annual temperature (in °C). 
   
   - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
@@ -682,21 +706,21 @@ Selected variables:
   - `bio4`: temperature seasonality (standard deviation x100) (in °C). 
   
 
-`bio1`, and to a lesser extent `MWMT`, will increase a lot under climate change => strong exposure to climate change.
+`bio1` will increase a lot under climate change => strong exposure to climate change (\@ref(fig:ViolinPlotExposureCC)).
 
 ```{r VizSelectedGlobalVar, fig.width=10,fig.height=10}
 ## Selected global-climate variables
 global_var <- list(name="Global-climate variables",
                    code="GCvar",
-                   variables=c("bio1","bio12","bio15","bio3","bio4")) #"MCMT","MWMT", "MSP"
+                   variables=c("bio1","bio12","bio15","bio3","bio4"))
 ```
 
 
 ### Viz correlation
 
-We can look at the correlation amon variables and with the PCs scores and geographic variables.
+We can look at the correlation among variables and with the PCs scores and geographic variables.
 
-```{r VizCorrSelectedVariables, fig.height=12,fig.width=12}
+```{r VizCorrSelectedVariables, fig.height=12,fig.width=12, results="hide"}
 fig_options <- list(
   path = "figs/ExploratoryAnalyses/CorrplotSelectedClimVariables.png",
   width=900,
@@ -905,6 +929,9 @@ We perform RDA models the four combinations of the two sets of selected climatic
   - Allele frequencies ~ drought-summer variables 
   
   
+RDA summary statistics are summarized in the pdfs `RDAsummary.pdf` and the RDA plots colored by gene pool are shown in the pdfs `RDAplots.pdf`.
+  
+
 ```{r FunctionToRunRDAmodels}
 # =========
 # FUNCTIONS
@@ -1132,6 +1159,7 @@ dev.off()
 ```
 
 
+
 ## Identify outliers
 
 Two ways of identifying the outliers with the RDA:
@@ -1139,6 +1167,7 @@ Two ways of identifying the outliers with the RDA:
   - identifying outliers based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). Method used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). To conduct the RDA-based genome scan, we use the `rdadapt` function from @capblancq2021redundancy.
 
   - identifying RDA outliers is to search for *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)
+  
 
 ```{r echo=F}
 # !!! Temporary chunk !!!
@@ -1232,7 +1261,10 @@ saveRDS(rda_outliers, "outputs/RDA/RDA_outliers.rds")
 
 ## Outlier visualization
 
-We visualize the outliers with RDA plots following @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)).
+
+### RDA plots based on Forester et al. (2018)
+
+We visualize the outliers with RDA plots following @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)). Figures are stored in `RDAplots_outliers_1.pdf`.
 
 ```{r FunctionToPlotRDAoutliers}
 # Function to make one RDA plot with different colors for outlier SNPs
@@ -1361,12 +1393,16 @@ par(mfrow=c(1,2))
 
 ```{r PlotRDAoutliers, results='hide'}
 # Plot RDA outliers with different colors based either on the detection method or the most associated climatic variable
-pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers.pdf")
+pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_1.pdf")
 lapply(rda_outliers, function(x) combine_rda_outlier_plots(rda_out = x,color_clim_var = color_clim_var))
 dev.off()
 ```
 
-We visualize the outliers with RDA and Manhattan plots following @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)).
+
+### RDA plots based on Capblancq and Forester (2021)
+
+
+We visualize the outliers with RDA and Manhattan plots following @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). Figures are stored in `RDAplots_outliers_2.pdf`.
 
 
 ```{r FunctionToGGPlotRDAoutliers}
