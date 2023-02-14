@@ -27,8 +27,6 @@
 /doc/*
 /outputs/*
 
-# Reports
-*.pdf
 
 # knitr and R markdown default cache directories
 *_cache
