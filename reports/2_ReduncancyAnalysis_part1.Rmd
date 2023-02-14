@@ -612,7 +612,7 @@ kable_mydf(sumstepwise, boldfirstcolumn = F)
 
 According to the stepwise selection procedure, the climatic variables that maximize the variance of the genomic data are:
 
-  - `bio15`: mean annual temperature (in °C). 
+  - `bio15`: precipitation seasonality (coefficient of Variation). 
   
   - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
   
@@ -699,7 +699,7 @@ Selected variables:
   
   - `bio12`: annual precipitation (in mm).
   
-  - `bio15`: mean annual temperature (in °C). 
+  - `bio15`: precipitation seasonality (coefficient of Variation). 
   
   - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
   
