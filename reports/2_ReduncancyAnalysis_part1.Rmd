@@ -27,14 +27,9 @@ pre {
   font-size: 10px;
 }
 
-<!-- pre[class] { -->
-<!--   max-height: 600px; -->
-<!-- } -->
-
 body{
   font-size: 12px;
 }
-
 ```
 
 
@@ -138,7 +133,7 @@ We only use the *individual-based allele counts* for variance partitioning in se
 ```{r LoadGenomicData}
 # Individual-based allele counts
 # ==============================
-geno_ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9817snps.csv",row.names = 1) %>% 
+geno_ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv",row.names = 1) %>% 
   t() %>% 
   as.data.frame()
 
@@ -147,7 +142,7 @@ kable_mydf(geno_ind[1:10,1:10], boldfirstcolumn = T)
 
 # Population-based allele frequencies
 # ===================================
-geno_pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv",
+geno_pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9185snps.csv",
                      row.names = 1)
 
 kable_mydf(geno_pop[1:10,1:10] %>% round(3), boldfirstcolumn = T)
@@ -347,7 +342,7 @@ As advised in @capblancq2021redundancy, the estimation of the population genetic
 
 
 ```{r LoadImtGenDataMAF}
-geno_pop_maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_10520snps.csv")
+geno_pop_maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_9879snps.csv")
 
 kable_mydf(geno_pop_maf[1:10,1:8], boldfirstcolumn = F)
 ```
@@ -876,7 +871,7 @@ list_sum_var_part <- lapply(list(global_var,drought_var), function(x){
 saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 ```
 
-```{r ShowSummaryVarPartIndividualLevel, eval=F}
+```{r ShowSummaryVarPartIndividualLevel, eval=T}
 list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 
 # Global-climate variables
@@ -1121,7 +1116,7 @@ plot_RDA <- function(df,x){
 
 
 
-```{r RunRDAmodels, eval=F}
+```{r RunRDAmodels, eval=F, results="hide"}
 # We store in a list the four combinations of: 
   # - the two sets of selected climatic variables
   # - correction or not by population structure
@@ -1578,10 +1573,6 @@ ggsave("figs/RDA/VennDiagramOutliers.pdf",p)
 
 p
 ```
-
-
-
-
 
 
 # References
