@@ -1,0 +1,246 @@
+---
+title: "Populatin coordinates, elevation and climatic data"
+subtitle: "Checking population information - Extracting climatic data with ClimateDT"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)  # CRAN v1.3.0
+library(janitor)
+```
+
+
+```{r Functions, echo=F}
+# My function to build tables
+kable_mydf <- function(x, 
+                       boldfirstcolumn, 
+                       font_size = 10, 
+                       round_number = 2,
+                       bootstrap_options = c("hover", "condensed", "responsive")){
+  x %>% 
+  mutate(across(where(is.numeric), round, round_number)) %>%
+  kable() %>%  
+  kable_styling(bootstrap_options = bootstrap_options, full_width = F, font_size = font_size) %>% 
+  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
+```
+
+# Introduction
+
+In this document, we first build a table with updated population coordinates and elevation. The information on maritime pine populations has been gathered by different teams across many years, so we had to merge the different sources of information. We first check that we have the most up to date population information.
+
+We have some information on 116 populations that were sampled within different projects. The different sampling are referred as CLONAPIN, B4ESTnew, CORSICA, FORGENIUS and GENTREE. The populations we use in the present study are the populations sampled within the CLONAPIN sampling (except the SID population, and the ROD population for which there is no genomic information). The entire set of populations is analysed within the PhD project of Adélaïde Theraroz.
+
+Then we use the population coordinates and elevation data to extract their climatic data using the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the B4EST project. Annual climatic variables are extracted between 1901 and 2098. 
+
+
+# Population coordinates and elevation
+
+We load the dataset with the coordinates of the 116 populations that Adélaïde uses during its PhD.
+
+```{r AllPopsCoordinates}
+pop_coord <- read_csv(here::here("data/PopulationData/coordinates_pinaster_populations_ade_phd.csv"),show_col_types = FALSE) %>% 
+  filter(if_any(everything(), ~ !is.na(.))) %>% # remove NAs rows at the end of the csv file
+  dplyr::rename(code = CODE, 
+                dataset = Data_set,
+                latitude = Latitude, 
+                longitude = Longitude) %>% 
+  filter(!code == "VAL") %>% # we remove the VAL pop which is duplicated (other name code: VAL-CORSICA)
+  mutate(dataset = ifelse(dataset == "B4EST new", "B4ESTnew", as.character(dataset)))
+
+# to check that there are no other duplicated rows
+# pop_coord %>% dplyr::select(latitude,longitude) %>% get_dupes()
+```
+
+<span style="color: red;">**Warning!**</span> There are two VAL populations in this dataset: VAL-VMQ and VAL-CORSICA. The VAL population that I used during my PhD is referred as VAL-VMQ (and belong to the CLONAPIN dataset). I will change its name.
+
+```{r VALpop}
+pop_coord %>% filter(str_detect(code,"VAL")) %>% kable_mydf(boldfirstcolumn = F)
+```
+
+We load the dataset with population information that I used during my PhD and we compare the population coordinates from the `coordinates_pinaster_populations_ade_phd.csv` file.
+
+```{r MyClonapinCoordinates}
+clonapin_pop_coord_juliette <- read_csv(here::here("data/PopulationData/coordinates_pinaster_populations_juliette_phd.csv"),
+                                        show_col_types = FALSE) %>%
+  filter(!is.na(CODE)) %>% # remove NAs rows at the end of the csv file 
+  dplyr::select(CODE, LATITUDE, LONGITUDE, ALTITUDE) %>% 
+  dplyr::rename(code = CODE, latitude_juliette = LATITUDE, longitude_juliette = LONGITUDE, altitude_juliette = ALTITUDE) %>% 
+  mutate(code = ifelse(code == "VAL", "VAL-VMQ", as.character(code))) %>% # rename VAL pop
+  mutate(altitude_juliette = ifelse(code == "CAS", 158, altitude_juliette)) %>% 
+  left_join(pop_coord, by=c("code")) %>% 
+  mutate(diff_longitude = longitude - longitude_juliette,
+         diff_latitude = latitude - latitude_juliette)
+
+
+clonapin_pop_coord_juliette %>% kable_mydf(boldfirstcolumn = T, round_number = 10)
+```
+
+The two files (`coordinates_pinaster_populations_juliette_phd.csv` and `coordinates_pinaster_populations_ade_phd.csv`) show small differences in the population coordinates. 
+
+We merge the two datasets using:
+
+  - the coordinates from the file `coordinates_pinaster_populations_juliette_phd.csv` for the CLONAPIN populations (i.e. the population coordinates I used during my PhD). 
+  
+  - the coordinates from the file `coordinates_pinaster_populations_ade_phd.csv` for the other populations.
+  
+  
+<span style="color: red;">**Warning!**</span>  The SID population (from Sidi-Meskour) is referred as belonging to the CLONAPIN dataset in the file `coordinates_pinaster_populations_ade_phd.csv` but was not included in the populations I used during my PhD (populations in the file `coordinates_pinaster_populations_juliette_phd.csv`). So we attribute to this population the coordinates from the file `coordinates_pinaster_populations_ade_phd.csv`.
+
+
+
+```{r MergingWithMyPopulationCoordinates}
+pop_coord <- pop_coord %>% 
+  left_join(clonapin_pop_coord_juliette %>% dplyr::select(code, contains("juliette")), by="code") %>% 
+  mutate(latitude = ifelse(dataset == "CLONAPIN" & !is.na(latitude_juliette), latitude_juliette,latitude),
+         longitude = ifelse(dataset == "CLONAPIN" & !is.na(longitude_juliette), longitude_juliette, longitude)) %>% 
+  dplyr::select(-longitude_juliette, -latitude_juliette)
+```
+
+In this dataset, the coordinates of some populations were not ok (eg the coordinates of the RIO population fall into the Mediterranean sea). Santi sent a new dataset (`coordinates_pinaster_populations_21022023.txt`) with updated coordinates (21/02/2023) and with elevation information (with some missing data for some populations).
+
+
+```{r NewAllPopsCoordinates}
+new_pop_coord <-read.delim(here::here("data/PopulationData/coordinates_pinaster_populations_21022023.txt")) %>% 
+  dplyr::rename(code = CODE, 
+                dataset = Data_set,
+                latitude_new = Latitude, 
+                longitude_new = Longitude,
+                altitude_new = Elevation,
+                country= Country)
+
+
+pop_coord <- pop_coord %>% 
+  left_join(new_pop_coord, by = c("dataset", "code")) %>% 
+  mutate(latitude_diff = latitude - latitude_new,
+         longitude_diff = longitude - longitude_new,
+         altitude_diff = altitude_juliette - altitude_new)
+```
+
+Which populations have new coordinates?
+
+```{r PopWithDifferentCoordinates}
+pop_coord %>% filter(latitude_diff != 0 | longitude_diff != 0) %>% 
+  dplyr::select(-contains("altitude")) %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+How many NAs in each column?
+
+```{r ChekingsNbNAs}
+pop_coord %>% 
+  summarise(across(everything(), ~ sum(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "Variable", values_to = "Number of NAs") %>% 
+  kable_mydf(boldfirstcolumn = F) 
+```
+
+Looking at altitude differences for the CLONAPIN populations 
+
+```{r AltitudeDifferences}
+pop_coord %>% 
+  dplyr::select(dataset,code,contains("altitude")) %>% 
+  dplyr::filter(dataset=="CLONAPIN") %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+We keep the new altitude information (those from the file `coordinates_pinaster_populations_21022023.txt`)
+
+```{r KeepingNewAltitudes}
+pop_coord <- pop_coord %>% 
+  mutate(latitude = latitude_new,
+         longitude = longitude_new,
+         altitude = case_when(dataset != "CLONAPIN" ~ as.numeric(altitude_new),
+                              dataset == "CLONAPIN" & is.na(altitude_new) ~ altitude_juliette, # for the ROD population
+                              dataset == "CLONAPIN" & !is.na(altitude_new) ~ as.numeric(altitude_new))) %>% 
+  dplyr::select(-contains("ude_"))
+```
+
+`r pop_coord %>% summarise(sum(is.na(altitude))) %>% pull()` have missing data for altitude.
+
+```{r MissingDataForAltitude}
+pop_coord %>%
+  dplyr::filter(is.na(altitude)) %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+We attribute to these populations the same elevation data as the one of the DEM used by ClimateDT (i.e. Google maps DEM).
+
+```{r AttributeDEEMelevationDataToPopulationsWithMissingDataForAltitude}
+pop_coord <- pop_coord %>% 
+  mutate(altitude = case_when(code == "CAV" ~ 1259,
+                              code == "FPN" ~ 792,
+                              code == "TAB" ~ 76,
+                              code == "TUS" ~ 84,
+                              code == "VCA" ~ 396,
+                              code == "ES_PP_58/MAE" ~ 1353,
+                              code == "ES_PP_59" ~ 1007,
+                              code == "ES_PP_60" ~ 1136,
+                              code == "MAUbis/FR-PP-12" ~ 606,
+                              TRUE ~ altitude))
+```
+
+
+We visualize and save the dataset. Sent to Santi and Adé the 22/02/2023. 
+
+```{r VizAndSavingAllPopsInfo}
+pop_coord %>% 
+  dplyr::select(-POP) %>% 
+  write_csv(here::here("data/PopulationData/population_information_pinaster_feb2023.csv"))
+
+
+pop_coord %>% 
+  dplyr::select(-POP) %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+
+# Extracting climatic data
+
+## Preparing a file for the extraction
+
+We generate a `csv` file for the extraction with ClimateDT. The format of the input file has to be:
+
+  - `1st Column` **ID** (alphanumeric) unique ID of the location (either a number or a code).
+
+  - `2nd Column` **Latitude** (float) latitude of the location expressed in decimal degrees (dot as decimal separator).
+
+  - `3rd Column` **Longitude** (float) longitude of the location expressed in decimal degrees (dot as decimal separator).
+
+  - `4th Column` **Elevation** (integer) elevation of the location expressed in meters a.s.l.
+
+
+```{r CsvFileForClimaticExtraction}
+# csv file sent to Maurizio Marchi the 22/02/2023
+# -----------------------------------------------
+pop_coord %>% 
+  select(code,latitude,longitude,altitude) %>% # rm the column dataset
+  write_csv(here::here("data/ClimaticData/Extraction/PopCoordinates_ClimateDT_PreExtractionTab.csv"))
+```
+
