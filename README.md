@@ -7,6 +7,8 @@
 
 The code (`.qmd` and `Rmd` files) used to generate the following reports can be found in the folder `/reports`.
 
+-   [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html) Checking population information (coordinates and elevation data) from different sources - Extracting climatic data with ClimateDT.
+
 -   [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data and imputation of missing data.
 
 -   [2_ReduncancyAnalysis_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_ReduncancyAnalysis_part1.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using RDA (Redundancy analysis)
