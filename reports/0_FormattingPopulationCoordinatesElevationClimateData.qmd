@@ -34,22 +34,11 @@ library(knitr)      # CRAN v1.26
 library(kableExtra) # CRAN v1.1.0
 library(tidyverse)  # CRAN v1.3.0
 library(janitor)
-```
+library(here)
+library(adespatial) # to calculate the Moran eigen vectors
 
-
-```{r Functions, echo=F}
-# My function to build tables
-kable_mydf <- function(x, 
-                       boldfirstcolumn, 
-                       font_size = 10, 
-                       round_number = 2,
-                       bootstrap_options = c("hover", "condensed", "responsive")){
-  x %>% 
-  mutate(across(where(is.numeric), round, round_number)) %>%
-  kable() %>%  
-  kable_styling(bootstrap_options = bootstrap_options, full_width = F, font_size = font_size) %>% 
-  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
-}
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
 ```
 
 # Introduction
@@ -66,7 +55,7 @@ Then we use the population coordinates and elevation data to extract their clima
 We load the dataset with the coordinates of the 116 populations that Adélaïde uses during its PhD.
 
 ```{r AllPopsCoordinates}
-pop_coord <- read_csv(here::here("data/PopulationData/coordinates_pinaster_populations_ade_phd.csv"),show_col_types = FALSE) %>% 
+pop_coord <- read_csv(here("data/PopulationData/coordinates_pinaster_populations_ade_phd.csv"),show_col_types = FALSE) %>% 
   filter(if_any(everything(), ~ !is.na(.))) %>% # remove NAs rows at the end of the csv file
   dplyr::rename(code = CODE, 
                 dataset = Data_set,
@@ -82,13 +71,13 @@ pop_coord <- read_csv(here::here("data/PopulationData/coordinates_pinaster_popul
 <span style="color: red;">**Warning!**</span> There are two VAL populations in this dataset: VAL-VMQ and VAL-CORSICA. The VAL population that I used during my PhD is referred as VAL-VMQ (and belong to the CLONAPIN dataset). I will change its name.
 
 ```{r VALpop}
-pop_coord %>% filter(str_detect(code,"VAL")) %>% kable_mydf(boldfirstcolumn = F)
+pop_coord %>% filter(str_detect(code,"VAL")) %>% kable_mydf()
 ```
 
 We load the dataset with population information that I used during my PhD and we compare the population coordinates from the `coordinates_pinaster_populations_ade_phd.csv` file.
 
 ```{r MyClonapinCoordinates}
-clonapin_pop_coord_juliette <- read_csv(here::here("data/PopulationData/coordinates_pinaster_populations_juliette_phd.csv"),
+clonapin_pop_coord_juliette <- read_csv(here("data/PopulationData/coordinates_pinaster_populations_juliette_phd.csv"),
                                         show_col_types = FALSE) %>%
   filter(!is.na(CODE)) %>% # remove NAs rows at the end of the csv file 
   dplyr::select(CODE, LATITUDE, LONGITUDE, ALTITUDE) %>% 
@@ -128,7 +117,7 @@ In this dataset, the coordinates of some populations were not ok (eg the coordin
 
 
 ```{r NewAllPopsCoordinates}
-new_pop_coord <-read.delim(here::here("data/PopulationData/coordinates_pinaster_populations_21022023.txt")) %>% 
+new_pop_coord <-read.delim(here("data/PopulationData/coordinates_pinaster_populations_21022023.txt")) %>% 
   dplyr::rename(code = CODE, 
                 dataset = Data_set,
                 latitude_new = Latitude, 
@@ -149,16 +138,16 @@ Which populations have new coordinates?
 ```{r PopWithDifferentCoordinates}
 pop_coord %>% filter(latitude_diff != 0 | longitude_diff != 0) %>% 
   dplyr::select(-contains("altitude")) %>% 
-  kable_mydf(boldfirstcolumn = F)
+  kable_mydf()
 ```
 
 How many NAs in each column?
 
 ```{r ChekingsNbNAs}
 pop_coord %>% 
-  summarise(across(everything(), ~ sum(is.na(.)))) %>% 
+  dplyr::summarise(across(everything(), ~ sum(is.na(.)))) %>% 
   pivot_longer(everything(), names_to = "Variable", values_to = "Number of NAs") %>% 
-  kable_mydf(boldfirstcolumn = F) 
+  kable_mydf() 
 ```
 
 Looking at altitude differences for the CLONAPIN populations 
@@ -167,7 +156,7 @@ Looking at altitude differences for the CLONAPIN populations
 pop_coord %>% 
   dplyr::select(dataset,code,contains("altitude")) %>% 
   dplyr::filter(dataset=="CLONAPIN") %>% 
-  kable_mydf(boldfirstcolumn = F)
+  kable_mydf()
 ```
 
 We keep the new altitude information (those from the file `coordinates_pinaster_populations_21022023.txt`)
@@ -187,7 +176,7 @@ pop_coord <- pop_coord %>%
 ```{r MissingDataForAltitude}
 pop_coord %>%
   dplyr::filter(is.na(altitude)) %>% 
-  kable_mydf(boldfirstcolumn = F)
+  kable_mydf()
 ```
 
 We attribute to these populations the same elevation data as the one of the DEM used by ClimateDT (i.e. Google maps DEM).
@@ -212,12 +201,12 @@ We visualize and save the dataset. Sent to Santi and Adé the 22/02/2023.
 ```{r VizAndSavingAllPopsInfo}
 pop_coord %>% 
   dplyr::select(-POP) %>% 
-  write_csv(here::here("data/PopulationData/population_information_pinaster_feb2023.csv"))
+  write_csv(here("data/PopulationData/population_information_pinaster_feb2023.csv"))
 
 
 pop_coord %>% 
   dplyr::select(-POP) %>% 
-  kable_mydf(boldfirstcolumn = F)
+  kable_mydf()
 ```
 
 
@@ -240,7 +229,48 @@ We generate a `csv` file for the extraction with ClimateDT. The format of the in
 # csv file sent to Maurizio Marchi the 22/02/2023
 # -----------------------------------------------
 pop_coord %>% 
-  select(code,latitude,longitude,altitude) %>% # rm the column dataset
-  write_csv(here::here("data/ClimaticData/Extraction/PopCoordinates_ClimateDT_PreExtractionTab.csv"))
+  dplyr::select(code,latitude,longitude,altitude) %>% # rm the column dataset
+  write_csv(here("data/ClimaticData/Extraction/PopCoordinates_ClimateDT_PreExtractionTab.csv"))
 ```
+
+
+
+## Formatting file after extraction
+
+We load the file sent by Maurizio Marchi with climatic variables extracted at the location of each populations and we format a dataset for the variables of interest for the CLONAPIN populations.
+
+```{r BuildingClimaticDatasetClonapinPopForPresentStudy}
+# extracting CLONAPIN population names
+# ------------------------------------
+clonapin_name_pops <- pop_coord %>% 
+  dplyr::filter(dataset=="CLONAPIN") %>% 
+  dplyr::filter(!code %in% c("ROD","SID")) %>% # no genomic data for these two populations
+  pull(code)
+  
+
+# keeping climatic variables of interest for the CLONAPIN populations
+# -------------------------------------------------------------------
+clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoordinatesPreExtractionTab.csv"),
+               show_col_types = FALSE) %>% 
+  dplyr::filter(!Year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
+  dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
+  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 to 1950
+  group_by(ID) %>% # group by population
+  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
+  dplyr::select(-contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei"), # remove monthly variables
+                -Year) %>% 
+  dplyr::rename(longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                pop=ID,
+                SP=MSP) %>% # replace mean summer precipitation by summer precipitation
+  dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>%  # the VAL-VMQ population is referred as VAL in the present study
+  bind_cols(dbmem(.[,c("latitude","longitude")])) # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+
+# saving the dataset in the DRYAD repository
+# ---------------------------------------
+clim %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesClimateInformation.csv"))
+```
+
 
