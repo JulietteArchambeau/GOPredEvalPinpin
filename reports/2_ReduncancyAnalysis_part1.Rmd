@@ -11,8 +11,8 @@ output:
     number_sections: yes
     toc: yes
     toc_depth: 4
-    toc_float:
-      collapsed: no
+    #toc_float:
+    #  collapsed: no
 editor_options:
   chunk_output_type: console
 bibliography: references.bib
@@ -54,6 +54,9 @@ library(ggpubr)
 library(magrittr)
 library(cowplot)
 library(ggVennDiagram)
+
+# my own function for building tables in reports
+source("scripts/functions/kable_mydf.R")
 ```
 
 ```{r Functions, echo=F}
@@ -96,18 +99,10 @@ make_corrplot <- function(df,variables,fig_options){
   dev.off()
   
 }
-
-# Function to build tables
-kable_mydf <- function(x, boldfirstcolumn){
-  x %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F) %>% 
-  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
-}
 ```
 
-<br>
 
+# Introduction
 
 Most analyses conducted in this document are based on:
 
@@ -116,13 +111,27 @@ Most analyses conducted in this document are based on:
   - @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
   
 
-RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). In the present study, it seems more relevant to work with allele frequencies as several genotypes were collected at each sampling site (i.e. source population) and therefore experience the same climatic conditions. Moreover, the sample sizes varies across populations.
+RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). 
 
-However, when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \@ref(VarPart)), correcting for population structure with the ancestry coefficient most likely resulted in overcorrection for population structure. 
+In the present study, we use *population-level allele frequencies* as several genotypes were collected at each sampling site (i.e. source population) and therefore experience the same climatic conditions. Moreover, the sample sizes varies across populations.
 
-In the present document,  we will therefore use *population-based allele frequencies* to select the climatic variables with the stepwise selection procedure (section \@ref(StepwiseSelection)), identify the candidate SNPs with RDA and calculate the genomic offset.
+**Comment:** when I first conducted these analyses (in the third chapter of my PhD), I used *individual-based genotypes* because I accounted for the neutral population genetic structure with the ancestry coefficients from @jaramillo2015molecular, which are at the genotype level (i.e. proportion of gene pool assignment for each genotype). As the population genetic structure is highly confounded with the climatic gradients across the populations sampled (see section \@ref(VarPart)), correcting for population structure with the ancestry coefficient most likely resulted in overcorrection for population structure. In this document, we only use the *individual-based allele counts* for variance partitioning in section \@ref(VarPart), in which we estimate the relative contribution of climate, population structure and geography.
 
-We only use the *individual-based allele counts* for variance partitioning in section \@ref(VarPart), in which we estimate the relative contribution of climate, population structure and geography. Population structure is either accounted for with the ancestry coefficients at the genotype level from @jaramillo2015molecular (section \@ref(VarPartInd)), either using the first PCs of a PCA based on *population-level allele frequencies* (section \@ref(VarPartPop)).
+**Choices made in this document:**
+
+  - Number of PC axes included in the RDA to account for the population genetic structure: see section \@ref(PCscores). 
+  
+```{r SetNbPCscores}
+nb_PCscores <- 3
+```
+
+  
+  - Number of distance-based Moran's eigen vector maps (dbMEMs) included in the variance partitioning to account for the effect of geography.
+  
+  
+```{r SetNbdbMEMs}
+nb_dbMEMs <- 4
+```
 
   
 # Downloading the data
@@ -157,27 +166,19 @@ RDA requires complete data frames (i.e., no missing data). Missing data were imp
 
 ### Load ClimateDT data 
 
-Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). Annual climatic variables were extracted between 1901 and 2098. 
+Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) and were extracted by Maurizio Marchi (CREA, Italy). The description of the climatic variables is available [here](https://www.ibbr.cnr.it/climate-dt/?action=fldlist).
 
-**Reference period:** we use the annual values between 1901 and 1950 to capture the climatic conditions under which the populations have evolved. 
+**Reference period:** The climatic conditions at the location of the populations (i.e. climatic conditions under which the populations have evolved) correspond to the mean climatic conditions across the period 1901-1950 (i.e. average of annual climatic variables).
 
 
 ```{r LoadClimateDToutputs}
-clim <- read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_2098.csv",
-               show_col_types = FALSE) %>% 
-  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 to 1950
-  group_by(ID) %>% # group by population
-  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
-  dplyr::select(-Year) %>% 
-  dplyr::rename(longitude=Longitude,
-                latitude=Latitude,
-                elevation=Elevation,
-                pop=ID)
+clim <- read_csv("data/DryadRepo/PopulationCoordinatesClimateInformation.csv",
+               show_col_types = FALSE)
 
 kable_mydf(clim[1:10,1:10], boldfirstcolumn = F)
 ```
 
-The dataset contains `r nrow(clim)` populations and `r ncol(clim)-4` climatic variables. The description of the climatic variables is available [here](https://www.ibbr.cnr.it/climate-dt/?action=fldlist).
+The dataset contains geographical (coordinates and dbMEMs) and climatic information for the `r nrow(clim)` populations. 
 
 ### Filtering the climatic variables
 
@@ -226,15 +227,13 @@ We remove `EPQ` (Emberger Pluviometric Quotient) because there is very low infor
 clim_var_to_rm <- c("bio7","TD", # we keep bio4
                     "bio6","bio11","EMT","NFFD","eFFP", # we keep MCMT
                     "GDD0","GDD5", # we keep bio1
-                    "bio17","bio18","bio14", # we keep MSP
-                    "DMA","bio19","bio16", # we keep bio12
+                    "bio17","bio18","bio14", # we keep SP
+                    "bio19","bio16", # we keep bio12
                     "bio2","CMD", # we keep Eref
                     "bio10", # we keep MWMT
                     "MOP","AOP", # we rm these variables because there is no metadata for them in the ClimateDT website!
                     "PAS","bio13", # low biological interest
-                    "bFFP",
-                    "EPQ"
-                    )
+                    "bFFP")
 
 clim <- clim %>% dplyr::select(-all_of(clim_var_to_rm))
 
@@ -246,7 +245,7 @@ identify_corr_var(df=clim,corr_threshold = 0.95) %>% nrow()
 
 We can look at the distribution of the climatic variables.
 
-```{r PlotDistributionClimaticVariables, fig.height=12, fig.width=15}
+```{r PlotDistributionClimaticVariables, fig.height=9, fig.width=9}
 p <- clim %>% 
   dplyr::select(-pop,-contains("itude"),-elevation) %>% 
   pivot_longer(everything(),names_to="variable") %>% 
@@ -264,7 +263,7 @@ p
 
 We also generate a correlation plot and perform a PCA to look at the correlation among the remaining climatic variables.
 
-```{r CorrelationsPanels,fig.height=9,fig.width=12, results="hide"}
+```{r CorrelationsPanels,fig.height=6,fig.width=6, results="hide"}
 # Chunk to generate figures to visualize the correlations among the climatic variables
 fig_options <- list(
   path = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",
@@ -272,7 +271,7 @@ fig_options <- list(
   height=1000,
   res=100)
 
-make_corrplot(df = clim, 
+make_corrplot(df = clim,
               variables = colnames(clim)[-1], # we keep long, lat, elev and clim variables
               fig_options = fig_options)
 ```
@@ -280,7 +279,7 @@ make_corrplot(df = clim,
 ![](../figs/ExploratoryAnalyses/CorrplotClimVariables.png)
 
 
-```{r PCAClimVariables,fig.height=9,fig.width=12, results="hide"}
+```{r PCAClimVariables,fig.height=6,fig.width=6, results="hide"}
 # Generate a PCA
 pca <- prcomp(clim[,-1], center = TRUE,scale. = TRUE)
 
@@ -334,9 +333,9 @@ listdf_ind$dfsc[1:10,1:14] %>%
 ```
 
 
-### PC scores
+### PC scores{#PCscores}
 
-Another way to account for population structure in the RDA models is to use PCs from a *principal component analysis* (PCA) as proxies of the population evolutionary history. This is the method used in @capblancq2021redundancy.
+Another way to account for population structure in the RDA models is to use PCs from a *principal component analysis* (PCA) as proxies of the population evolutionary history. This is the method used in @capblancq2021redundancy and @capblancq2023common.
 
 As advised in @capblancq2021redundancy, the estimation of the population genetic structure should be performed on genomic data not filtered for minor allele frequencies because small genetic variations are expected to be involved in differentiating neutral genetic groups. So, we use *population-based allele frequencies* not filtered for MAF and imputed for missing data (based on the most common allele in the gene pool, see report `1_FormattingGenomicData.Rmd`).
 
@@ -356,9 +355,9 @@ pca <- rda(geno_pop_maf[,-1], scale=T)
 screeplot(pca, type = "barplot", npcs=10, main="PCA Eigenvalues")
 ```
 
-Based on the screeplot, retaining three or four PCs may be reasonable to account for neutral population structure in downstream analyses. 
+Based on the screeplot, retaining **three** or **four** PCs may be reasonable to account for neutral population structure in downstream analyses. 
 
-In our case, we keep the first three PCs.
+<span style="color: red;">**We keep the first `r nb_PCscores` PCs.**</span>
 
 ```{r GenerateListDfPopLevelNotScaled}
 # We store two datasets in a list: one with raw variables, the other one with mean-centered variables
@@ -449,20 +448,161 @@ saveRDS(listdf_pop, "outputs/RDA/RDA_explanatorydataframes_PopLevel.rds")
 kable_mydf(listdf_pop$dfsc[1:8,1:7], boldfirstcolumn = F)
 ```
 
+```{r DefineMainGPcolor}
+# Colors of the main gene pool for the following figures (PCA and RDA)
+bg <- c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3") # define the colors
+GPs <- listdf_pop$df$mainGPpop %>%  as.factor()
+levels(GPs) <- list("Northern Africa" = "Q1",
+                    "Corsica" = "Q2",
+                    "Central Spain" = "Q3",
+                    "French Atlantic" = "Q4",
+                    "Iberian Atlantic" = "Q5",
+                    "South-eastern Spain" = "Q6")
+```
+
+
+### Plot the PCA
+
+We plot the PCA performed on **population-based allele frequencies not filtered for MAF** (section \@ref(PCscores)).
+
+```{r PlotPCA, fig.width=10,fig.height=6, results="hide"}
+pdf(width=10,"figs/ExploratoryAnalyses/PCAplot.pdf")
+par(mfrow=c(1,2))
+lapply(2:3, function(second_axis){
+  plot(pca, type="n", scaling=3, choices=c(1,second_axis),
+       xlab=paste0("PC1 (",round(summary(eigenvals(pca))[2,1]*100,2),"%)"),
+       ylab=paste0("PC",second_axis," (",round(summary(eigenvals(pca))[2,second_axis]*100,2),"%)"))
+  points(pca, display="sites", pch=21, cex=1.3, col="gray32", scaling=3, bg=bg[GPs], choices=c(1,second_axis))
+  if(second_axis==3) legend("bottomright", legend=levels(GPs), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
+recordPlot()})
+dev.off()
+```
+
 
 # Selecting the climatic variables
 
+The selection procedure of the climatic variables is based on three criteria:
+
+  - exposure to climate change.
+  
+  - strong contribution to explaining genetic variance.
+  
+  - biological relevance.
+  
 ## Criteria 1: exposure to climate change{#ExpCC}
 
+It may be relevant to include variables that will show in future years a **strong deviation** from their **current distribution** at the location of the study populations.
 
-For each climatic variable:
+For each climatic variable, we estimate the mean $\mu_{ref}$ and standard deviation $\sigma_{ref}$ of its annual values between 1901 and 1950. We then compare its predicted mean climate value $X$ across the period 2041-2070 by calculating a Z-score such as: *Z-score* = $(X - \mu_{ref})/\sigma_{ref}$.
 
-   + we calculate the *mean* and *standard deviation* of its annual values for the reference period 1901-1950: $\mu_{ref}$ and $\sigma_{ref}$, respectively.
+```{r CalculatingZscoreExposureCC, warning=F}
+# we load and format the annual climatic values from ClimateDT between 1901 and 2041-2070.
+raw_clim <-  read_csv("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoordinatesPreExtractionTab.csv",
+               show_col_types = FALSE) %>% 
+  dplyr::rename(pop=ID,
+                year=Year,
+                SP=MSP) %>% # replace mean summer precipitation by summer precipitation
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>%  # the VAL-VMQ population is referred as VAL in the present study
+  dplyr::filter(pop %in% clim$pop) %>% # we keep only CLONAPIN pops
+  dplyr::select(-contains("itude"), 
+                -Elevation, 
+                -contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei"), 
+                -all_of(clim_var_to_rm))
+
+# selected climatic variables
+var_clim <- colnames(raw_clim)[!colnames(raw_clim) %in% c("pop", "year")]
+
+
+# calculating the z-scores
+zscores <- lapply(var_clim, function(x){
   
-  + we calculate the *Z-score* of each of its annual values $X$ for a given future period, such as *Z-score* = $(X - \mu_{ref})/\sigma_{ref}$
+past_clim <- raw_clim %>% 
+  dplyr::filter(year<1951) %>%  # keep 1901 to 1950
+  dplyr::select(pop,all_of(x)) %>% 
+  group_by(pop) %>% 
+  dplyr::summarise_all(list(mean="mean",sd="sd"))
+
+# z-scores
+zscores <- raw_clim %>% 
+  dplyr::filter(year=="2041-2070") %>% 
+  dplyr::select(pop,year,all_of(x)) %>% 
+  dplyr::rename(var=x) %>% 
+  left_join(past_clim,by="pop") %>% 
+  dplyr::mutate(zscore=(var-mean)/sd) %>% 
+  dplyr::select(pop,year,zscore)
+  
+}) %>% 
+  setNames(var_clim) %>% 
+  bind_rows(.id="var") %>% 
+  dplyr::left_join(gp_pop, by="pop") %>% 
+  mutate(mainGPpop = case_when(mainGPpop == "Q1" ~ "Northern Africa",
+                            mainGPpop == "Q2" ~ "Corsica",
+                            mainGPpop == "Q3" ~ "Central Spain",
+                            mainGPpop == "Q4" ~ "French Atlantic",
+                            mainGPpop == "Q5" ~ "Iberian Atlantic",
+                            mainGPpop == "Q6" ~ "South-eastern Spain")) %>% 
+  mutate(mainGPpop=factor(mainGPpop, levels=c("Northern Africa",
+                                              "Corsica",
+                                              "Central Spain",
+                                              "French Atlantic",
+                                              "Iberian Atlantic",
+                                              "South-eastern Spain")))
+  
+
+# we sort the average z-scores (across populations and years) to determine 
+# which climatic variables have the highest abs(Z-scores)
+abs_mean_zscore <- zscores %>% 
+  spread(var,zscore) %>% 
+  mutate_if(is.numeric,abs) %>%
+  dplyr::select(all_of(var_clim)) %>% 
+  dplyr::summarise_all("mean") %>% 
+  gather(variable, value) %>% 
+  arrange(value)
+```
+
+```{r ViolinPlotExposureCC, fig.cap="\\large Deviation of the 2041-2070 values of the climatic variables from the distribution of their values during the reference period 1901-1950. A point is specific to a given population. The two figures are the same, except that the y-axis of the second one has been cut to aid visualization.", fig.height=12,fig.width=10, fig.align="center", results="hide"}
+
+# Violin plots
+bg_color <- "gray44"
+
+p1 <- zscores %>%
+  mutate(var=factor(var,levels=c(abs_mean_zscore$variable))) %>% 
+  ggplot(aes(x=var, y=zscore)) + 
+  geom_hline(yintercept=0, color=bg_color) +
+  geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
+  geom_jitter(shape=16,aes(colour=mainGPpop),position=position_jitter(0.2),size=1) +
+  scale_colour_manual(values = c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3")) +
+  #coord_flip() +
+  xlab("") + 
+  ylab("Z-scores") +
+  labs(colour="Main gene pool") +
+  theme_bw() +
+  theme(legend.position=c(0.15, 0.8),
+        legend.title = element_text(size=14, color=bg_color),
+        legend.text = element_text(size = 14, color=bg_color),
+        axis.text = element_text(size = 14, color=bg_color),
+        axis.title = element_text(size=16, color=bg_color),
+        legend.box.background = element_rect(colour = bg_color),
+        legend.background = element_rect(linewidth=0.4, color=bg_color)) + 
+  guides(colour = guide_legend(override.aes = list(size=4))) 
+
+# to aid visualization, we cut the y-axis
+p2 <- p1 + 
+  coord_cartesian(ylim = c(-50, 50)) +
+  theme(legend.position = "none")
+
+p <- ggarrange(p1, p2, nrow=2, labels=c("A)","B)"))
+
+p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange.pdf", width=10,height=12)
+
+p
+```
 
 
-```{r CalculatingZscoreExposureCC,warning=F}
+```{r CalculatingZscoreExposureCCOldVersion,warning=F, echo=F, eval=F}
+# Previous figure version with the future climatic variables extracted from the online ClimateDT, 
+# and so based on the RCP scenarios
+
 # Time window for future climates:
 min_fut_clim <- 2023
 max_fut_clim <- 2050
@@ -517,9 +657,8 @@ abs_mean_zscore <- zscores %>%
   dplyr::summarise_all("mean") %>% 
   gather(variable, value) %>% 
   arrange(value)
-```
 
-```{r ViolinPlotExposureCC, fig.cap="\\large Deviation of future values of the climatic variables from the reference period 1901-1950. A point is specific to a given year and a given population", fig.height=10,fig.width=10, fig.align="center"}
+
 # Violin plots
 p <- zscores %>%
   mutate(var=factor(var,levels=c(abs_mean_zscore$variable))) %>% 
@@ -537,14 +676,14 @@ p <- zscores %>%
         axis.title = element_text(size=16),
         legend.box.background = element_rect(colour = "black"))
 
-p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange.png",
-             width=10,height=10)
-p
+p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange_old.png", width=10,height=10)
 ```
 
 *Temperature*-related variables show the *highest deviations* from their distribution under the reference period 1901-1950 and also all show a consistent increase across populations and years.
 
 *Precipitation*-related variables show *lower deviations* from their distribution under the reference period 1901-1950. Moreover, they do not show a consistent decrease across years and populations. 
+
+For `AHM` (annual heat moisture index), the two populations of Northern Africa are predicted to show a very high increase for this variable. Even stronger for `GDD18`, some Iberian Atlantic populations are expected to show a strong increase for this variable. <span style="color: red;">**How reliable are these predictions?**</span>
 
 **Notes on the graph interpretation:** Figure \@ref(fig:ViolinPlotExposureCC) quantifies the relative deviations of the values of the climate variables from their distribution over the reference period 1901-1950. The highest deviations of temperature-related variables do not imply that populations will be less affected by future changes in precipitation than in temperatures.  Indeed, for some climate variables, even minor changes can severely affect populations. For example, some populations may already be suffering from summer droughts and even a small decrease in precipitation could have dramatic consequences.
 
@@ -579,7 +718,9 @@ climsc <- clim %>% dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(
 rda_null <- rda(geno_pop ~ 1, climsc)
 
 # formula full model
-formula_full_model <- colnames(climsc)[!colnames((climsc)) %in% c("pop","elevation","latitude","longitude")] %>% 
+formula_full_model <- colnames(climsc)[!colnames((climsc)) %in% c("pop",
+                                                                  "elevation","latitude","longitude",
+                                                                  paste0("MEM",1:5))] %>% 
   paste(collapse= " + ") # climatic variables
 formula_full_model <- paste0("geno_pop ~ ",formula_full_model) %>% as.formula()
 
@@ -606,13 +747,23 @@ kable_mydf(sumstepwise, boldfirstcolumn = F)
 
 
 According to the stepwise selection procedure, the climatic variables that maximize the variance of the genomic data are:
-
-  - `bio15`: precipitation seasonality (coefficient of Variation). 
   
   - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
   
-  - `bio4`: temperature seasonality (standard deviation x100) (in °C).
+  - `AHM`: annual heat moisture index (in °C/mm): (`bio1`+10)/(`bio12`/1000))
   
+  - `SHM`: summer heat moisture index (in °C/mm): `MWMT`/(`SP`/1000)
+  
+  - `bio9`: mean temperature of driest quarter (in °C)
+  
+  - `Eref`: Hargreaves reference evaporation (in mm)
+  
+  <!-- - `bio4`: temperature seasonality (standard deviation x100) (in °C). -->
+  
+  <!-- - `bio15`: precipitation seasonality (coefficient of Variation).  -->
+  
+**Comment:** `AHM`, `SHM` and `Eref` are among the climatic variables that will show the strongest changes under climate change (>> stronger exposure to climate change).
+
 
 ## Criteria 3: biological relevance to the study goals
 
@@ -629,28 +780,41 @@ It may be relevant not to select the same climatic variables for the different s
 
 > Evaluating genomic offset predictions with mortality data from common gardens after a strong summer drought
 
-Differences among populations in their seedling survival in common gardens after a strong summer drought is likely to be mainly driven by their differences in adaptation to drought conditions. So, it may be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
+Differences among populations in their seedling survival in common gardens after a strong summer drought is likely to be mainly driven by their differences in adaptation to summer drought conditions. 
+
+For this evaluation step, the genomic offset has to be calculated with climatic variables capturing the summer-drought conditions. It has also to be noted to even though the gene-environment relationships are estimated with a set of climatic variables incorporating summer drought related variables, these variables may not be important in explaining the genomic composition across the landscape and therefore may little contribute to the genomic offset predictions. 
+
+Therefore, I think that this evaluation part requires that the genomic offset has to be estimated with a set of climatic variables including summer drought-related variables, and that these variables should contribute to some extent to the genomic offset predictions (i.e. contribute to explaining the current genomic composition across the landscape).
+
+In the case where summer drought-related variables do not contribute much to the genomic composition across the landscape, it could be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
 
 
 
 > Evaluating genomic offset predictions with height data from common gardens
 
-Height of young trees in common gardens is likely to be impacted by both winter and summer conditions, and both temperature and precipitation conditions. So it makes sense to evaluate GO predictions based on climatic variables capturing both temperature and precipitation conditions across the whole year (ie *global-climate genomic offset*, *global-climate GO*).
+Height of young trees in common gardens is likely to be impacted by both winter and summer conditions, and both temperature and precipitation conditions. 
 
-However, it may still be interesting to compare height in common gardens with the *summer-drought GO* predictions. If the  *summer-drought GO* predictions are more associated with height in common gardens than *global-climate GO* predictions, it could mean that height is mostly impacted by summer conditions in the studied common gardens.
+Ideally, for this evaluation part, the genomic offset has to be estimated on a set of variables incorporating both summer drought conditions and mean climatic conditions across the whole year. 
+
+<!-- on a set of variables capturing temperature and precipitation conditions across the whole year (ie *yearly-climate genomic offset*, *yearly-climate GO*). -->
+
+It may still be interesting to compare height in common gardens with the *summer-drought GO* predictions. If the  *summer-drought GO* predictions are more associated with height in common gardens than *yearly-climate GO* predictions, it could mean that height is mostly impacted by summer conditions in the studied common gardens.
 
 > Evaluating genomic offset predictions with mortality data from natural populations
 
 
-In natural populations, climate change can *directly* impact tree mortality through more and more frequent and intense summer droughts. In contrast, an increase in winter temperatures is highly unlikely to directly impact the death of adult trees. Therefore, to determine whether current mortality rates in natural populations may be attributed to maladaptation to summer drought conditions, it may be relevant to evaluate the association between *summer-drought GO* predictions and mortality rates in National Forest Inventory plots.
+In natural populations, climate change can *directly* impact tree mortality through more and more frequent and intense summer droughts. In contrast, an increase in winter temperatures is highly unlikely to *directly* impact the death of adult trees. However, increased temperatures in winter can benefit to pests and pathogens, which can *indirectly* impact tree death. Note here that in National Forest Inventories, a tree is not counted as dead if its death is attributed to pests. However, mortality is a multifactorial process and it can be very difficult (if not impossible) to determine the relative contributions of climate, pests and other factors to tree death.
 
-On the other hand, increased temperatures in winter can benefit to pests and pathogens, which can indirectly impact tree death. In such a case, it may also be relevant to evaluate the association between mortality rates in NFI plots and *global-climate GO* predictions considering both winter and summer climatic conditions.
-Note that in the NFI, a tree is not counted as dead if its death is attributed to pests. However, mortality is a multifactorial process and it can be very difficult (if not impossible) to determine the relative contributions of climate, pests and other factors to tree death.
+Therefore, in this evaluation part, the genomic offset should be estimated with a set of climatic variables including both summer drought conditions and annual climatic conditions.
+
+It may also be interesting to evaluate the association between *summer-drought GO* predictions and mortality rates in NFI to determine whether current mortality rates in natural populations may be *only* attributed to maladaptation to summer drought conditions.
+
 
 > Evaluating genomic offset predictions with predictions from ecophysiological models
 
+Comparing the genomic offset predictions with ecophysiological models such as Surreau would require including drought-related variables in the genomic offset estimations as Surreau predicts the **risk of hydraulic failure**.
 
-I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *global-climate GO* predictions.
+<!-- I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *yearly-climate GO* predictions. -->
 
 
 ### Climatic variables relevant for providing GO predictions
@@ -659,20 +823,31 @@ According to previous studies, maritime pine populations show strong patterns of
 
 Thus, for the second objective of this paper (which is to provide GO estimates for the studied populations), whether or not to include winter conditions in GO predictions is a tricky question, for which there is probably no correct answer. 
 
-In this paper, we will follow the following workflow:
-
-  - if the predictions of *summer-drought GO* or *global-climate GO* are consistently better across the different evaluation methods, then we will provide these GO predictions for the studied populations.
-  
-  - if the predictions of *summer-drought GO* or *global-climate GO* are not consistently better across the different evaluation parts, then we will provide both the *summer-drought GO* or *global-climate GO* predictions for the studied populations.
-
-
 ## Selected variables
 
-### Summer-drought climatic variables
+In the present document, variance partitioning and candidate SNP identification are performed for three sets of SNPs:
+
+  - **Set 1**: **summer  drought-related variables**, which only include two climatic variables related to summer drought conditions.
+  
+  - **Set 2**: **yearly-climatic variables**, which include variables related the average climatic conditions across the whole year. This set include variables that were identified through the stepwise selection procedure (section \@ref(StepwiseSelection)) in preliminary analyses (i.e. based on climatic data extracted from ClimateDT with slightly different coordinates for some populations): `bio3`, `bio4` and `bio15`.
+  
+  - **Set 3**: both variables capturing **summer-drought** conditions and **average annual climatic** conditions. 
+
+
+In preliminary analyses, I was unable to find a set of climate variables that incorporated both summer drought and annual climatic variables without the climate variables being too highly correlated. Thus, the variables in sets 1 and 2 cannot be grouped together because they have very high VIFs (variance inflation factors) in the RDA, indicating that their respective effects cannot be identified separately in the RDA. If we want to use those variables to estimate the genomic offset, we may have to go with sets 1 and 2 independantly and follow the the following workflow:
+
+  - if the predictions of *summer-drought GO* or *yearly-climate GO* are consistently better across the different evaluation methods, then we will provide these GO predictions for the studied populations.
+  
+  - if the predictions of *summer-drought GO* or *yearly-climate GO* are not consistently better across the different evaluation parts, then we will provide both the *summer-drought GO* or *yearly-climate GO* predictions for the studied populations.
+  
+
+<span style="color: red;">However, I think that set 3 makes sense biologically, and integrates both summer and annual climatic conditions. So **I would suggest to use only set 3 in the following analyses**. But, we have to ask Maurizio if the strong deviations under future climates from the current distribution for `AHM` are reliable.</span> 
+
+### Set 1: summer-drought climatic variables
 
 Selected variables:
 
-  - `MSP`: the precipitation of driest quarter (in mm).
+  - `SP`: summer (May-Sep) precipitation (in mm).
   
   - `MWMT`: the mean warmest month temperature (in °C).
   
@@ -680,13 +855,12 @@ Selected variables:
 `MWMT` will increase a lot under climate change => strong exposure to climate change (\@ref(fig:ViolinPlotExposureCC)).
 
 ```{r VizSelectedDroughtVar, fig.width=5,fig.height=5}
-## Selected summer-drought variables
 drought_var <- list(name="Summer-drought variables",
-                   code="Droughtvar",
-                   variables=c("MSP","MWMT"))
+                   code="drought_var",
+                   variables=c("SP","MWMT"))
 ```
 
-### Global-climate variables
+### Set 2: yearly-climate variables
 
 Selected variables:
 
@@ -703,11 +877,37 @@ Selected variables:
 
 `bio1` will increase a lot under climate change => strong exposure to climate change (\@ref(fig:ViolinPlotExposureCC)).
 
-```{r VizSelectedGlobalVar, fig.width=10,fig.height=10}
-## Selected global-climate variables
-global_var <- list(name="Global-climate variables",
-                   code="GCvar",
+```{r VizSelectedYearlyVar, fig.width=10,fig.height=10}
+## Selected yearly-climate variables
+yearly_var <- list(name="Yearly-climate variables",
+                   code="yearly_var",
                    variables=c("bio1","bio12","bio15","bio3","bio4"))
+```
+
+
+### Set 3
+
+**Incorporating both summer-drought climatic variables and yearly-climate variables.**
+
+Selected variables:
+
+  - `bio1`: mean annual temperature (in °C). 
+  
+  - `AHM`: annual heat moisture index (in °C/mm): (`bio1`+10)/(`bio12`/1000))
+  
+  - `SHM`: summer heat moisture index (in °C/mm): `MWMT`/(`SP`/1000)
+  
+  - `bio9`: mean temperature of driest quarter (in °C)
+  
+  - `Eref`: Hargreaves reference evaporation (in mm)
+  
+  - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month). 
+
+
+```{r VizSelectedSet3var, fig.width=10,fig.height=10}
+set3_var <- list(name="Set 3",
+                code="set3_var",
+                variables=c("AHM", "Eref", "SHM", "bio9", "bio1", "bio3"))
 ```
 
 
@@ -722,35 +922,37 @@ fig_options <- list(
   height=900,
   res=100)
 
-corrplot_var <- colnames(listdf_pop$df)[colnames(listdf_pop$df) %in% c("longitude","latitude","PC1","PC2","PC3",global_var$variables)]
+clim_var_selected <- c(drought_var$variables, 
+                       yearly_var$variables,
+                       set3_var$variables) %>% unique()
 
-make_corrplot(df = listdf_pop$df,#
-              variables = corrplot_var, # we keep long, lat, elev and clim variables
+make_corrplot(df = listdf_pop$df,
+              variables = c("longitude","latitude","PC1","PC2","PC3",clim_var_selected),
               fig_options = fig_options)
 
-listdf_pop$df %>%
-  dplyr::select(all_of(corrplot_var)) %>%
-  unique() %>%
-  pairs.panels(scale=T,hist.col="palegreen1")
+# listdf_pop$df %>%
+#   dplyr::select(all_of(c("longitude","latitude","PC1","PC2","PC3",clim_var_selected))) %>%
+#   unique() %>%
+#   pairs.panels(scale=T,hist.col="palegreen1")
 ```
 
 ```{r ColorClimVar}
 # Define the colors associated with each climatic variable for the following visualizations
-color_clim_var <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99') %>% 
-  setNames(c(global_var$variables, drought_var$variables) %>% unique()) 
+color_clim_var <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99',
+                    '#FF7FE6', '#FFB675', '#51FF74', '#B4FF32') %>% 
+  setNames(clim_var_selected) 
 ```
-
 
 
 # Variance partitioning{#VarPart}
 
 We want to disentangle the *relative contribution* of different factors in explaining genetic variation, namely:
 
-  - *climate*, either captured by the *summer-drought* climate variables or the *global* climate variables.
+  - *climate*, either captured by the *summer-drought* climate variables or the *yearly* climate variables.
   
-  - *neutral population structure*, captured by the ancestry coefficients from @jaramillo2015molecular. 
+  - *neutral population structure*, captured by the ancestry coefficients from @jaramillo2015molecular for the individual-based allele counts, or captured by the first `r nb_PCscores` PC scores for the **population-based allele frequencies**. 
   
-  - *geography*, accounted for by the population coordinates (longitude and latitude).
+  - *geography*, accounted for by the population coordinates (longitude and latitude) or by `r nb_dbMEMs` distance-based Moran's eigen vector maps. 
   
   
 
@@ -763,21 +965,30 @@ We will run:
 
   
 ```{r FunctionVarPart}
-var_part <- function(df_geno, select_clim_var, df_var, scale_rda, center_rda){
+var_part <- function(df_geno, select_clim_var, df_var, scale_rda, center_rda, geography, nb_dbMEMs){
 
 # The df of the explanatory variables has to include only the variables included in the model
 df_var <- df_var %>% 
   dplyr::select(all_of(select_clim_var$variables),
                 starts_with("Q"),
                 starts_with("PC"),
-                ends_with("itude"))
+                ends_with("itude"),
+                contains("MEM"))
 
 
 # Build formulas of the RDA models
 # ================================
 form_clim_var <- paste(select_clim_var$variables,collapse= " + ") # climatic variables
 form_pgs_var <- colnames(df_var) %>% stringr::str_subset("^Q|^PC") %>%  paste(collapse= " + ") # pop structure
-form_geo_var <- colnames(df_var) %>% stringr::str_subset("itude") %>%  paste(collapse= " + ") # coordinates
+
+if(geography=="coordinates"){
+  form_geo_var <- colnames(df_var) %>% stringr::str_subset("itude") %>%  paste(collapse= " + ") # coordinates
+} else {
+  form_geo_var <- colnames(df_var) %>%  
+    stringr::str_subset("MEM") %>%  
+   `[`(1:nb_dbMEMs) %>% # keep only the n first MEMs
+    paste(collapse= " + ") # coordinates
+}
 
 # complete model formulas
 form_full_rda <- paste("df_geno ~ ",
@@ -859,22 +1070,28 @@ return(sum_tab_RDA)
 
 ## Individual-based allele counts{#VarPartInd}
 
+I left this part in the document but I think we should only use the variance partitioning based on population-level allele frequencies.
+
 ```{r VartPartIndividualLevel, eval=F}
-list_sum_var_part <- lapply(list(global_var,drought_var), function(x){
+list_sum_var_part <- lapply(list(yearly_var,drought_var, set3_var), function(x){
 
   var_part(df_geno=geno_ind,
           select_clim_var=x,
           df_var=listdf_ind$dfsc %>% as_tibble(), 
-          scale_rda=F,center_rda=F)
-}) %>% setNames(c(global_var$name,drought_var$name))
+          scale_rda=F,center_rda=F,
+          geography="coordinates",
+          nb_dbMEMs=nb_dbMEMs)
+}) %>% setNames(c(yearly_var$name,
+                  drought_var$name,
+                  set3_var$name))
 
 saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 ```
 
-```{r ShowSummaryVarPartIndividualLevel, eval=T}
+```{r ShowSummaryVarPartIndividualLevel, eval=F}
 list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 
-# Global-climate variables
+# yearly-climate variables
 kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
 
 
@@ -884,27 +1101,80 @@ kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
 
 ## Population-based allele frequencies{#VarPartPop}
 
-```{r VartPartPopLevel, eval=F}
-list_sum_var_part <- lapply(list(global_var,drought_var), function(x){
+
+### Coordinates as proxies of geography
+
+```{r SetGeographyCoordinates}
+geography <- "coordinates"
+```
+
+
+```{r VartPartPopLevelCoordinates, eval=F}
+list_sum_var_part <- lapply(list(yearly_var,drought_var,set3_var), function(x){
   
   var_part(df_geno=geno_pop,
            select_clim_var=x,
            df_var=listdf_pop$dfsc, 
-           scale_rda=F,center_rda=F)
-}) %>% setNames(c(global_var$name,drought_var$name))
+           scale_rda=F,center_rda=F,
+           geography = geography,
+           nb_dbMEMs = nb_dbMEMs)
+}) %>% setNames(c(yearly_var$name,
+                  drought_var$name,
+                  set3_var$name))
 
-saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartPopLevel.rds")
+saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
 ```
 
-```{r ShowSummaryVarPartPopLevel, eval=T}
-list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartPopLevel.rds")
+```{r ShowSummaryVarPartPopLevelCoordinates, eval=T}
+list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
 
-# Global-climate variables
+# yearly-climate variables
 kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
 
 
-# Summer-drought climatic variables
+# summer-drought climatic variables
 kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
+
+# Set 3 climatic variables
+kable_mydf(list_sum_var_part[[3]], boldfirstcolumn = T)
+```
+
+
+### dbMEMs as proxies of geography
+
+We keep the first four dbMEMs.
+
+```{r SetGeographyMEMs}
+geography <- "dbMEMs"
+```
+
+```{r VartPartPopLevelMEMs, eval=F}
+list_sum_var_part <- lapply(list(yearly_var,drought_var,set3_var), function(x){
+  
+  var_part(df_geno=geno_pop,
+           select_clim_var=x,
+           df_var=listdf_pop$dfsc, 
+           scale_rda=F,center_rda=F,
+           geography = geography,
+           nb_dbMEMs = nb_dbMEMs)
+}) %>% setNames(c(yearly_var$name,
+                  drought_var$name,
+                  set3_var$name))
+
+saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+```
+
+```{r ShowSummaryVarPartPopLevelMEMs, eval=T}
+list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+
+# yearly-climate variables
+kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
+
+# summer-drought climatic variables
+kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
+
+# Set 3 climatic variables
+kable_mydf(list_sum_var_part[[3]], boldfirstcolumn = T)
 ```
 
 
@@ -913,19 +1183,24 @@ kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
   
 ## Run the RDA
 
-We perform RDA models the four combinations of the two sets of selected climatic variables and accounting or not for the neutral genetic population structure:
+We perform RDA models the six combinations of the three sets of selected climatic variables and accounting or not for the neutral genetic population structure. Here are the models that we run:
 
-  - Allele frequencies ~ global climatic variables + Condition(PC1 + PC2 + PC3)
+  - Allele frequencies ~ yearly climatic variables + Condition(PC1 + PC2 + PC3)
   
-  - Allele frequencies ~ global climatic variables
+  - Allele frequencies ~ yearly climatic variables
   
   - Allele frequencies ~ drought-summer variables + Condition(PC1 + PC2 + PC3)
   
   - Allele frequencies ~ drought-summer variables 
   
+  - Allele frequencies ~ set 3 variables + Condition(PC1 + PC2 + PC3)
   
+  - Allele frequencies ~ set 3 variables 
+  
+    
 RDA summary statistics are summarized in the pdfs `RDAsummary.pdf` and the RDA plots colored by gene pool are shown in the pdfs `RDAplots.pdf`.
-  
+
+The RDA summary plots show that the set with all climatic variables has very high Variance inflated factors, and that's why I decided to use two different sets of variables. 
 
 ```{r FunctionToRunRDAmodels}
 # =========
@@ -1077,29 +1352,19 @@ annotate_figure(top = text_grob(x$form_rda,
 
 # Function to plot the RDA models
 # ==============================
-plot_RDA <- function(df,x){
+plot_RDA <- function(df,x,GPs){
   
   # check the class of x
   stopifnot("x is not of class myrda" = class(x)=="myrda")
   
-  # The genotypes points are colored based on the main gene pool the belong to.
-  bg <- c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3") # define the colors
-  GPs <- df$mainGPpop %>%  as.factor()
-  levels(GPs) <- list("Northern Africa" = "Q1",
-                      "Corsica" = "Q2",
-                      "Central Spain" = "Q3",
-                      "French Atlantic" = "Q4",
-                      "Iberian Atlantic" = "Q5",
-                      "South-eastern Spain" = "Q6")
-  
   if(x$axis_significance %>% as.data.frame() %>% nrow()-1>2) {
   par(mfrow=c(1,2))
-  rdaplots <-  lapply(2:3, function(second.axis){
-    plot(x$mod_rda, type="n", scaling=3, choices=c(1,second.axis))
-    points(x$mod_rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3, choices=c(1,second.axis))
-    points(x$mod_rda, display="sites", pch=21, cex=1.3, col="gray32", scaling=3, bg=bg[GPs], choices=c(1,second.axis))
-    text(x$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, choices=c(1,second.axis))
-    if(second.axis==2) legend("topleft", legend=levels(GPs), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
+  rdaplots <-  lapply(2:3, function(second_axis){
+    plot(x$mod_rda, type="n", scaling=3, choices=c(1,second_axis))
+    points(x$mod_rda, display="species", pch=20, cex=0.7, col="gray32", scaling=3, choices=c(1,second_axis))
+    points(x$mod_rda, display="sites", pch=21, cex=1.3, col="gray32", scaling=3, bg=bg[GPs], choices=c(1,second_axis))
+    text(x$mod_rda, scaling=3, display="bp", col="#0868ac", cex=1, choices=c(1,second_axis))
+    if(second_axis==2) legend("topleft", legend=levels(GPs), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
     recordPlot()
   })} else {
     par(mfrow=c(1,1))
@@ -1121,13 +1386,17 @@ plot_RDA <- function(df,x){
   # - the two sets of selected climatic variables
   # - correction or not by population structure
 rda_combinations <- list(
-  list(selected_var = global_var,
+  list(selected_var = yearly_var,
        pop_structure_correction = FALSE),
-  list(selected_var = global_var,
+  list(selected_var = yearly_var,
        pop_structure_correction = TRUE),
   list(selected_var = drought_var,
        pop_structure_correction = FALSE),
   list(selected_var = drought_var,
+       pop_structure_correction = TRUE),
+  list(selected_var = set3_var,
+       pop_structure_correction = FALSE),
+  list(selected_var = set3_var,
        pop_structure_correction = TRUE))
 
 
@@ -1142,14 +1411,13 @@ rda_models <- lapply(rda_combinations, function(x){
 saveRDS(rda_models, "outputs/RDA/RDAmodels.rds")
 
 # viz RDA models and their summary information
-pdf(width = 10, height = 6, "figs/RDA/RDAsummary.pdf")
+pdf(width = 13, height = 6, "figs/RDA/RDAsummary.pdf")
 lapply(rda_models, viz_RDAsummary)
 dev.off()
 
-
 # plot RDA models
 pdf(width = 12, height = 8, "figs/RDA/RDAplots.pdf")
-lapply(rda_models, function(x) plot_RDA(df=listdf_pop$dfsc,x=x))
+lapply(rda_models, function(x) plot_RDA(df=listdf_pop$dfsc,x=x,GPs=GPs))
 dev.off()
 ```
 
@@ -1195,6 +1463,8 @@ outliers_maha <- GSout %>%
 # outlier detection based on  extreme axis loadings
 # =================================================
 
+# As we identify the SNPs that has loadings along the significant axes,
+# we first extract the number of significant axes 
 nb_signi_axis <- rda_model$axis_significance %>% 
   as.data.frame() %>% 
   dplyr::rename(pvalue="Pr(>F)") %>% 
@@ -1557,21 +1827,28 @@ dev.off()
 
 We identify the common outliers among the four RDA models with Venn diagrams. 
 
-```{r VennDiagramOutliers, fig.height=8, fig.width=8, message=F}
-list_outliers <- list("global clim" = rda_outliers[[1]]$outliers$snp,
-                      "global clim + PS" = rda_outliers[[2]]$outliers$snp,
-                      "drought clim" = rda_outliers[[3]]$outliers$snp,
-                      "drought clim + PS" = rda_outliers[[4]]$outliers$snp)
-
-p <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
+```{r VennDiagramOutliers, fig.height=7, fig.width=9, message=F}
+venn_diagrams <- lapply(list(1:2,2:3,4:5), function(x) 
+  list("Raw climate" = rda_outliers[[x[1]]]$outliers$snp,
+       "Climate corrected by PS" = rda_outliers[[x[2]]]$outliers$snp) %>% 
+  ggVennDiagram(lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + 
+  scale_color_manual(values = c("grey", "grey", "grey", "grey","grey","grey")) + 
   guides(fill = "none") + 
   theme(text = element_text(size=16)) + 
-  scale_x_continuous(expand = expansion(mult = .2))
+  scale_x_continuous(expand = expansion(mult = .2))) %>% 
+  setNames(c(yearly_var$name,
+           drought_var$name,
+           set3_var$name))
 
-ggsave("figs/RDA/VennDiagramOutliers.pdf",p)
+venn_diagrams <- ggarrange(venn_diagrams[[1]],
+                           venn_diagrams[[2]],
+                           venn_diagrams[[3]],
+                           labels=names(venn_diagrams))
 
-p
+ggsave("figs/RDA/VennDiagramOutliers.pdf",venn_diagrams, width = 9, height=7)
+
+venn_diagrams
 ```
 
 
