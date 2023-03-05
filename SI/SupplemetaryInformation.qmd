@@ -1,0 +1,130 @@
+---
+title: "Supplementary Information"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  pdf:
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    colorlinks: true
+    geometry:
+      - top=30mm
+      - left=20mm
+      - right=20mm
+      - heightrounded
+    fig-pos: 'H'
+    #extra_dependencies: ["flafter"]
+header-includes:
+  - \usepackage{pdfpages}
+  - \usepackage{float}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)  # CRAN v1.3.0
+library(here)
+
+# My function to build tables
+# ---------------------------
+kable_mydf <- function(x, 
+                       boldfirstcolumn = F, 
+                       font_size = 10, 
+                       round_number = 2,
+                       latex_options = c("hover","HOLD_position"),
+                       booktabs = T,
+                       caption = ""){
+  x %>% 
+    mutate(across(where(is.numeric), round, round_number)) %>%
+    kable(booktabs=booktabs, caption = caption) %>%  
+    kable_styling(latex_options = latex_options, 
+                  font_size = font_size) %>% 
+    {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
+```
+
+
+{{< pagebreak >}}
+
+# Genomic data
+
+## Population neutral genetic structure
+
+![Principal component analysis of the genomic data with minor allele frequencies. The first three PC scores are used in the following Redundancy analyses to account for the population genetic structure of the populations.](../figs/ExploratoryAnalyses/PCAplot.pdf)
+
+# Selection of the climatic variables
+
+We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the B4EST project.
+
+In a preselection step, we removed variables with reduced biological interest, that were too highly correlated with any other variable ($\rho > 0.95$), or that had no meta-information on the ClimateDT website, resulting in the following set of climate variables:
+
+  - `bio1`: mean annual temperature (in °C). 
+
+  - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
+  
+  - `bio4`: temperature seasonality (standard deviation x100) (in °C).
+  
+  - `bio8` mean temperature of wettest quarter (in °C).
+
+  - `bio9`: mean temperature of driest quarter (in °C).
+  
+  - `bio12`: annual precipitation (in mm).
+  
+  - `bio15`: precipitation seasonality (coefficient of variation).
+  
+  - `AHM`: annual heat moisture index (in °C/mm): (`bio1`+10)/(`bio12`/1000)).
+  
+  - `SHM`: summer heat moisture index (in °C/mm): `MWMT`/(`SP`/1000).
+  
+  - `Eref`: Hargreaves reference evaporation (in mm).
+
+  - `SP`: summer (May-September) precipitation (in mm) (`MSP` in the ClimateDT metadata).
+  
+  - `MWMT`: the mean warmest month temperature (in °C).
+  
+  - `MCMT` mean coldest month temperature	(in °C).
+  
+  - `GDD18` degree-days above 18°C, i.e. cooling degree-days (in °C * days).
+  
+
+We selected the climatic variables based on three criteria: 
+
+  - predicted deviations from their current distribution under climate change (i.e. exposure to climate change)
+
+  - contribution to the explained genetic variance in a RDA-based stepwise selection procedure
+  
+  - biological relevance
+
+
+## Criteria 1: exposure to climate change
+
+We identified variables that are predicted to show in future years a **strong deviation** from their **current distribution** at the location of the study populations. For that, for each climatic variable, we estimated the mean $\mu_{ref}$ and standard deviation $\sigma_{ref}$ of its annual values between 1901 and 1950. We then compare its predicted mean climate value $X$ for the period 2041-2070 to the distribution of its annual values between 1901-1950 obtained from $\mu_{ref}$ and $\sigma_{ref}$. For that, we calculated a Z-score such as: *Z-score* = $(X - \mu_{ref})/\sigma_{ref}$.
+
+
+![Z-scores of the climatic variables from the distribution of their values during the reference period 1901-1950. A point is specific to a given population. The two figures are the same, except that the y-axis of the second one has been cut to aid visualization.](../figs/ExploratoryAnalyses/ExposureClimateChange.pdf){height=70%}
+
+
+## Criteria 2: explaining genetic variance
+
+We used a RDA-based stepwise selection procedure to identify the set of variables maximizing the genetic variance explained (see for instance @capblancq2021redundancy). For that, we used the `ordiR2step` function of the package `vegan`, with the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.
+
+We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected, see the results in the table below.
+
+```{r TableStepwiseSelection, echo=F}
+sumstepwise <- readRDS(file=here("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_100models.rds"))
+
+kable_mydf(sumstepwise)
+```
+
+
+
+# Variance partitioning
+
+
+
+
