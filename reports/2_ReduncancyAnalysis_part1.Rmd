@@ -172,7 +172,7 @@ Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.
 
 
 ```{r LoadClimateDToutputs}
-clim <- read_csv("data/DryadRepo/PopulationCoordinatesClimateInformation.csv",
+clim <- read_csv("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv",
                show_col_types = FALSE)
 
 kable_mydf(clim[1:10,1:10], boldfirstcolumn = F)
@@ -310,7 +310,6 @@ listdf_ind <- list()
 listdf_ind$df <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
   filter(clon %in% rownames(geno_ind)) %>% # keep the same clones as in the genomic data
   unique() %>% 
-  dplyr::rename(pop=prov) %>% 
   left_join(clim,by="pop") %>% # merge with the climatic variables
   dplyr::select(-max.Q) %>% 
   arrange(clon) # the clones have to be in the same order as in the genomic data.
@@ -400,7 +399,7 @@ We extract the main gene pool for each population.
 # Split into dataframes specific to each population
 gp_pop <- listdf_ind$df %>% 
   dplyr::select(clon,pop) %>% 
-  left_join(read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% dplyr::rename(pop=prov), by=c("pop","clon")) %>% 
+  left_join(read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv"), by=c("pop","clon")) %>% 
   group_by(pop) %>% 
   group_split() %>% 
   setNames(unique(sort(listdf_ind$df$pop)))
@@ -906,8 +905,8 @@ Selected variables:
 
 ```{r VizSelectedSet3var, fig.width=10,fig.height=10}
 set3_var <- list(name="Set 3",
-                code="set3_var",
-                variables=c("AHM", "Eref", "SHM", "bio9", "bio1", "bio3"))
+                 code="set3_var",
+                 variables=c("AHM", "Eref", "SHM", "bio9", "bio1", "bio3"))
 ```
 
 
@@ -941,6 +940,15 @@ make_corrplot(df = listdf_pop$df,
 color_clim_var <- c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99',
                     '#FF7FE6', '#FFB675', '#51FF74', '#B4FF32') %>% 
   setNames(clim_var_selected) 
+```
+
+### Export climatic variable names
+
+We export the names of the climatic variables of interest in a list for other GEA analyses.
+
+```{r ExportClimNames}
+list(drought_var, yearly_var,set3_var) %>% 
+  saveRDS("data/ClimaticData/NamesSelectedVariables.rds")
 ```
 
 
