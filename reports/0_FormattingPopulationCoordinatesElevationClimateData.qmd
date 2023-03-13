@@ -247,30 +247,43 @@ clonapin_name_pops <- pop_coord %>%
   dplyr::filter(!code %in% c("ROD","SID")) %>% # no genomic data for these two populations
   pull(code)
   
-
 # keeping climatic variables of interest for the CLONAPIN populations
 # -------------------------------------------------------------------
 clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoordinatesPreExtractionTab.csv"),
                show_col_types = FALSE) %>% 
-  dplyr::filter(!Year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
-  dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
-  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 to 1950
-  group_by(ID) %>% # group by population
-  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
-  dplyr::select(-contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei"), # remove monthly variables
-                -Year) %>% 
+  dplyr::select(-contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei")) %>% # remove monthly variables
   dplyr::rename(longitude=Longitude,
                 latitude=Latitude,
                 elevation=Elevation,
                 pop=ID,
                 SP=MSP) %>% # replace mean summer precipitation by summer precipitation
   dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
-  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>%  # the VAL-VMQ population is referred as VAL in the present study
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
+
+
+# mean of the annual climatic values between 1901 and 1950
+# --------------------------------------------------------
+clim_past <- clim %>% 
+  dplyr::filter(!Year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
+  dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
+  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 and 1950
+  group_by(pop) %>% # group by population
+  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
+  dplyr::select(-Year) %>%
   bind_cols(dbmem(.[,c("latitude","longitude")])) # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
 
-# saving the dataset in the DRYAD repository
-# ---------------------------------------
-clim %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesClimateInformation.csv"))
-```
+# saving the dataset in the DRYAD repository:
+clim_past %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"))
 
+
+
+# predictions of future climates for the period 2041-2070
+# -------------------------------------------------------
+clim_fut <- clim %>% 
+  dplyr::filter(Year=="2041-2070") %>% 
+  dplyr::select(-Year)
+
+# saving the dataset in the DRYAD repository:
+clim_fut %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"))
+```
 
