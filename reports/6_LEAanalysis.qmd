@@ -1,0 +1,358 @@
+---
+title: "LFMM analysis"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(LEA)
+
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+
+# Introduction
+ 
+Document based on @gain2021lea and the [LEA tutorial](https://github.com/bcm-uga/SSMPG2022) provided during the summer school *Software and Statistical Methods for Population Genetics* ([SSMPG 2022](https://ssmpg.sciencesconf.org/); Aussois, September 19-23 2022).
+
+The **latent factor mixed model** (LFMM) is a multivariate mixed regression model that estimates *simultaneously* the effects of environmental variables (fixed effects) and unobserved confounders called latent factors [@frichot2013testing; @caye2019lfmm]. The latent factors are computed both from the genomes and from their environment. They are not representing neutral population structure (i.e. they have less direct interpretations than in ancestry estimation methods). Instead, they can be interpreted as the best estimates of the confounding effects of neutral population structure, leading to environmental effect size estimates with minimal bias.
+
+# Population structure
+
+From the `LEA` package manual: The function `snmf` of the `lfmm2` package estimates admixture coefficients using sparse Non-Negative Matrix Factorization algorithms, and provides STRUCTURE-like outputs. The input file has to be in the `geno` format, with one row for each SNP. Each row contains 1 character for each individual: 0 means zero copy of the reference allele. 1 means one copy of the reference allele. 2 means two copies of the reference allele. 9 means missing data.
+
+
+```{r LoadImtGenDataMAF, results="hide"}
+geno <-  read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_MAF_454clones_9879snps.csv")) %>% 
+  column_to_rownames("snp_ID") %>% 
+  dplyr::mutate(across(everything(), ~replace_na(.x, 9))) %>% 
+  t() %>% 
+  as.data.frame()
+
+geno %>% write.geno(here("data/LEAanalysis/AlleleCounts_GenoFormat.geno"))
+
+kable_mydf(geno[1:10,1:8], boldfirstcolumn = F)
+```
+
+```{r RunSnmf, eval=F}
+proj_snmf <- snmf(here("data/LEAanalysis/AlleleCounts_GenoFormat.geno"), 
+                  K=1:10, 
+                  repetitions = 10, # nb of repetitions for each K
+                  entropy = TRUE,
+                  project="new")
+```
+
+```{r LoadSnmfProject}
+proj_snmf <- load.snmfProject(here("data/LEAanalysis/AlleleCounts_GenoFormat.snmfProject"))
+```
+
+
+We plot the cross-entropy criterion  of all run of the project.
+
+```{r PlotCrossEntropy}
+plot(proj_snmf, cex = 1.2, col = "lightblue", pch = 19)
+```
+
+We get the cross-entropy of the 10 runs for K = 6 and we select the run with the lowest cross entropy
+
+```{r ExtractLowestCrossEntropy}
+ce <- cross.entropy(proj_snmf, K = 6)
+
+best <- which.min(ce)
+```
+
+We display the Q-matrix.
+
+```{r Qmatrix}
+gp_colors <- c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3") # define the colors of the gene pools
+
+bp <- barchart(proj_snmf, K = 6,  run= best,
+               border = NA, space = 0, col = gp_colors, 
+               xlab = "Individuals", ylab = "Ancestry proportions", 
+               main = "Ancestry matrix")
+        
+axis(1, at = 1:length(bp$order), labels = bp$order, las = 3, cex.axis = .4)
+```
+
+We use the `G` function to extract the **ancestral genotype frequency matrix**, G, for the 2nd run for K = 6. 
+
+```{r Gmatrix}
+freq <- G(proj_snmf, K = 6, run = best)
+```
+
+# Estimating gene-environment associations
+
+
+## Input data
+
+
+We load the population-specific climatic information for the climatic variables of interest. To run `lfmm2`, individuals (genotypes in our case) have to be in rows and climatic variables in columns.
+
+```{r LoadClimaticData}
+# we load the names of the selected climatic variables
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+
+# we load the population-specific data of the climatic variables of interest
+clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+               show_col_types = FALSE) %>% 
+  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
+```
+
+We have to scale (i.e. mean-center) the climatic variables, but we have to keep the scaling parameters to scale present and future climatic data with the same parameter values. So we save the mean and standard deviation of the climatic variables in a list.
+
+```{r SaveScalingParams}
+scale_params <- lapply(clim_var$variables, function(x){
+  
+  vec_var <- clim_past[,x] %>% pull()
+  
+  list(mean = mean(vec_var),
+       sd = sd(vec_var))
+  
+}) %>% setNames(clim_var$variables)
+```
+
+Then we mean-center the climatic variables.
+
+```{r ScalingClimaticVariables}
+clim_past <- clim_past %>% 
+  dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
+```
+
+We attribute climatic values to each genotype, i.e. genotypes from the same populations will have the same climatic values.
+
+```{r GenotypeLevelClimaticVariables}
+genotypes <- geno %>% 
+  rownames_to_column("clon") %>% 
+  dplyr::select(clon) %>% 
+  as_tibble()
+
+clim_past <- genotypes %>% 
+  mutate(pop = str_sub(clon,1,3)) %>% 
+  left_join(clim_past, by="pop") %>% 
+  dplyr::select(-pop,-clon)
+```
+
+We load the genomic data. The genomic has to be allele counts without missing data, with individuals (genotypes) in rows and SNPs in columns.
+
+```{r LoadImputedAlleleCounts}
+# we load the imputed genomic data with allele counts (and without MAF)
+geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv")) %>% 
+  column_to_rownames("snp_ID") %>% 
+  t() %>% 
+  as_tibble()
+```
+
+## Run lfmm2 and calibration issues
+
+As there are 6 gene pools in maritime pine (all represented in our population sample), we run the LFMM model with **K=5**.
+
+```{r RunLFMMmodel}
+mod_lfmm2 <- lfmm2(input = geno,
+                   env = clim_past, 
+                   K = 5)
+```
+
+With the function `lfmm2.test`, we can get a vector of p-values for association between loci and climatic variables adjusted for latent factors computed by `lfmm2`. 
+
+**The `full` option:**
+
+  - If `FALSE`, the function `lfmm2.test` computes significance values (p-values) from *standard Student tests* for each climatic variable.
+
+  - If `TRUE`, the function `lfmm2.test` returns p-values for the full set of climatic variables (a single value at each locus) using *Fisher tests*.
+
+
+**The `genomic.control` option:**
+
+  - If `TRUE` (**default option**), the p-values are recalibrated by using genomic control after correction for confounding.
+  
+  - If `FALSE`, the p-values are not recalibrated. 
+
+We can check if the p-values are well calibrated or not with the histograms of the p-values: ideally, they should be flat with a peak close to zero. in the two graphs below, we show the distribution of the non-calibrated (left graph) and calibrated (right graph) p-values. We can see that it is important to set the `genomic.control` to its default value `TRUE` if we want the p-values to be well calibrated. 
+
+```{r HistogramPValues, fig.width=10}
+par(mfrow=c(1,2))
+
+# Histogram of non-calibrated p-values
+# ------------------------------------
+lfmm2.test(object = mod_lfmm2, input = geno, env = clim_past, full = TRUE, genomic.control = FALSE)$pvalues %>% 
+hist(col = "orange", 
+     main="Histogram of non-calibrated p-values",
+     xlab="p-values")
+
+# Histogram of calibrated p-values
+# --------------------------------
+lfmm2.test(object = mod_lfmm2, input = geno, env = clim_past, full = TRUE, genomic.control = TRUE)$pvalues %>% 
+hist(col = "orange", 
+     main="Histogram of calibrated p-values",
+     xlab="p-values")
+```
+
+In the following analyses, we use the default `genomic.control=TRUE` and `full=TRUE`, so all climatic variables are used in the test. 
+
+```{r ComputingPValues}
+test_lfmm2 <- lfmm2.test(object = mod_lfmm2,
+                       input = geno,
+                       env = clim_past, 
+                       full = TRUE,
+                       genomic.control = TRUE)
+
+pv_lfmm2 <- test_lfmm2$pvalues
+
+plot(-log10(pv_lfmm2 ), 
+     cex = .3, 
+     col = "blue",
+     xlab = "Locus",  
+     ylab = "-log10(P)", 
+     main="Manhattan plot of log10 p-values")
+```
+
+## Multiple testing and calibration issues
+
+We want to use the FDR control algorithm to correct for **multiple testing** and determine which loci have significant levels of association. The **False Discovery Rate (FDR)** is defined as: 
+
+**FDR = prob(False Discovery | Positive test) = *q***.
+
+The FDR algorithm requires that the tests are correctly calibrated, i.e. that the distribution of p-values is uniform when we assume that the null hypothesis, $H0$, is correct. That's ok in our case, we have already checked it above with the histogram of p-values.
+
+<span style="color: red;">**Which FDR level do we use?**</span>
+
+```{r SetFDRlevel}
+fdr_level <- 0.1
+```
+
+To identify the candidate SNPs, we apply the chosen FDR control to the p-values, which converts them into q-values. And then we identify candidates as those with q-values below a given FDR threshold.
+
+The candidate SNPs at the FDR level of `r fdr_level * 100`% are shown with circles on the Manhattan plot below. The orange line corresponds to the Bonferroni threshold for a type I error of 10%.
+
+```{r FDRcorrection}
+# applying FDR control method to obtain q-values
+qv_lfmm2  <- qvalue::qvalue(pv_lfmm2, fdr.level = fdr_level)
+
+# Manhattan plot
+plot(-log10(pv_lfmm2 ), 
+     cex = .3, 
+     col = "blue",
+     xlab = "Locus",  
+     ylab = "-log10(P)", 
+     main="Manhattan plot of log10 p-values")
+
+# Show with an orange line the Bonferonni multiple testing threshold for significance
+abline(h = -log10(0.1/ncol(geno)), col = "orange")
+
+# Extract the list of candidates
+candidates <- which(qv_lfmm2$significant)
+
+# Show with circles the list of candidate loci at the chosen FDR level
+points(candidates, -log10(pv_lfmm2)[candidates], cex = .9, col = "brown")
+```
+
+
+```{r NamesCandidateSNPs}
+candidates <- names(geno)[candidates]
+```
+
+<span style="color: red;">We obtain `r length(candidates)` candidate SNPs.</span>
+
+# Estimating the genetic gap
+
+This part is entirely based on the [LEA tutorial](https://github.com/bcm-uga/SSMPG2022/tree/master/Program%20tutorials/Tutorial%20LEA%203) provided during [SSMPG 2022](https://ssmpg.sciencesconf.org/).
+
+Until now, methods to estimate the genomic offset has defined it as a **distance in the genetic space** (i.e. distance between allele frequencies). In the R packae `LEA`, the genomic offset is alternatively defined as a **distance in the environmental space**, i.e. measures of genomic offset are linked to the geometry of the ecological niche. This new definition of the genomic offset is referred as **genetic gap** and is implemented in the `genetic.gap` function of the `LEA` package.
+
+The genetic gap is based on the estimates of environmental effect sizes obtained from an LFMM. The relationship inferred in the GEA is then used to fit and predict allelic variation at all genomic loci, alleviating the need for a set of candidate loci and the choice of a significance level.
+
+
+## Input data
+
+
+```{r LoadFutureClimate}
+# we load the future climatic data of the climatic variables of interest
+clim_fut <- read_csv(here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"),
+               show_col_types = FALSE) %>% 
+  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
+
+# We scale the future climatic variables with the scaling parameters of the climatic values from the period 1901-1950
+for(i in clim_var$variables){
+  clim_fut[,i] <- (clim_fut[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd
+}
+
+# Attribute climatic values for each genotype
+clim_fut <- genotypes %>% 
+  mutate(pop = str_sub(clon,1,3)) %>% 
+  left_join(clim_fut, by="pop") %>% 
+  dplyr::select(-pop,-clon)
+```
+
+
+## Run genetic.gap
+
+```{r EstimateGeneticGap}
+g_gap <- genetic.gap(input = geno,
+                     env = clim_past,
+                     pred.env = clim_fut,
+                     K = 5)
+g_gap
+```
+
+
+```{r PlotGeneticGapVsClimDistance}
+# Gene pool colors
+gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_col_types = FALSE)
+genotypes <- genotypes %>%  left_join(gps, by="clon")
+
+# plot the squared root of the genetic gap vs Euclidean environmental distance
+Delta = clim_past - clim_fut
+dist_env = sqrt( rowSums(Delta^2) )  
+plot(dist_env, g_gap$distance, xlab ="Euclidean distance",  ylab ="sqrt(genetic gap)", 
+     cex = 1, col = genotypes$color_main_gp,
+     pch=16)
+legend("topleft", legend=unique(genotypes$main_gp),
+       bty="n",
+       pch=19, 
+       cex=1, col=unique(unique(genotypes$color_main_gp)),
+       ncol=1,
+       title="Main gene pools") 
+
+# plot(dist_env, g_gap$distance, xlab ="Euclidean distance",  ylab ="sqrt(genetic gap)", 
+#      cex = 1, col = "blue",
+#      pch=16)
+```
+
