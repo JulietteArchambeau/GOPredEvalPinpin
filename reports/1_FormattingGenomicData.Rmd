@@ -162,21 +162,26 @@ df[1:11,40:50] %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
 
 # Filtering genomic data
 
-## Filtering monomorphic SNPs
+## MAC and monomorphic SNPs{#MAC}
 
 ```{r IdentifyingMonomorphicSNPs}
-mono <- df %>% 
+sum_minor_allele <- df %>% 
   t() %>% 
   as_tibble() %>% 
   sapply(function(x) sum(x,na.rm=T)) %>% 
   as.data.frame() %>%
   set_colnames(c("sum")) %>% 
   rownames_to_column(var = "snp") %>% 
-  as_tibble() %>% 
-  filter(sum==0)
+  as_tibble() 
+
+mono <- sum_minor_allele %>% filter(sum==0)
+low_mac <- sum_minor_allele %>% filter(sum %in% c(1,2))
 ```
 
 `r nrow(mono)` SNPs are monomorphic and therefore, we are going to remove them.
+
+
+`r nrow(low_mac)` SNPs have one or two minor allele count. We may want to remove these SNPs two as these counts may be due to PCR or sequencing errors. We will see after removing the MAF if these SNPs have also been removed. 
 
 
 ```{r RemovingMonomorphicSNPs}
@@ -252,11 +257,11 @@ plot(tab$id,tab$MAF,
      ylab="Minor allele frequencies")
 ```
 
-**<span style="color: red;">`r nrow(tab[tab$MAF<1,])` SNPs have MAF < 1%. In the dataset without MAF, we remove the SNPs with MAF < 1%: there are `r nrow(list_geno$list_nomaf$df) SNPs left.</span>** 
+**<span style="color: red;">`r nrow(tab[tab$MAF<1,])` SNPs have MAF < 1%. In the dataset without MAF, we remove the SNPs with MAF < 1%: there are `r nrow(list_geno$list_withoutmaf$df) SNPs left.</span>** 
 
 ```{r RmMissingDataMAF}
-list_geno <- list(list_maf=list(df = df),
-                  list_nomaf=list(df = df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]))
+list_geno <- list(list_withmaf=list(df = df),
+                  list_withoutmaf=list(df = df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]))
 ```
 
 
@@ -287,13 +292,13 @@ list_geno <- lapply(list_geno,remove_NA_perSNP)
 ```
 
 
-`r nrow(list_geno$list_nomaf$tab[list_geno$list_nomaf$tab$na_freq<20,])` SNPs have less than 20% missing data and `r nrow(list_geno$list_nomaf$tab[list_geno$list_nomaf$tab$na_freq<15,])` have less than 15% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<20,])` SNPs have less than 20% missing data and `r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<15,])` have less than 15% missing data.
 
-**<span style="color: red;">We keep SNPs with less than 20% missing data and so there are `r nrow(list_geno$list_nomaf$df)` SNPs left.</span>**
+**<span style="color: red;">We keep SNPs with less than 20% missing data and so there are `r nrow(list_geno$list_withoutmaf$df)` SNPs left.</span>**
 
 
 ```{r PlotMissingDataPerSNP, fig.height=4,fig.width=6}
-plot(list_geno$list_nomaf$tab$id,list_geno$list_nomaf$tab$na_freq,
+plot(list_geno$list_withoutmaf$tab$id,list_geno$list_withoutmaf$tab$na_freq,
      pch=20,
      xlab="SNP number",
      ylab="Percentage of missing data per SNP",
@@ -311,7 +316,7 @@ We extract the pairs of SNPs with a correlation coefficient of 1 in the dataset 
 
 ```{r GenerateFilePairsCorrelatedSNPs, warning=F, eval=F}
 # Invert the genomic matrix
-tdf <- list_geno$list_maf$df %>% t() %>% as.data.frame() 
+tdf <- list_geno$list_withmaf$df %>% t() %>% as.data.frame() 
 
 # Create a matrix of correlation for all SNPs
 matcor <- cor(tdf, use = "pairwise.complete.obs")
@@ -465,8 +470,29 @@ We are going to remove **`r length(corrSNPs_to_remove)` SNPs.**
 for(i in 1:2) list_geno[[i]]$df <- list_geno[[i]]$df %>% dplyr::filter(!(rownames(.) %in% corrSNPs_to_remove)) 
 ```
 
-<span style="color: red;">In the genomic dataset with MAF, **`r list_geno$list_maf$df %>% nrow()` SNPs left**.
-In the genomic dataset without MAF, **`r list_geno$list_nomaf$df %>% nrow()` SNPs left**.</span>
+<span style="color: red;">In the genomic dataset with MAF, **`r list_geno$list_withmaf$df %>% nrow()` SNPs left**.
+In the genomic dataset without MAF, **`r list_geno$list_withoutmaf$df %>% nrow()` SNPs left**.</span>
+
+## Filtering minor allele counts (MAC)
+
+We check whether the SNPs with very low minor allele counts (MAC < 3) identified in section \@ref(MAC) have been removed from the two genomic datasets after the filtering steps. 
+
+```{r CheckingRemainingMACnumber}
+nb_mac_geno_with_maf <- rownames(list_geno$list_withmaf$df)[rownames(list_geno$list_withmaf$df) %in% low_mac$snp] %>% 
+  length()
+nb_mac_geno_without_maf <- rownames(list_geno$list_withoutmaf$df)[rownames(list_geno$list_withoutmaf$df) %in% low_mac$snp] %>%
+  length()
+
+tibble("Genomic dataset" = c("With MAF","Without MAF"),
+       "Number of remaining SNPs with MAC < 3" = c(nb_mac_geno_with_maf, nb_mac_geno_without_maf)) %>% 
+  kable_mydf(boldfirstcolumn = F, font_size = 11)
+```
+
+**We remove the SNPs with MAC < 3 from the dataset with MAF.**
+
+```{r RemoveRemainingMAC}
+list_geno$list_withmaf$df <- list_geno$list_withmaf$df %>% dplyr::filter(!(rownames(.) %in% low_mac$snp)) 
+```
 
 
 # Exporting the formatted and filtered genomic datasets
@@ -476,13 +502,11 @@ In the genomic dataset without MAF, **`r list_geno$list_nomaf$df %>% nrow()` SNP
 
 ```{r ExportingFormattedGenomicDataAlleleCounts}
 for(i in 1:length(list_geno)){
-  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) #%>% str_to_upper()
   
   list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",
-                   specMAF,"_",
-                   ncol(list_geno[[i]]$df),"clones_",nrow(list_geno[[i]]$df),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",specMAF,".csv"),
             append=FALSE)
 }
 
@@ -491,7 +515,7 @@ for(i in 1:length(list_geno)){
 # to download the dataset with snp_ID as row names: use `read.csv` with row.names = 1
 ```
 
-`r sum(is.na(list_geno$list_maf$df))` missing data in the dataset with MAF, and `r sum(is.na(list_geno$list_nomaf$df))` missing data in the dataset without MAF.
+`r sum(is.na(list_geno$list_withmaf$df))` missing data in the dataset with MAF, and `r sum(is.na(list_geno$list_withoutmaf$df))` missing data in the dataset without MAF.
 
 ##  Allele frequencies
 
@@ -511,11 +535,10 @@ x %>%
   
 }
 
-df_freq <- compute_allele_freq(list_geno$list_nomaf$df) 
+df_freq <- compute_allele_freq(list_geno$list_withoutmaf$df) 
 
 df_freq %>% 
-  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_NOMAF_",
-                   ncol(df_freq),"clones_",nrow(df_freq),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_withoutmaf.csv"),
             append=FALSE)
 
 df_freq[1:10,1:8] %>% 
@@ -530,13 +553,13 @@ df_freq[1:10,1:8] %>%
 
 ```{r ListSelectedSNPsWithGenomePositionInformation}
 for(i in 1:length(list_geno)){
-  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
   
 list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>%
   dplyr::select(snp_ID) %>% 
   inner_join(snppos, by="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/ListSNPs_",specMAF,"_",nrow(list_geno[[i]]$df),"snps.csv"),append=FALSE)
+  write_csv(paste0("data/DryadRepo/ListSNPs_",specMAF,".csv"),append=FALSE)
 }
 ```
 
@@ -550,7 +573,7 @@ This part is only done on genomic data without MAF.
 The first way to identify the duplicated SNPs is by using the function `duplicated`. 
 
 ```{r IdentifyPerfectDuplicates}
-df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv", row.names = 1) 
+df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv", row.names = 1) 
 
 dup <- df[duplicated(df) | duplicated(df, fromLast=TRUE), ]
 ```
@@ -686,7 +709,7 @@ snpLDcor <- snpLD %>% inner_join(snpcor, by = c("Var1", "Var2"))
 This section is only done on the genomic dataset without MAF.
 
 ```{r LoadGenomicDataNOMAF}
-df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv", row.names = 1) 
+df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv", row.names = 1) 
 ```
 
 
@@ -763,9 +786,9 @@ We will impute the missing data in both datasets with or without minor allele fr
 
 Percentage of missing data:
   
-  - in the genomic dataset with MAF: `r round(sum(is.na(list_geno$list_maf$df)) * 100 / (dim(list_geno$list_maf$df)[1]*dim(list_geno$list_maf$df)[2]),2)`%.
+  - in the genomic dataset with MAF: `r round(sum(is.na(list_geno$list_withmaf$df)) * 100 / (dim(list_geno$list_withmaf$df)[1]*dim(list_geno$list_withmaf$df)[2]),2)`%.
   
-  - in the genomic dataset without MAF:`r round(sum(is.na(list_geno$list_nomaf$df)) * 100 / (dim(list_geno$list_nomaf$df)[1]*dim(list_geno$list_nomaf$df)[2]),2)`%.
+  - in the genomic dataset without MAF:`r round(sum(is.na(list_geno$list_withoutmaf$df)) * 100 / (dim(list_geno$list_withoutmaf$df)[1]*dim(list_geno$list_withoutmaf$df)[2]),2)`%.
 
 We are going to impute the missing values using the most common allele at each SNP within the main gene pool of the clone. So here, the genotypes are classified according to the main gene pool they belong to (although we acknowledge that some genotypes are admixed and belong to different gene pools).
 
@@ -773,10 +796,10 @@ We load the dataset in which there is the proportion of belonging of each genoty
 
 ```{r LoadingPropAncestry}
 prop <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
-  dplyr::select(clon,prov,paste0(rep("Q",6),1:6),max.Q)
+  dplyr::select(clon,pop,paste0(rep("Q",6),1:6),max.Q)
 
 # To check whether some clones in the genomic data have no population structure data.
-setdiff(colnames(list_geno$list_maf$df),prop$clon) # this is ok :)
+setdiff(colnames(list_geno$list_withmaf$df),prop$clon) # this is ok :)
 
 mainGP <- prop %>% dplyr::select(clon,max.Q) # extract the main gene pool for each clone.
 
@@ -795,7 +818,7 @@ list(df=df)
 })
 
 # viz geno data without MAF
-list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
+list_geno$list_withoutmaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
 ```
 
 ```{r CheckingImputation1}
@@ -803,7 +826,7 @@ list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_siz
 # For that, before imputing, we find some SNPs with NAs
 # we do it in the geno dataset without MAF
 
-subset <- list_geno$list_nomaf$df[list_geno$list_nomaf$df$max.Q=="Q5",]
+subset <- list_geno$list_withoutmaf$df[list_geno$list_withoutmaf$df$max.Q=="Q5",]
 set.seed(6)
 vec_snps_with_nas <- sample(colnames(subset)[colSums(is.na(subset)) > 0],10,replace=F) #extract some SNPs with NAs
 
@@ -844,7 +867,7 @@ list(df=x$df)
 ```{r CheckingImputation2}
 # If we want to check that the imputation worked fine
   # Look at the SNPs that had NAs before imputation
-subset <- list_geno$list_nomaf$df[list_geno$list_nomaf$df$max.Q=="Q5",]
+subset <- list_geno$list_withoutmaf$df[list_geno$list_withoutmaf$df$max.Q=="Q5",]
 subset_df_2 <- lapply(vec_snps_with_nas, function(x){
   subset %>% 
   tabyl(any_of(x)) %>% 
@@ -881,7 +904,7 @@ list(df=x$df)
 
 
 # Visualization:
-list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
+list_geno$list_withoutmaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_size = 11)
 ```
 
  
@@ -892,13 +915,11 @@ list_geno$list_nomaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, font_siz
 
 ```{r ExportImputedGenomicDataAlleleCounts}
 for(i in 1:length(list_geno)){
-  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
   
   list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",
-                   specMAF,"_",
-                   ncol(list_geno[[i]]$df),"clones_",nrow(list_geno[[i]]$df),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",specMAF,".csv"),
             append=FALSE)
 }
 ```
@@ -916,18 +937,16 @@ list(df=compute_allele_freq(x$df))
 
 # export in csv
 for(i in 1:length(list_geno)){
-  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1) %>% str_to_upper()
+  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
   
   list_geno[[i]]$df %>% 
-  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_",
-                   specMAF,"_",
-                   nrow(list_geno[[i]]$df),"pops_",ncol(list_geno[[i]]$df[,-1]),"snps.csv"),
+  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_",specMAF,".csv"),
             append=FALSE)
 }
 
 
 
-list_geno$list_nomaf$df[1:10,1:8]  %>% 
+list_geno$list_withoutmaf$df[1:10,1:8]  %>% 
   mutate(across(where(is.numeric), round, 2)) %>%
   kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
