@@ -25,4 +25,5 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [3_GradientForest_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_GradientForest_part1.html) Identification of candidate SNPs with the Gradient Forest algorithm.
 
+-   [6_LEAanalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_LEAanalysis.html) Estimation of the genetic gap with the `LEA` package, which uses the **latent factor mixed model** (LFMM) approach. 
 
