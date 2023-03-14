@@ -100,7 +100,7 @@ best <- which.min(ce)
 
 We display the Q-matrix.
 
-```{r Qmatrix}
+```{r Qmatrix, fig.width=10}
 gp_colors <- c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3") # define the colors of the gene pools
 
 bp <- barchart(proj_snmf, K = 6,  run= best,
@@ -122,6 +122,7 @@ freq <- G(proj_snmf, K = 6, run = best)
 
 ## Input data
 
+### Past climatic data{#PastClim}
 
 We load the population-specific climatic information for the climatic variables of interest. To run `lfmm2`, individuals (genotypes in our case) have to be in rows and climatic variables in columns.
 
@@ -169,6 +170,8 @@ clim_past <- genotypes %>%
   left_join(clim_past, by="pop") %>% 
   dplyr::select(-pop,-clon)
 ```
+
+### Genomic data
 
 We load the genomic data. The genomic has to be allele counts without missing data, with individuals (genotypes) in rows and SNPs in columns.
 
@@ -299,9 +302,17 @@ Until now, methods to estimate the genomic offset has defined it as a **distance
 
 The genetic gap is based on the estimates of environmental effect sizes obtained from an LFMM. The relationship inferred in the GEA is then used to fit and predict allelic variation at all genomic loci, alleviating the need for a set of candidate loci and the choice of a significance level.
 
+Below, we will estimate the genetic gap for:
+  
+  - the sets of candidate SNPs
+  
+  - the control set of SNPs
+  
+  - all SNPs (as advised by the developers of the `genetic.gap` function) 
 
-## Input data
+## Future climatic data
 
+We load the predicted values of the climatic variables for the years 2041-2070 and we scale them (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950 (see section \@ref(PastClim)).
 
 ```{r LoadFutureClimate}
 # we load the future climatic data of the climatic variables of interest
@@ -322,7 +333,9 @@ clim_fut <- genotypes %>%
 ```
 
 
-## Run genetic.gap
+## Genetic gap estimation with all SNPs
+
+We run the `genetic.gap` function.
 
 ```{r EstimateGeneticGap}
 g_gap <- genetic.gap(input = geno,
@@ -332,27 +345,169 @@ g_gap <- genetic.gap(input = geno,
 g_gap
 ```
 
+The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` manual):
 
-```{r PlotGeneticGapVsClimDistance}
+  - `offset`: a vector of **genomic offset** values computed for every sample location in `new.env` and `pred.env`. The genomic offset is the genetic gap defined in @gain2023quantitative.
+  
+  - `distance`: a vector of **environmental distance** values computed for every sample location in `new.env` and `pred.env`. The distances to an estimate of the risk of nonadaptedness that includes correction for confounding factors and analyzes multiple predictors simultaneously (modified version of RONA).
+  
+  - `eigenvalues`: eigenvalues of the covariance matrix of LFMM effect sizes. They represent the relative importance of combinations of environmental variables described in vectors when the environmental data have similar scales. To be used with `scale == TRUE`.
+  
+  - `vectors`: eigenvectors of the covariance matrix of LFMM effect sizes representing combinations of environmental variables sorted by importance (eigenvalues).
+
+Note that `distance` and `sqrt(offset)` have a correlation coefficient of `r cor(sqrt(g_gap$offset),g_gap$distance)`.
+
+Below, we plot the **squared root of the genetic gap** (`offset` output) vs **the Euclidean climatic distance**.
+  
+Euclidean climatic distance:
+
+$$
+D_{clim} = \sqrt{\sum_{i=1}^{N} (X_{past,i} - X_{fut,i})^2}
+$$
+
+with $N$ the number of selected climatic variables, $X_{past,i}$ the mean value of the climatic variable $i$ across the period 1901-1950 and $X_{fut,i}$ the predicted mean value of the climatic variable $i$ across the period 2041-2070.
+
+```{r CalculateEucliDistance}
+# Calculate the Euclidean climatic distance
+Delta = clim_past - clim_fut
+dist_env = sqrt( rowSums(Delta^2) ) 
+```
+
+```{r FunctionEuclideanDistancePlots}
+# Function to build the plots 
+make_plot <- function(X,Y,colors, color_names, plot_title=NULL, xlim=NULL,ylim=NULL,cex=1.2,pch=19,ylab) {
+plot(X, Y, 
+     xlab ="Euclidean distance",  ylab =ylab, 
+     cex = cex , pch = pch, 
+     col = colors,
+     xlim = xlim, ylim = ylim,
+     main = plot_title)
+legend("topleft", 
+       legend=unique(color_names),
+       col=unique(colors),
+       bty="n", pch=pch, cex=cex, ncol=1,
+       title="Main gene pools")
+recordPlot()
+}
+```
+
+```{r GenePoolColors}
 # Gene pool colors
 gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_col_types = FALSE)
 genotypes <- genotypes %>%  left_join(gps, by="clon")
+```
+
+```{r PlotAllSNPsEucliDistance}
+# par(mfrow=c(1,2))
+# plot the climatic distance vs Euclidean environmental distance
+# make_plot(X = dist_env,
+#           Y = g_gap$distance,
+#           ylab = "sqrt(distance)",
+#           colors = genotypes$color_main_gp, 
+#           color_names = genotypes$main_gp,
+#           plot_title = "Climatic distance ~ Euclidean climatic distance")
 
 # plot the squared root of the genetic gap vs Euclidean environmental distance
-Delta = clim_past - clim_fut
-dist_env = sqrt( rowSums(Delta^2) )  
-plot(dist_env, g_gap$distance, xlab ="Euclidean distance",  ylab ="sqrt(genetic gap)", 
-     cex = 1, col = genotypes$color_main_gp,
-     pch=16)
-legend("topleft", legend=unique(genotypes$main_gp),
-       bty="n",
-       pch=19, 
-       cex=1, col=unique(unique(genotypes$color_main_gp)),
-       ncol=1,
-       title="Main gene pools") 
-
-# plot(dist_env, g_gap$distance, xlab ="Euclidean distance",  ylab ="sqrt(genetic gap)", 
-#      cex = 1, col = "blue",
-#      pch=16)
+make_plot(X = dist_env,
+          Y = sqrt(g_gap$offset),
+          colors = genotypes$color_main_gp, 
+          color_names = genotypes$main_gp,
+          ylab = "sqrt(genetic gap)",
+          plot_title = "All SNPs")
 ```
+
+The plot below is exactly the same as the previous one except that the x and y axes have been cut to better visualize the populations with lower genetic gap and Euclidean climatic distance.
+
+```{r PlotAllSNPsEucliDistanceAxisLimits}
+# par(mfrow=c(1,2))
+# make_plot(X = dist_env,
+#           Y = g_gap$distance,
+#           ylab = "sqrt(distance)",
+#           colors = genotypes$color_main_gp, 
+#           color_names = genotypes$main_gp,
+#           plot_title = "Climatic distance ~ Euclidean climatic distance",
+#           xlim=c(0,22),ylim=c(0,1.1))
+
+make_plot(X = dist_env,
+          Y = sqrt(g_gap$offset),
+          colors = genotypes$color_main_gp, 
+          color_names = genotypes$main_gp,
+          ylab = "sqrt(genetic gap)",
+          plot_title = "All SNPs",
+          xlim=c(0,22),ylim=c(0,1.9))
+```
+
+We can plot the `eigenvalues` with a barplot to evaluate the relative importance of the climatic variables.
+
+```{r}
+barplot(g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues")
+```
+
+We see that only two dimensions of the climatic space influence the genetic gap. We can also see it with the loadings for the first two combinations of variables (`vectors` in the outputs of the `genetic.gap` function), which indicate the relative contribution of the variables to local adaptation. We see that the first two variables had increased importance compared to the last ones (the variables are sorted by importance in the `vectors` outputs, so we do not know which variables they are).
+
+
+## Genetic gap estimation with sets of SNPs
+
+We estimate the genetic gap for two sets of SNPs:
+
+  - the `r length(candidates)` candidate SNPs
+  
+  - `r length(candidates)` randomly selected SNPs, which were sampled from the list of SNP names that does not include the candidate SNP names. 
+  
+  
+```{r ListSnps}
+# we sample random SNPs (same number of random SNPs as the number of candidate SNPs)
+# and the random SNPs cannot be among the candidate SNPs (they are sampled from the list of SNP names after having removed the candidate SNP names)
+set.seed(44)
+rand_snps <- names(geno)[!names(geno) %in% candidates] %>% 
+  sample(length(candidates), replace=FALSE)
+  
+list_ggap <- list(candidates = list(set_name = "Candidate SNPs",
+                                    snp_names = candidates,
+                                    snp_numbers =  which(names(geno) %in% candidates)),
+                  control = list(set_name = "Random SNPs",
+                                 snp_names = rand_snps,
+                                 snp_numbers = which(names(geno) %in% rand_snps)))
+```
+
+
+```{r RunGeneticGapSetsSNPs}
+list_ggap <- lapply(list_ggap, function(x) {
+  
+x$g_gap <- genetic.gap(input = geno,
+                       env = clim_past,
+                       pred.env = clim_fut,
+                       candidate.loci = x$snp_numbers,
+                       K = 5)
+return(x)
+})
+```
+
+```{r PlotSetSNPsEucliDistance, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(list_ggap, function(x) make_plot(
+  X = dist_env,
+  Y = sqrt(x$g_gap$offset),
+  colors = genotypes$color_main_gp,
+  color_names = genotypes$main_gp,
+  ylab = "sqrt(genetic gap)",
+  plot_title = x$set_name))
+```
+
+Same plots as above but with the x and y axes cut off to help visualization.
+
+```{r PlotSetSNPsEucliDistanceAxisLimits, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(list_ggap, function(x) make_plot(
+  X = dist_env,
+  Y = sqrt(x$g_gap$offset),
+  colors = genotypes$color_main_gp,
+  color_names = genotypes$main_gp,
+  ylab = "sqrt(genetic gap)",
+  plot_title = x$set_name,
+  xlim=c(0,22),ylim=c(0,3)))
+```
+
 
