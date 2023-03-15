@@ -56,11 +56,14 @@ The **latent factor mixed model** (LFMM) is a multivariate mixed regression mode
 
 # Population structure
 
+<span style="color: orange;">**COMMENT: this section is not used in the paper (=> can be skipped!).**</span> Indeed, the analyses in this section are only useful if we want to estimate the population structure and impute missing data with the `LEA` package. In our study, we use the population structure estimates (the ancestry coefficients) from @jaramillo2015molecular, and we impute the missing data based on the most common allele in the gene pool. And in the RDA, we do not use the ancestry coefficients to account for population structure; we use PC scores.
+
+
 From the `LEA` package manual: The function `snmf` of the `lfmm2` package estimates admixture coefficients using sparse Non-Negative Matrix Factorization algorithms, and provides STRUCTURE-like outputs. The input file has to be in the `geno` format, with one row for each SNP. Each row contains 1 character for each individual: 0 means zero copy of the reference allele. 1 means one copy of the reference allele. 2 means two copies of the reference allele. 9 means missing data.
 
 
 ```{r LoadImtGenDataMAF, results="hide"}
-geno <-  read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_MAF_454clones_9879snps.csv")) %>% 
+geno <-  read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withmaf.csv")) %>% 
   column_to_rownames("snp_ID") %>% 
   dplyr::mutate(across(everything(), ~replace_na(.x, 9))) %>% 
   t() %>% 
@@ -70,6 +73,16 @@ geno %>% write.geno(here("data/LEAanalysis/AlleleCounts_GenoFormat.geno"))
 
 kable_mydf(geno[1:10,1:8], boldfirstcolumn = F)
 ```
+
+From @gain2021lea: 
+
+Assuming $n$ diploid organisms genotyped at $L$ loci, the `snmf` algorithm decomposes the $n × L$ matrix of observed allele frequencies, $P$, in a product of two probabilistic matrices:
+
+$$P \approx QF$$
+
+where the coefficients of $P$ take their values in {0,1/2,1} for diploid organisms (note: ploidy can be modified in `snmf`). The matrix $Q$ is similar to the $Q$ matrix of STRUCTURE, representing ancestry coefficients for individuals originating from $K$ source populations [@pritchard2000inference], and is a $n × K$ matrix. The matrix $F$ contains allele frequencies at each locus for each source population and is a  $K × 3L$ matrix. While $P$ may contain some missing values, the product matrix, $QF$, is always a complete probabilistic matrix. $P$ is a $n × 3L$ matrix.
+
+Comment: The matrix $F$ is called the matrix $G$ in the `LEA` package and in @frichot2013testing.
 
 ```{r RunSnmf, eval=F}
 proj_snmf <- snmf(here("data/LEAanalysis/AlleleCounts_GenoFormat.geno"), 
@@ -111,10 +124,14 @@ bp <- barchart(proj_snmf, K = 6,  run= best,
 axis(1, at = 1:length(bp$order), labels = bp$order, las = 3, cex.axis = .4)
 ```
 
-We use the `G` function to extract the **ancestral genotype frequency matrix**, G, for the 2nd run for K = 6. 
+We use the `G` function to extract the **ancestral genotype frequency matrix**, $G$, for the 2nd run for K = 6. 
 
 ```{r Gmatrix}
-freq <- G(proj_snmf, K = 6, run = best)
+Gmatrix <- G(proj_snmf, K = 6, run = best)
+
+Gmatrix[1:5,1:6] %>% 
+  as.data.frame() %>% 
+  kable_mydf(boldfirstcolumn = F)
 ```
 
 # Estimating gene-environment associations
@@ -177,13 +194,26 @@ We load the genomic data. The genomic has to be allele counts without missing da
 
 ```{r LoadImputedAlleleCounts}
 # we load the imputed genomic data with allele counts (and without MAF)
-geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv")) %>% 
+geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutmaf.csv")) %>% 
   column_to_rownames("snp_ID") %>% 
   t() %>% 
   as_tibble()
 ```
 
 ## Run lfmm2 and calibration issues
+
+
+From @caye2019lfmm: LFMMs are regression models combining fixed and latent effects as follows:
+
+$$ \mathbf{Y}  = \mathbf{XB}^T + \mathbf{W} + \mathbf{E}$$
+
+$\mathbf{Y}$ is the response matrix, which records data for $n$ individuals genotyped for $p$ genetic markers. $\mathbf{X}$ is the matrix of the *environmental* or *primary* variables. *Nuisance* variables such as observed confounders can be included in the $\mathbf{X}$ matrix, which dimension is then $n \times d$, where $d$ represents the total number of *primary* and *nuisance* variables.
+The fixed effect sizes are recorded in the $\mathbf{B}$ matrix, which has dimension $p \times d$.
+The $\mathbf{E}$ matrix represents residual errors, and it has the same dimensions as the response matrix. 
+The matrix $\mathbf{W}$ is a “latent matrix” of rank $K$,defined by $K$ latent factors. The $K$ latent factors represent unobserved confounders which are modeled through an $n \times K$ matrix, $\mathbf{U}$.The matrix $\mathbf{U}$ is obtained from a singular value decomposition (SVD) of the matrix $\mathbf{W}$ as follows
+
+$$\mathbf{W} = \mathbf{UV}^T $$$
+where $\mathbf{V}$ is a $p \times K$ matrix of loadings. The $\mathbf{U}$ and $\mathbf{V}$ matrices are unique up to arbitrary signs for the factors and loadings.
 
 As there are 6 gene pools in maritime pine (all represented in our population sample), we run the LFMM model with **K=5**.
 
@@ -192,6 +222,8 @@ mod_lfmm2 <- lfmm2(input = geno,
                    env = clim_past, 
                    K = 5)
 ```
+
+The function `lfmm2` returns an object of class `lfmm2Class` that contains the $\mathbf{U}$ and $\mathbf{V}$ matrices.
 
 With the function `lfmm2.test`, we can get a vector of p-values for association between loci and climatic variables adjusted for latent factors computed by `lfmm2`. 
 
@@ -372,6 +404,12 @@ with $N$ the number of selected climatic variables, $X_{past,i}$ the mean value 
 Delta = clim_past - clim_fut
 dist_env = sqrt( rowSums(Delta^2) ) 
 ```
+
+In the supplementary information of @gain2023quantitative, the authors say that 'If (and only if) the eigenvalues of the covariance matrix are equal, the geometric GO is proportional to the squared Euclidean distance between environmental predictors.' We can check it: the squared root of the Euclidean climatic distance and the genetic gap (`offset` in the outputs) have a correlation coefficient of `r cor(g_gap$offset,dist_env^2)`.
+
+The authors add: 'As a consequence of this result, the geometric GO is maximal in the direction of the first eigenvector of the covariance matrix, and it is minimal in the direction of the last eigenvector of the covariance matrix. For scaled environmental variables, the eigenvalues of the covariance matrix provide insights on the amount of information on local adaptation carried out by combinations of environmental predictors described by corresponding eigenvectors.'
+
+Note: in @gain2023quantitative, the authors use the term 'geometric GO' to refer to the 'genetic gap'.
 
 ```{r FunctionEuclideanDistancePlots}
 # Function to build the plots 
