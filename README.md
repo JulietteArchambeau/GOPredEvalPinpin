@@ -14,6 +14,10 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 -   [2_ReduncancyAnalysis_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_ReduncancyAnalysis_part1.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using RDA (Redundancy analysis)
     
     Associated figures and documents:
+    
+    *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/RidgelinePlotsClimatePopulations.pdf" target="_blank">RidgelinePlotsClimatePopulations.pdf</a>  Ridgeline plots showing, for each climatic variable, its population-specific distributions across the reference period 1901-1950 and its predicted mean values for the period 2041-2070. 
+    
+    *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/PCAplot.pdf" target="_blank">PCAplot.pdf</a> Principal component analysis performed on the population allele frequencies. The first three axes of the PCA are used to account for the population structure in the RDA analysis.
  
     *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/RDAsummary.pdf" target="_blank">RDAsummary.pdf</a> Summary statistics of the RDA models.
     
