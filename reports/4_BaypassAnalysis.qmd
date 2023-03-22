@@ -1,0 +1,316 @@
+---
+title: "Baypass analysis"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(parallel)
+library(magrittr)
+library(janitor)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+
+In this document, we identify candidate SNPs using the **gene-environment association analysis** provided by the **<span style="font-variant:small-caps;">BayPass</span> software**. 
+
+In previous analyses based on a subset of the genomic data (i.e. only SNPs genotyped in the Infinium assay, that is 5,165 SNPs), we found that the results of the **standard covariate model** were more robust using the **Important Sampling (IS) approximation** (default) than with the MCMC algorithm. So we only use the IS approximation in this document. 
+
+
+
+# Load and format data
+ 
+## Genomic data
+
+We use the imputed genomic datasets, in which the imputation of missing data wad done using the most common allele at each SNP within the main gene pool of the clone (see report `1_FormattingGenomicData.Rmd`).
+
+Importantly, we **estimate the population covariance matrix** with the genomic dataset **with minor allele frequencies** (MAF) because MAF can be important to estimate the population genetic structure.
+
+Then we **identify the candidate SNPs** with a genomic dataset **without MAF**. 
+
+The genomic data for <span style="font-variant:small-caps;">BayPass</span> needs to be allele counts for each SNP in each of the population and has to be stored in a `.txt` file.
+
+```{r LoadGenomicData, eval=F}
+# Function to count the second allele
+count_2nd_allele <- function(x) {2*length(x)-sum(x)}
+
+# We generate the genomic data in BayPass format
+list_geno <- lapply(c("withoutmaf","withmaf"), function(x){
+  
+geno <- read.csv(here(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",x,".csv")),
+                          row.names = 1) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(prov=str_sub(row.names(.),1,3)) %>% 
+  dplyr::select(prov,everything()) %>% 
+  group_by(prov) %>% 
+  dplyr::summarize_all(.funs=c('sum', 'count_2nd_allele')) # calculate allele counts per population
+
+
+# Counts of the minor allele
+dfsum1  <- geno %>% 
+  column_to_rownames(var="prov") %>% 
+  dplyr::select(contains("sum")) %>%  
+  t() 
+
+# counts of the major allele
+dfsum2  <- geno %>% 
+  column_to_rownames(var="prov") %>% 
+  dplyr::select(contains("count")) %>%  
+  t() 
+
+colnames(dfsum1) <- paste0(geno$prov,"1")
+colnames(dfsum2) <- paste0(geno$prov,"2")
+
+rownames(dfsum1) <- str_sub(rownames(dfsum1),1,-5)
+rownames(dfsum2) <- str_sub(rownames(dfsum2),1,-18)
+
+# identical(rownames(dfsum1), rownames(dfsum2)) # to check that the rownames (SNP names) are the same and in the same order
+
+geno <- cbind(dfsum1,dfsum2) %>% 
+  as_tibble %>% 
+  dplyr::select(sort(tidyselect::peek_vars())) %>% 
+
+# We save the files in the format required by BayPass
+write.table(file = here(paste0("data/BayPassAnalysis/GenomicInputBayPass_",x,".txt")), 
+            sep = " ",
+            row.names = FALSE, 
+            col.names = FALSE) # works either with .txt or no extension
+  
+})
+```
+
+
+
+## Environmental data
+
+
+We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report `2_RedundancyAnalysis_part1.Rmd`):
+
+```{r LoadClimaticData}
+# Which set of climatic variables are we going to use?
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+
+# we load the population-specific data of the climatic variables of interest
+clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+               show_col_types = FALSE) %>% 
+  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
+
+
+
+extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  kable_mydf()
+```
+
+```{r LoadEnvPopStructureData}
+# We save one table per covariate
+for(i in c(clim_var$variables)){
+  clim_past %>% 
+  dplyr::select(all_of(i)) %>% 
+  pull() %>% 
+  t() %>% 
+  write.table(file = here(paste0("data/BayPassAnalysis/EnvironmentalVariables/",i,".txt")), 
+              sep = " ",
+              row.names = FALSE, 
+              col.names = FALSE)
+}
+```
+
+
+# Population covariance matrix
+
+## The core model
+
+We estimate the (scaled) covariance matrix of population allele frequencies $\Omega$ resulting from their (possibly unknown and complex) shared history. For that, we use the core model mode of <span style="font-variant:small-caps;">BayPass</span>. According to <span style="font-variant:small-caps;">BayPass</span> manual, "The core model depicted in Figure 1A might be viewed as a generalization
+of the model proposed by Nicholson *et al*. (2002) and was first proposed by Coop et al. (2010)." Here is the **Figure 1A from the <span style="font-variant:small-caps;">BayPass</span> manual:**
+
+![](CoreModelBayPass.png)
+
+
+## Estimation & visualization
+
+We estimate the population covariance matrix using the genomic dataset not filtered for MAF.
+
+<span style="color: red;">**Code for you below Santi! :)**</span>
+
+
+```{bash EstimateOmegaRun1, eval=F}
+# ** Bash script **
+# =================
+
+# Working directory: data/BayPassAnalysis/outputs
+# First row: directory where Baypass software is
+
+~/Bureau/baypass_2.2/sources/g_baypass \ 
+    -gfile ../GenomicInputBayPass_withmaf.txt \
+    -outprefix anacore \
+    -seed 44
+```
+
+
+We visualize the matrix.
+
+```{r VisualizeOmega, fig.height=8,fig.width=10, eval=F}
+# Upload the estimated Omega matrix
+omega=as.matrix(read.table("data/BayPassAnalysis/outputs/anacore_mat_omega.out"))
+pop.names <- colnames(dfsum1) %>% str_sub(1,-2)
+dimnames(omega)=list(pop.names,pop.names)
+
+# Visualization of the matrix
+# Using SVD decomposition
+plot.omega(omega=omega,pop.names=pop.names)
+
+# as a correlation plot
+cor.mat=cov2cor(omega)
+corrplot(cor.mat,method="color",mar=c(2,1,2,2)+0.1,
+main=expression("Correlation map based on"~hat(Omega)))
+
+# as a heatmap and hierarchical clustering tree (using the average agglomeration method)
+hclust.ave <- function(x) hclust(x, method="average")
+heatmap(1-cor.mat,hclustfun = hclust.ave,
+main=expression("Heatmap of "~hat(Omega)~"("*d[ij]*"=1-"*rho[ij]*")"))
+```
+
+
+# IS standard covariate model
+
+The standard covariate model is represented in the following figure (**Figure 1B from the <span style="font-variant:small-caps;">BayPass</span> the manual**):
+
+
+![](StandardModelBayPass.png)
+
+According to <span style="font-variant:small-caps;">BayPass</span> manual, "This model allows evaluating to which extent a population covariable $k$ is (linearly) associated with each marker $i$ (which are assumed independent given $\Omega$) by the introduction of the regression coefficients $\beta_{ik}$ (for convenience the indices $k$ for covariables are dropped in Figure 1B)."
+
+
+From <span style="font-variant:small-caps;">BayPass</span> manual: "Importance Sampling (IS) approximation allows estimating Bayes Factor to evaluate the support in favor of **association of each SNP $i$ with a covariable $k$**, i.e., to compare the model with association ($\beta_{ik} \neq 0$) against the null model ($\beta_{ik} = 0$). The IS based estimation was initially proposed by Coop et al. (2010) and is based on a numerical integration that requires the definition of a grid covering the whole support of the $\beta_{ik}$ prior distribution. In <span style="font-variant:small-caps;">BayPass</span>, the grid consists of $n_{\beta}$ (by default $n_{\beta} = 201$) equidistant points from $\beta_{min}$ to $\beta_{max}$ (including the boundaries) leading to a lag between two successive values equal to $\frac{\beta_{max}-\beta_{min}}{n_{\beta}-1}$ (i.e., 0.003 with default values). Other values for $n_{\beta}$ might be supplied by the user with the `-nbetagrid` option."
+
+
+**Checking convergence by running several independant runs:**
+
+  - From <span style="font-variant:small-caps;">BayPass</span> manual: "As for any MCMC analysis, it is recommended to run several independent MCMC (e.g., from 3 to 5), using different seeds for the random number generators (see `-seed` option). Comparing the estimates of parameters like $\Omega$ and statistics like $XtX$ or BF across runs allows ensuring (**empirically**) that the chains properly converged. For large enough data sets, estimations are generally reproducible for most parameters and statistics. Yet, for measures like the BF$_{is}$ that are based on an Importance Sampling approximation, single run estimations may be unstable (in particular when the number of populations is small), it is then recommended to use as an estimate the median computed over several different independent runs (for a real life example see @gautier2018genomic)."
+
+  - In @gautier2018genomic: "Three independent runs (using the option `-seed`) were performed for each dataset. The estimated model hyper-parameters were highly consistent across both runs and datasets. Support for association of each SNP with the corresponding prevalence covariate was then evaluated using the median Bayes Factor (BF) computed over the three independent runs."
+
+Therefore, to check convergence, we run **5 independent runs** (different `-seed` options).
+
+## Estimation and visualization
+
+We identify the candidate SNPs using the genomic dataset filtered for MAF.
+
+<span style="color: red;">**Code for you below Santi! :)**</span>
+
+We run <span style="font-variant:small-caps;">BayPass</span> for each climatic variable. And for each variable, we run 5 iterations, to check that the outputs are consistent across the iterations. 
+
+<span style="color: red;">**Comment:** To avoid to repeat the code $b$ * 5 times (with $b$ the number of climatic variables), I tried to optimize the code with two loops. However, I was not able to test the code as I do not have BayPass on my computer. If it doesn't work, tell me and I will try to correct the loops or write the code without the loops (like in the second code chunk below for `bio3`; we will have to do that for all variables...). So I hope the loop will work!</span>
+
+
+Bash code with the loops:
+
+```{bash, eval=F}
+# ** Bash script **
+# =================
+
+# Working directory before running the loop: data/BayPassAnalysis/outputs
+
+for var in AHM bio1 bio3 bio9 Eref SHM
+do
+cd ISruns_${var}
+for seed in {1..5}
+do
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass_withoutmaf.txt \
+    -efile ../../EnvironmentalVariables/${var}.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis${seed} \
+    -seed ${seed}
+done
+cd ..
+done
+```
+
+
+Bash code without the loops:
+
+```{bash ISrunsBio3, eval=F}
+# ** Bash script **
+# =================
+
+# Working directory: data/BayPassAnalysis/outputs/ISruns_bio3
+
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass.txt \
+    -efile ../../EnvironmentalVariables/bio3.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis1 \
+    -seed 1
+    
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass.txt \
+    -efile ../../EnvironmentalVariables/bio3.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis2 \
+    -seed 2
+
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass.txt \
+    -efile ../../EnvironmentalVariables/bio3.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis3 \
+    -seed 3
+
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass.txt \
+    -efile ../../EnvironmentalVariables/bio3.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis4 \
+    -seed 4
+
+~/Bureau/baypass_2.2/sources/g_baypass \
+    -gfile ../../GenomicInputBayPass.txt \
+    -efile ../../EnvironmentalVariables/bio3.txt\
+    -omegafile ../anacore_mat_omega.out \
+    -outprefix anacovis5 \
+    -seed 5
+```
+
