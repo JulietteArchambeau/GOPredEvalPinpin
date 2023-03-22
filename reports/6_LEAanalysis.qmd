@@ -2,11 +2,13 @@
 title: "LFMM analysis"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
 format: 
   html:
     toc: true
     toc-depth: 4
     code-fold: true
+    
     page-layout: full
 embed-resources: true
 bibliography: references.bib
@@ -40,8 +42,8 @@ library(xtable)
 library(reshape2)
 library(kableExtra)
 library(here)
+library(magrittr)
 library(LEA)
-
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -134,12 +136,13 @@ Gmatrix[1:5,1:6] %>%
   kable_mydf(boldfirstcolumn = F)
 ```
 
+
 # Estimating gene-environment associations
 
 
 ## Input data
 
-### Past climatic data{#PastClim}
+### Past climatic data {#sec-PastClim}
 
 We load the population-specific climatic information for the climatic variables of interest. To run `lfmm2`, individuals (genotypes in our case) have to be in rows and climatic variables in columns.
 
@@ -200,7 +203,7 @@ geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutma
   as_tibble()
 ```
 
-## Run lfmm2 and calibration issues
+## Run lfmm2 {#sec-LFMMequation}
 
 
 From @caye2019lfmm: LFMMs are regression models combining fixed and latent effects as follows:
@@ -212,7 +215,8 @@ The fixed effect sizes are recorded in the $\mathbf{B}$ matrix, which has dimens
 The $\mathbf{E}$ matrix represents residual errors, and it has the same dimensions as the response matrix. 
 The matrix $\mathbf{W}$ is a “latent matrix” of rank $K$,defined by $K$ latent factors. The $K$ latent factors represent unobserved confounders which are modeled through an $n \times K$ matrix, $\mathbf{U}$.The matrix $\mathbf{U}$ is obtained from a singular value decomposition (SVD) of the matrix $\mathbf{W}$ as follows
 
-$$\mathbf{W} = \mathbf{UV}^T $$$
+$$\mathbf{W} = \mathbf{UV}^T $$
+
 where $\mathbf{V}$ is a $p \times K$ matrix of loadings. The $\mathbf{U}$ and $\mathbf{V}$ matrices are unique up to arbitrary signs for the factors and loadings.
 
 As there are 6 gene pools in maritime pine (all represented in our population sample), we run the LFMM model with **K=5**.
@@ -224,6 +228,9 @@ mod_lfmm2 <- lfmm2(input = geno,
 ```
 
 The function `lfmm2` returns an object of class `lfmm2Class` that contains the $\mathbf{U}$ and $\mathbf{V}$ matrices.
+
+## Calibration issues
+
 
 With the function `lfmm2.test`, we can get a vector of p-values for association between loci and climatic variables adjusted for latent factors computed by `lfmm2`. 
 
@@ -344,7 +351,7 @@ Below, we will estimate the genetic gap for:
 
 ## Future climatic data
 
-We load the predicted values of the climatic variables for the years 2041-2070 and we scale them (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950 (see section \@ref(PastClim)).
+We load the predicted values of the climatic variables for the years 2041-2070 and we scale them (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950 (see @sec-PastClim).
 
 ```{r LoadFutureClimate}
 # we load the future climatic data of the climatic variables of interest
@@ -379,7 +386,7 @@ g_gap
 
 The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` manual):
 
-  - `offset`: a vector of **genomic offset** values computed for every sample location in `new.env` and `pred.env`. The genomic offset is the genetic gap defined in @gain2023quantitative.
+  - `offset`: a vector of **genomic offset** values computed for every sample location in `new.env` and `pred.env`. Note that the genomic offset is referred to as the *genetic gap* in @gain2021lea and the *geometric GO* in @gain2023quantitative.
   
   - `distance`: a vector of **environmental distance** values computed for every sample location in `new.env` and `pred.env`. The distances to an estimate of the risk of nonadaptedness that includes correction for confounding factors and analyzes multiple predictors simultaneously (modified version of RONA).
   
@@ -387,11 +394,13 @@ The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` ma
   
   - `vectors`: eigenvectors of the covariance matrix of LFMM effect sizes representing combinations of environmental variables sorted by importance (eigenvalues).
 
-Note that `distance` and `sqrt(offset)` have a correlation coefficient of `r cor(sqrt(g_gap$offset),g_gap$distance)`.
+### Relationship with Euclidean climatic distance
 
-Below, we plot the **squared root of the genetic gap** (`offset` output) vs **the Euclidean climatic distance**.
+In the supplementary information of @gain2023quantitative, the authors say that 'If (and only if) the eigenvalues of the covariance matrix are equal, the geometric GO is proportional to the squared Euclidean distance between environmental predictors.' Note that a variable $y$ *is proportional to* a variable $x$ if there is a non-zero constant $k$ such as $y = kx$. 
+
+In this part, we look at the relationship between the **squared root of the genetic gap** vs **the Euclidean climatic distance** (or the genetic gap and the squared Euclidean climatic distance).
   
-Euclidean climatic distance:
+The Euclidean climatic distance is calculated as follows:
 
 $$
 D_{clim} = \sqrt{\sum_{i=1}^{N} (X_{past,i} - X_{fut,i})^2}
@@ -405,11 +414,60 @@ Delta = clim_past - clim_fut
 dist_env = sqrt( rowSums(Delta^2) ) 
 ```
 
-In the supplementary information of @gain2023quantitative, the authors say that 'If (and only if) the eigenvalues of the covariance matrix are equal, the geometric GO is proportional to the squared Euclidean distance between environmental predictors.' We can check it: the squared root of the Euclidean climatic distance and the genetic gap (`offset` in the outputs) have a correlation coefficient of `r cor(g_gap$offset,dist_env^2)`.
+```{r GenePoolColors}
+# Incorporating gene pool information
+# -----------------------------------
 
-The authors add: 'As a consequence of this result, the geometric GO is maximal in the direction of the first eigenvector of the covariance matrix, and it is minimal in the direction of the last eigenvector of the covariance matrix. For scaled environmental variables, the eigenvalues of the covariance matrix provide insights on the amount of information on local adaptation carried out by combinations of environmental predictors described by corresponding eigenvectors.'
+# In the graphs below, we want to color the populations according to the main gene pool they belong to
 
-Note: in @gain2023quantitative, the authors use the term 'geometric GO' to refer to the 'genetic gap'.
+# we load the gene pool information with the ancestry coefficients for each clone
+gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_col_types = FALSE) %>% 
+  right_join(genotypes, by="clon") %>% 
+  dplyr::rename(main_gp_clon_code=max.Q,
+                main_gp_clon=main_gp,
+                color_main_gp_clon=color_main_gp)
+
+# we extract the main gene pool of each population
+# LEI and QUA populations have somes clones that belong to different gene pools, we have to account for that
+gp_poplevel <- gps %>% 
+  group_by(pop) %>% 
+  group_split() %>% 
+  modify(\(x) mutate(x, main_gp_pop= x$main_gp_clon  %>% table() %>% which.max() %>% names())) %>% 
+  list_rbind() %>% 
+  dplyr::select(pop, main_gp_pop) %>% 
+  distinct()
+  
+# we built a dataset with the information of the main gene pool for each clone, and for each pop
+gps <- gps %>% 
+  dplyr::select(main_gp_clon,color_main_gp_clon) %>% 
+  distinct() %>% 
+  dplyr::rename(main_gp_pop=main_gp_clon,
+                color_main_gp_pop=color_main_gp_clon) %>% 
+  right_join(gp_poplevel,by="main_gp_pop") %>% 
+  right_join(gps, by="pop") %>% 
+  arrange(clon) # The clone order has to be the same as in the genomic data used to fit the LFMM models!
+
+# Create a dataset without the outlier pops (from Northern Africa and south-eastern Spain)
+# to calculate the correlation between the genetic gap and the squared Eucli clim distance 
+# without these populations
+dfcor <- gps %>% 
+  mutate(genetic_gap = g_gap$offset,
+         squared_eucli_dist = dist_env^2) %>% 
+  dplyr::filter(!main_gp_pop %in% c("Northern Africa", "South-eastern Spain"))
+```
+
+The squared Euclidean climatic distance and the genetic gap (`offset` in the outputs) have a correlation coefficient of $\rho$ = `r cor(g_gap$offset,dist_env^2) %>%  round(3)`. **Note that if we remove the populations from Northern Africa and south-eastern Spain, $\rho$ = `r cor(dfcor$genetic_gap, dfcor$squared_eucli_dist) %>%  round(3)`.**
+
+Comment: The squared Euclidean climatic distance and the genetic gap are somewhat correlated (the strength of the correlation depending on whether we include or not the outlier pops), so it means that the genetic gap $GO$ can be expressed as follows: $GO = a \times dist^2 + b + e$ with $dist$ being the Euclidean climatic distance and the $e$ the residuals (ie the noise). **Note that $GO$ and $dist^2$ are correlated but not proportional to!**
+
+We can plot the `eigenvalues` with a barplot to evaluate the relative importance of the climatic variables.
+
+```{r BarplotEigenValues}
+barplot(g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues")
+```
+
+We see that only two dimensions of the climatic space influence the genetic gap. We can also see it with the loadings for the first two combinations of variables (`vectors` in the outputs of the `genetic.gap` function), which indicate the relative contribution of the variables to local adaptation. We see that the first two variables had increased importance compared to the last ones (the variables are sorted by importance in the `vectors` outputs, so we do not know which variables they are).
+
 
 ```{r FunctionEuclideanDistancePlots}
 # Function to build the plots 
@@ -429,11 +487,7 @@ recordPlot()
 }
 ```
 
-```{r GenePoolColors}
-# Gene pool colors
-gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_col_types = FALSE)
-genotypes <- genotypes %>%  left_join(gps, by="clon")
-```
+
 
 ```{r PlotAllSNPsEucliDistance}
 # par(mfrow=c(1,2))
@@ -441,15 +495,15 @@ genotypes <- genotypes %>%  left_join(gps, by="clon")
 # make_plot(X = dist_env,
 #           Y = g_gap$distance,
 #           ylab = "sqrt(distance)",
-#           colors = genotypes$color_main_gp, 
-#           color_names = genotypes$main_gp,
+#           colors = gps$color_main_gp_pop, 
+#           color_names = gps$main_gp_pop,
 #           plot_title = "Climatic distance ~ Euclidean climatic distance")
 
 # plot the squared root of the genetic gap vs Euclidean environmental distance
 make_plot(X = dist_env,
           Y = sqrt(g_gap$offset),
-          colors = genotypes$color_main_gp, 
-          color_names = genotypes$main_gp,
+          colors = gps$color_main_gp_pop, 
+          color_names = gps$main_gp_pop,
           ylab = "sqrt(genetic gap)",
           plot_title = "All SNPs")
 ```
@@ -461,27 +515,21 @@ The plot below is exactly the same as the previous one except that the x and y a
 # make_plot(X = dist_env,
 #           Y = g_gap$distance,
 #           ylab = "sqrt(distance)",
-#           colors = genotypes$color_main_gp, 
-#           color_names = genotypes$main_gp,
+#           colors = gps$color_main_gp_pop, 
+#           color_names = gps$main_gp_pop,
 #           plot_title = "Climatic distance ~ Euclidean climatic distance",
 #           xlim=c(0,22),ylim=c(0,1.1))
 
 make_plot(X = dist_env,
           Y = sqrt(g_gap$offset),
-          colors = genotypes$color_main_gp, 
-          color_names = genotypes$main_gp,
+          colors = gps$color_main_gp_pop, 
+          color_names = gps$main_gp_pop,
           ylab = "sqrt(genetic gap)",
           plot_title = "All SNPs",
           xlim=c(0,22),ylim=c(0,1.9))
 ```
 
-We can plot the `eigenvalues` with a barplot to evaluate the relative importance of the climatic variables.
 
-```{r}
-barplot(g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues")
-```
-
-We see that only two dimensions of the climatic space influence the genetic gap. We can also see it with the loadings for the first two combinations of variables (`vectors` in the outputs of the `genetic.gap` function), which indicate the relative contribution of the variables to local adaptation. We see that the first two variables had increased importance compared to the last ones (the variables are sorted by importance in the `vectors` outputs, so we do not know which variables they are).
 
 
 ## Genetic gap estimation with sets of SNPs
@@ -527,10 +575,11 @@ par(mfrow=c(1,2))
 lapply(list_ggap, function(x) make_plot(
   X = dist_env,
   Y = sqrt(x$g_gap$offset),
-  colors = genotypes$color_main_gp,
-  color_names = genotypes$main_gp,
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
   ylab = "sqrt(genetic gap)",
-  plot_title = x$set_name))
+  plot_title = x$set_name,
+  xlim=c(0,200),ylim=c(0,20.5)))
 ```
 
 Same plots as above but with the x and y axes cut off to help visualization.
@@ -541,11 +590,79 @@ par(mfrow=c(1,2))
 lapply(list_ggap, function(x) make_plot(
   X = dist_env,
   Y = sqrt(x$g_gap$offset),
-  colors = genotypes$color_main_gp,
-  color_names = genotypes$main_gp,
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
   ylab = "sqrt(genetic gap)",
   plot_title = x$set_name,
   xlim=c(0,22),ylim=c(0,3)))
+```
+
+
+
+Let's look the the barplots of the eigenvalues.
+
+```{r BarplotsEigenValuesSetSNPs, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(list_ggap, function(x) 
+barplot(x$g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues",main=x$set_name))
+```
+
+
+```{r CorrSetsOfSNPsWithoutOutlierPops}
+list_dfcor <- lapply(list_ggap, function(x){
+
+  gps %>% 
+  mutate(genetic_gap = x$g_gap$offset,
+         squared_eucli_dist = dist_env^2) %>% 
+  dplyr::filter(!main_gp_pop %in% c("Northern Africa", "South-eastern Spain"))
+})
+```
+
+Correlation between the squared Euclidean climatic distance and the genetic gap for:
+
+  - candidate SNPs: $\rho$ = `r cor(unique(list_ggap$candidate$g_gap$offset),unique(dist_env^2)) %>%  round(3)`. Note that if we remove populations from Northern Africa and south-eastern Spain: $\rho$ = `r cor(list_dfcor$candidates$genetic_gap, list_dfcor$candidates$squared_eucli_dist) %>%  round(3)`.
+  
+  - control SNPs: $\rho$ = `r cor(unique(list_ggap$control$g_gap$offset),unique(dist_env^2)) %>%  round(3)`. If we remove the populations from North Africa and south-eastern Spain: $\rho$ = `r cor(list_dfcor$control$genetic_gap, list_dfcor$control$squared_eucli_dist) %>%  round(3)`.
+
+
+# Corrected allele frequencies
+
+In a similar way to @gain2023quantitative and @capblancq2023common, we want to use **allele frequencies corrected for population structure** in the Gradient Forest analysis. Here we use the outputs from a latent factor mixed model (LFMM) to extract the corrected allele frequencies.
+
+To understand, here the model applied by the `lfmm2` function:
+
+$$\mathbf{Y}_{fit}  = \mathbf{XB}^T + \mathbf{UV}^T$$
+where $\mathbf{B}$, $\mathbf{U}$ and $\mathbf{V}$ are the effect size, and factor and loading matrices adjusted by the `lfmm2` algorithm from the set of current environmental variables included in the matrix $\mathbf{X}$. $\mathbf{B}$ is a matrix of dimension $p \times b$, with $p$ the number of genetic markers and $b$ the number of environmental variables. $\mathbf{U}$ is a matrix of dimension $n \times K$, with $n$ the number of individuals (ie genotypes) and $K$ the number of latent factors. $\mathbf{V}$ is a matrix of dimension $p \times K$. $\mathbf{X}$ is a matrix of dimension $n \times b$. $\mathbf{Y}_{fit}$ is a matrix of dimension $n \times p$.
+
+We want a matrix of allele frequencies corrected for population structure, so basically:
+
+
+$$\mathbf{Y}_{corrected} = \mathbf{Y}_{fit} - \mathbf{UV}^T  = \mathbf{XB}^T$$
+Below, we do the matrix multiplication of the matrix $\mathbf{X}$ (dimension $n \times b$) and the transpose of the matrix $\mathbf{B}$ (dimension $b \times p$) to obtain the matrix $\mathbf{Y}_{corrected}$ (dimension $n \times p$).
+
+```{r ExtractCorrectedAlleleFrequencies}
+# we load the imputed genomic data with allele counts (and with MAF)
+geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withmaf.csv")) %>% 
+  column_to_rownames("snp_ID") %>% 
+  t()
+
+# We run LFMM 
+mod_withmaf <- lfmm2(input = geno,
+                     env = as.matrix(clim_past),
+                     K = 5,
+                     effect.sizes = T) # to return the matrix B (the matrix of effect sizes)
+
+# Matrix multiplication of matrix X and the transpose of matrix B
+geno_corrected <- as.matrix(clim_past) %*% t(mod_withmaf@B) %>% 
+  set_rownames(rownames(geno)) %>% 
+  as.data.frame()
+
+# save the matrix for future analyses
+geno_corrected %>% write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withmaf.csv"))
+
+geno_corrected[1:10,1:10] %>%
+  kable_mydf(boldfirstcolumn = 1)
 ```
 
 
