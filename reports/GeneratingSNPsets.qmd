@@ -1,0 +1,194 @@
+---
+title: "Generating sets of control and candidate SNPs"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(ggVennDiagram)
+
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+
+```{r MakeVennDiagrams}
+# function to make the Venn diagrams
+make_venndiagram <- function(list_candidates,
+                             caption=""){
+
+list_candidates %>% ggVennDiagram(lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + 
+  scale_color_manual(values = rep("gray80",4)) + 
+  guides(fill = "none") + 
+  labs(caption=caption) +
+  theme(text = element_text(size=16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+}
+```
+
+
+# GEA methods
+
+Candidate SNPs were identified using different gene-environment association (GEA) methods, which we summarize below.
+
+**<span style="color: teal;">Redundancy analysis (RDA)</span>**
+
+Two RDA models were fitted:
+
+  - not accounting for population structure, which we will call *<span style="color: orange;">RDA-raw</span>*.
+  
+  - accounting for population structure by incorporating in the RDA model the three first PCs of the PCA performed on the genomic dataset (not filtered for minor allele frequencies), which we will call *<span style="color: orange;">RDA-X</span>*.
+
+
+Candidate SNPs were identified using two different methods:
+
+   - based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a $K$ number of axes (we used $K=2$). This method was used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). 
+
+  - based on *extreme loadings on each significant axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)).
+  
+
+
+```{r RDAoutliers}
+rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
+
+list_candidates <- list("RDA-raw"=rda_outliers[[5]]$outliers$snp,
+                        "RDA-X"=rda_outliers[[6]]$outliers$snp,
+                        "RDA-raw (mahalanobis)"=rda_outliers[[5]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                        "RDA-raw (loadings)"=rda_outliers[[5]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp),
+                        "RDA-X (mahalanobis)"=rda_outliers[[6]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                        "RDA-X (loadings)"=rda_outliers[[6]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp))
+
+
+make_venndiagram(list_candidates[c("RDA-raw","RDA-X")])
+
+make_venndiagram(list_candidates[c("RDA-raw (mahalanobis)","RDA-raw (loadings)","RDA-X (mahalanobis)","RDA-X (loadings)")])
+```
+
+
+**<span style="color: teal;">Gradient forest (GF)</span>**
+
+
+Following @fitzpatrick2021experimental and @capblancq2023common, GF models were fitted using:
+
+
+  - the 'raw' or *uncorrected* allele frequencies, which we call *<span style="color: orange;">GF-raw</span>*.
+  
+  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population reladness, which we call *<span style="color: orange;">GF-X</span>* 
+
+
+
+```{r GFoutliers}
+gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
+
+list_candidates$"GF-raw"=gf_out$gf_raw$set3_var$outliers$outliers001
+list_candidates$"GF-X"=gf_out$gf_X$set3_var$outliers$outliers001
+
+make_venndiagram(list_candidates[c("GF-raw","GF-X")])
+```
+
+
+**<span style="color: teal;">Latent factor mixed model (LFMM)</span>**
+
+We identified the candidate SNPs by applying a FDR threshold of 10% to the p-values from a LFMM. LFMM was corrected for population structure (ie population relatedness) as the population structure should be captured by the $K$ latent factors ($K = 5$ in our case).
+
+```{r LFMMoutliers}
+list_candidates$"LFMM" <- readRDS(here::here("outputs/LFMM/candidates.rds"))
+```
+
+`r length(list_candidates$LFMM)` candidate SNPs were identified with the LFMM approach.
+
+**<span style="color: teal;">BayPass</span>**
+
+
+# Common candidate SNPs
+
+Let's look at the common candidates across the different GEA methods.
+
+
+```{r VennDiagramCommoncandidates}
+# generating the Venn diagrams showing common candidates across GEA methods
+make_venndiagram(list_candidates[c("RDA-raw","GF-raw")],
+                 caption = "GEA methods not correcting for population structure")
+make_venndiagram(list_candidates[c("RDA-X","GF-X","LFMM")],
+                 caption = "GEA methods correcting for population structure")
+
+# Identifying SNPs identified by at least two GEA methods
+common_cand_notcorrected <- list_candidates[c("RDA-raw","GF-raw")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_corrected <- list_candidates[c("RDA-X","GF-X","LFMM")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+```
+
+**We may select two sets of candidate SNPs:**
+
+  - SNPs that were identified by at least one GEA method <span style="color: OrangeRed;">not correcting for population structure</span>, namely *RDA-raw* and *GF-raw*. Here, it would mean selecting <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  
+  - SNPs that were identified by at least one GEA method <span style="color: OrangeRed;">correcting for population structure</span>, namely *RDA-X*, *GF-X*, *LFMM* and *BayPass*. Here, it would mean selecting <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  
+  
+# Genome position of candidate SNPs
+
+```{r LoadGenomePositionData}
+snppos <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "base_table") %>% 
+  dplyr::rename(snp_ID = Juliette_snp_ID,
+                original_ID = Original_ID,
+                affx_ID = affy_snp_id,
+                infinium_ID = Infinium_ID,
+                genome_position =`position (bp)`,
+                annotation =`Annotation (including alternative names)`) %>% 
+  dplyr::select(snp_ID, original_ID, affx_ID, infinium_ID, scaffold, genome_position, annotation)
+```
+
+Information on genome position for the set of candidates identified by <span style="color: OrangeRed;">GEA methods not corrected for population structure</span>:
+
+```{r GenomePositionCandidatesNotcorrected}
+snppos %>% 
+  dplyr::filter(snp_ID %in% common_cand_notcorrected) %>% 
+  kable_mydf(boldfirstcolumn = F, font_size = 11)
+```
+
+Information on genome position for the set of candidates identified by <span style="color: OrangeRed;">GEA methods corrected for population structure</span>:
+
+```{r GenomePositionCandidatesCorrected}
+snppos %>% 
+  dplyr::filter(snp_ID %in% common_cand_corrected) %>% 
+  kable_mydf(boldfirstcolumn = F, font_size = 11)
+```
+
+  
