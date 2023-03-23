@@ -2,13 +2,13 @@
 title: "Formatting, exploring and imputing genomic data"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: 
-  html_document:
+output:
+  bookdown::html_document2:
     # code_fold: hide
     toc: true
     toc_depth: 4
-    toc_float:
-       collapsed: false
+    #toc_float:
+    #   collapsed: false
     number_sections: true
 bibliography: references.bib
 editor_options: 
@@ -257,13 +257,12 @@ plot(tab$id,tab$MAF,
      ylab="Minor allele frequencies")
 ```
 
-**<span style="color: red;">`r nrow(tab[tab$MAF<1,])` SNPs have MAF < 1%. In the dataset without MAF, we remove the SNPs with MAF < 1%: there are `r nrow(list_geno$list_withoutmaf$df) SNPs left.</span>** 
-
 ```{r RmMissingDataMAF}
 list_geno <- list(list_withmaf=list(df = df),
                   list_withoutmaf=list(df = df[!(row.names(df) %in% tab[tab$MAF<1,]$snp),]))
 ```
 
+**<span style="color: red;">`r nrow(tab[tab$MAF<1,])` SNPs have MAF < 1%. In the dataset without MAF, we remove the SNPs with MAF < 1%: there are `r nrow(list_geno$list_withoutmaf$df)` SNPs left.</span>** 
 
 
 ### Missing data per SNP
@@ -294,7 +293,7 @@ list_geno <- lapply(list_geno,remove_NA_perSNP)
 
 `r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<20,])` SNPs have less than 20% missing data and `r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<15,])` have less than 15% missing data.
 
-**<span style="color: red;">We keep SNPs with less than 20% missing data and so there are `r nrow(list_geno$list_withoutmaf$df)` SNPs left.</span>**
+**<span style="color: red;">We keep SNPs with less than 20% missing data and so there are `r nrow(list_geno$list_withoutmaf$df)` SNPs left in the dataset without MAF and `r nrow(list_geno$list_withmaf$df)` in the dataset with MAF.</span>**
 
 
 ```{r PlotMissingDataPerSNP, fig.height=4,fig.width=6}
@@ -451,9 +450,36 @@ diff <- sheet2 %>%
 
 So, all is ok, in the next section, we will use the information in the sheet `correlated_SNPs` to filter the SNPs that have a correlation coefficient of 1 with another SNPs located on the same scaffold.
 
+
+### To prune or not to prune?
+
+Initially, for the pairs of SNPs located on the same scaffold and with a correlation coefficient of 1 (so the same genotypes across all the individuals), we wanted to remove one of the two SNPs of the pair. The idea behind was that those SNPs may be duplicates. However, after some discussion with Thibaut Capblancq, we decided not to prune. Some explanations below.
+
+**First question: should we prune our genomic dataset?**
+
+*Arguments not to prune*: it is important to have all the signal possible and we do not expect that there will be a lot of variation in terms of the number of SNPs in genomic regions with different signals.
+
+*Arguments to prune*: some SNP-rich regions that are very physically linked (= in physical proximity on the genome) will drive the signal while they are not more important than others, by pruning we give the same weight to all sampled genomic regions, regardless of the SNP-richness of these regions.
+
+**Second question: if we decide to prune, how do we prune?**
+
+In general, we only prune according to the **physical distance** of the SNPs along the genome and **not their statistical association** (ie similarity of genotypes). Normally people estimate the average linkage disequilibrium along the genome and decide on a distance (in bp) below which they will keep only one SNP (at random). For instance, for maritime pine, we lose half of the linkage disequilibrium in about **200bp** so we may want to prune the dataset to keep only **one SNP every 500 bases** (this is what Thibaut Capblancq does with red spruce). 
+
+In our case, we have the information about the **SNP scaffold**. A scaffold is a non-contiguous assembly of genomic sequences -contigs- separated by gaps of known length and is about 1000 bp in length. So we may want to keep one or two SNPs per scaffold.
+
+
+<span style="color: red;">We therefore decided not to prune the dataset, as we were concerned about removing a large part of the signal by keeping only one SNP per 500 bp.</span>
+
+However, we decided to:
+
+  - check whether candidate SNPs include some SNPs located on the same scaffold. If yes, we may prune them at this step (keep only one when different candidate SNPs are located on the same scaffold).
+  
+  - redo some parts of the analyses (eg calculating the genomic offset with the best performing method) with a pruned dataset.
+  
+  
 ### Filtering correlated SNPs on the same scaffold
 
-<span style="color: red;">For the pairs of SNPs located on the same scaffold, we remove one of the two SNPs of the pair.</span>
+The script in this section are not evaluated as we decided not the prune the dataset based on the statistical relationships of the SNPs. 
 
 ```{r ExtractCorrelatedSNPsToRemove, message=F}
 # We extract the SNPs that we are going to remove
@@ -464,9 +490,9 @@ corrSNPs_to_remove <- read_excel("data/GenomicData/genome_position.xlsx", sheet 
   unique()
 ```
 
-We are going to remove **`r length(corrSNPs_to_remove)` SNPs.**
+If we choose to remove SNPs on the same scaffold and with the same genotypes across all individuals, we would remove **`r length(corrSNPs_to_remove)` SNPs.**
 
-```{r RemoveCorrelatedSNPs}
+```{r RemoveCorrelatedSNPs, eval=F}
 for(i in 1:2) list_geno[[i]]$df <- list_geno[[i]]$df %>% dplyr::filter(!(rownames(.) %in% corrSNPs_to_remove)) 
 ```
 
@@ -493,6 +519,8 @@ tibble("Genomic dataset" = c("With MAF","Without MAF"),
 ```{r RemoveRemainingMAC}
 list_geno$list_withmaf$df <- list_geno$list_withmaf$df %>% dplyr::filter(!(rownames(.) %in% low_mac$snp)) 
 ```
+
+There are `r nrow(list_geno$list_withmaf$df)` left in the genomic dataset with MAF.
 
 
 # Exporting the formatted and filtered genomic datasets
