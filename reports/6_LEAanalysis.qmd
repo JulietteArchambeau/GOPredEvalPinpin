@@ -329,6 +329,8 @@ points(candidates, -log10(pv_lfmm2)[candidates], cex = .9, col = "brown")
 
 ```{r NamesCandidateSNPs}
 candidates <- names(geno)[candidates]
+
+saveRDS(candidates, here("outputs/LFMM/candidates.rds"))
 ```
 
 <span style="color: red;">We obtain `r length(candidates)` candidate SNPs.</span>
@@ -663,7 +665,7 @@ geno_corrected <- as.matrix(clim_past) %*% t(mod_withmaf@B) %>%
 geno_corrected %>% write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withmaf.csv"))
 
 geno_corrected %>% 
-  dplyr::select(all_of(colnames(geno))) %>% 
+  dplyr::select(clon,all_of(colnames(geno))) %>% 
   write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"))
 
 geno_corrected[1:10,1:10] %>%
