@@ -8,7 +8,7 @@ output:
   bookdown::html_document2:
     df_print: kable
     fig.caption: yes
-    number_sections: yes
+    number-sections: true
     toc: yes
     toc_depth: 4
     #toc_float:
@@ -52,11 +52,14 @@ library(robust)
 library(qvalue)
 library(ggpubr)
 library(magrittr)
+library(readxl)
+library(ggridges)
 library(cowplot)
 library(ggVennDiagram)
 
-# my own function for building tables in reports
-source("scripts/functions/kable_mydf.R")
+# my own functions
+source("scripts/functions/kable_mydf.R") # building pretty tables for the html
+source("scripts/functions/extract_climatedt_metadata.R") # extracting meta data of the climatic variables in ClimateDT
 ```
 
 ```{r Functions, echo=F}
@@ -142,7 +145,7 @@ nb_dbMEMs <- 4
 ```{r LoadGenomicData}
 # Individual-based allele counts
 # ==============================
-geno_ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_NOMAF_454clones_9185snps.csv",row.names = 1) %>% 
+geno_ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutmaf.csv",row.names = 1) %>% 
   t() %>% 
   as.data.frame()
 
@@ -151,7 +154,7 @@ kable_mydf(geno_ind[1:10,1:10], boldfirstcolumn = T)
 
 # Population-based allele frequencies
 # ===================================
-geno_pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9185snps.csv",
+geno_pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv",
                      row.names = 1)
 
 kable_mydf(geno_pop[1:10,1:10] %>% round(3), boldfirstcolumn = T)
@@ -340,7 +343,7 @@ As advised in @capblancq2021redundancy, the estimation of the population genetic
 
 
 ```{r LoadImtGenDataMAF}
-geno_pop_maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_MAF_34pops_9879snps.csv")
+geno_pop_maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv")
 
 kable_mydf(geno_pop_maf[1:10,1:8], boldfirstcolumn = F)
 ```
@@ -462,10 +465,10 @@ levels(GPs) <- list("Northern Africa" = "Q1",
 
 ### Plot the PCA
 
-We plot the PCA performed on **population-based allele frequencies not filtered for MAF** (section \@ref(PCscores)).
+We plot the PCA performed on **population-based allele frequencies not filtered for MAF** (section \@ref(PCscores)). The figure is stored in `PCAplot.pdf`.
 
 ```{r PlotPCA, fig.width=10,fig.height=6, results="hide"}
-pdf(width=10,"figs/ExploratoryAnalyses/PCAplot.pdf")
+pdf(width=10,"figs/RDA/PCAplot.pdf")
 par(mfrow=c(1,2))
 lapply(2:3, function(second_axis){
   plot(pca, type="n", scaling=3, choices=c(1,second_axis),
@@ -489,6 +492,8 @@ The selection procedure of the climatic variables is based on three criteria:
   - biological relevance.
   
 ## Criteria 1: exposure to climate change{#ExpCC}
+
+### violin plots
 
 It may be relevant to include variables that will show in future years a **strong deviation** from their **current distribution** at the location of the study populations.
 
@@ -519,27 +524,26 @@ past_clim <- raw_clim %>%
   dplyr::filter(year<1951) %>%  # keep 1901 to 1950
   dplyr::select(pop,all_of(x)) %>% 
   group_by(pop) %>% 
-  dplyr::summarise_all(list(mean="mean",sd="sd"))
+  dplyr::summarise_all(list(mean_ref="mean",sd_ref="sd"))
 
 # z-scores
 zscores <- raw_clim %>% 
   dplyr::filter(year=="2041-2070") %>% 
   dplyr::select(pop,year,all_of(x)) %>% 
-  dplyr::rename(var=x) %>% 
+  dplyr::rename(mean_fut=x) %>% 
   left_join(past_clim,by="pop") %>% 
-  dplyr::mutate(zscore=(var-mean)/sd) %>% 
-  dplyr::select(pop,year,zscore)
+  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref)# %>% dplyr::select(pop,year,zscore)
   
 }) %>% 
   setNames(var_clim) %>% 
-  bind_rows(.id="var") %>% 
+  bind_rows(.id="clim_var") %>% 
   dplyr::left_join(gp_pop, by="pop") %>% 
   mutate(mainGPpop = case_when(mainGPpop == "Q1" ~ "Northern Africa",
-                            mainGPpop == "Q2" ~ "Corsica",
-                            mainGPpop == "Q3" ~ "Central Spain",
-                            mainGPpop == "Q4" ~ "French Atlantic",
-                            mainGPpop == "Q5" ~ "Iberian Atlantic",
-                            mainGPpop == "Q6" ~ "South-eastern Spain")) %>% 
+                               mainGPpop == "Q2" ~ "Corsica",
+                               mainGPpop == "Q3" ~ "Central Spain",
+                               mainGPpop == "Q4" ~ "French Atlantic",
+                               mainGPpop == "Q5" ~ "Iberian Atlantic",
+                               mainGPpop == "Q6" ~ "South-eastern Spain")) %>% 
   mutate(mainGPpop=factor(mainGPpop, levels=c("Northern Africa",
                                               "Corsica",
                                               "Central Spain",
@@ -551,7 +555,8 @@ zscores <- raw_clim %>%
 # we sort the average z-scores (across populations and years) to determine 
 # which climatic variables have the highest abs(Z-scores)
 abs_mean_zscore <- zscores %>% 
-  spread(var,zscore) %>% 
+  dplyr::select(pop,clim_var,zscore) %>% 
+  spread(clim_var,zscore) %>% 
   mutate_if(is.numeric,abs) %>%
   dplyr::select(all_of(var_clim)) %>% 
   dplyr::summarise_all("mean") %>% 
@@ -565,8 +570,8 @@ abs_mean_zscore <- zscores %>%
 bg_color <- "gray44"
 
 p1 <- zscores %>%
-  mutate(var=factor(var,levels=c(abs_mean_zscore$variable))) %>% 
-  ggplot(aes(x=var, y=zscore)) + 
+  mutate(clim_var=factor(clim_var,levels=c(abs_mean_zscore$variable))) %>% 
+  ggplot(aes(x=clim_var, y=zscore)) + 
   geom_hline(yintercept=0, color=bg_color) +
   geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
   geom_jitter(shape=16,aes(colour=mainGPpop),position=position_jitter(0.2),size=1) +
@@ -597,86 +602,101 @@ p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange.pdf", width=10
 p
 ```
 
-
-```{r CalculatingZscoreExposureCCOldVersion,warning=F, echo=F, eval=F}
-# Previous figure version with the future climatic variables extracted from the online ClimateDT, 
-# and so based on the RCP scenarios
-
-# Time window for future climates:
-min_fut_clim <- 2023
-max_fut_clim <- 2050
-
-# Do we average the z-scores across future years?
-avg <- FALSE
-
-# We load ClimateDT outputs 
-raw_clim <-  read_csv("data/DryadRepo/ClimateDT/ClimateDToutputs_Populations_1901_2098.csv",
-               show_col_types = FALSE)
-
-# selected clim variables
-var_clim <- colnames(raw_clim)[!colnames(raw_clim) %in% c("ID","Year","Longitude","Latitude","Elevation",clim_var_to_rm)]
+### ggridge plots
 
 
-# calculating the z-scores
-zscores <- lapply(var_clim, function(x){
+To better visualize to what extent the predicted future climatic values differ from the distribution of the climatic values across the period 1901-1950, we generate `ggridges` plots that show for each climatic variable:
+
+  - its population-specific distributions across the period 1901-1950, colored according to the main gene pool the populations belong to.
   
+  - its population-specific predicted mean value across the period 2041-2070.
+  
+Figures are stored in `RidgelinePlotsClimatePopulations.pdf`
+
+```{r FunctionToPlotggridges, message=F, results="hide", warning=F}
+# Function to plot the distribution of the annual climatic values of the populations across the period 1901-1950 +
+# their predicted climatic value across the period 2041-270.
+make_ggridge_plots <- function(selected_var){
+
+# we extract the meta data from ClimateDT for the selected climatic variables
+metadata_var <- extract_climatedt_metadata(var_clim = selected_var)
+  
+# Annual values of the climatic variables between 1901 and 1950
 past_clim <- raw_clim %>% 
-  dplyr::filter(Year<1951) %>%  # keep 1901 to 1950
-  dplyr::select(ID,all_of(x)) %>% 
-  group_by(ID) %>% 
-  dplyr::summarise_all(list(mean="mean",sd="sd"))
+  dplyr::select(pop,year,any_of(selected_var)) %>% 
+  dplyr::rename(clim_values=selected_var) %>% 
+  dplyr::filter(year<1951) %>% 
+  dplyr::left_join(gp_pop, by="pop") %>% 
+  mutate(mainGPpop = case_when(mainGPpop == "Q1" ~ "Northern Africa",
+                               mainGPpop == "Q2" ~ "Corsica",
+                               mainGPpop == "Q3" ~ "Central Spain",
+                               mainGPpop == "Q4" ~ "French Atlantic",
+                               mainGPpop == "Q5" ~ "Iberian Atlantic",
+                               mainGPpop == "Q6" ~ "South-eastern Spain")) %>% 
+  mutate(mainGPpop=factor(mainGPpop, levels=c("Northern Africa",
+                                              "Corsica",
+                                              "Central Spain",
+                                              "French Atlantic",
+                                              "Iberian Atlantic",
+                                              "South-eastern Spain")))
 
-# z-scores
-zcores <- raw_clim %>% 
-  dplyr::filter(Year>min_fut_clim & Year<max_fut_clim) %>% 
-  dplyr::select(ID,Year,all_of(x)) %>% 
-  dplyr::rename(var=x) %>% 
-  left_join(past_clim,by="ID") %>% 
-  dplyr::mutate(zscore=(var-mean)/sd) 
+# Sort the populations according to the mean climatic value across 1901-1950
+mean_clim_value <- past_clim %>% 
+  group_by(pop) %>% 
+  dplyr::summarise(mean=mean(clim_values)) %>% 
+  arrange(mean)
 
-if(avg==TRUE){
-  zcores <-  zcores %>% 
-    group_by(ID) %>% 
-    dplyr::summarise_at("zscore","mean")
-} else{
-  zcores <-  zcores %>% 
-    dplyr::select(ID,Year,zscore)
+# Extract the predicted mean value of the climatic variable across the period 2041-2070
+fut_clim <- raw_clim %>% 
+  dplyr::select(pop,year,any_of(selected_var)) %>% 
+  dplyr::rename(clim_values=selected_var) %>% 
+  dplyr::filter(year=="2041-2070") %>% 
+  mutate(pop = factor(pop, levels = mean_clim_value$pop))
+
+# Generate the plot
+past_clim %>% 
+  mutate(pop = factor(pop, levels = mean_clim_value$pop)) %>% 
+  ggplot(aes(x = clim_values, y = pop, fill = mainGPpop)) +
+  scale_fill_manual(name = "Main gene pool",
+                    values = c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3")) +
+  stat_density_ridges(quantile_lines = TRUE,
+                    alpha=0.6,
+                    color="gray30") +
+  geom_point(aes(x = clim_values, y = pop, color = "red"), data = fut_clim, inherit.aes = F) +
+  scale_color_discrete(labels="2041-2070 climate value", name="") +
+  theme_minimal() + 
+  ylab("") + xlab("") + 
+  ggtitle(paste0(metadata_var$description, " (", metadata_var$unit_symbol,") - ",metadata_var$label)) 
+
+# past_clim %>% 
+#   mutate(pop = factor(pop, levels = mean_clim_value$pop)) %>% 
+#   ggplot(aes(x = clim_values, y = pop, fill = mainGPpop)) +
+#   geom_density_ridges(aes(point_color = mainGPpop), 
+#                       alpha=0.2,
+#                       point_alpha = 1,
+#                       point_shape=20,
+#                       jittered_points = TRUE) +
+#   scale_fill_manual(name="Main gene pool", 
+#                     values = c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3")) +
+#   
+#   scale_discrete_manual(name="Main gene pool", aesthetics = "point_color", values = c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3")) +
+#   theme_ridges() + 
+#   theme_minimal() + 
+#   #theme(legend.position = "none") +
+#   geom_point(aes(x = clim_values, y = pop, color = "red"), data = fut_clim, inherit.aes = F) +
+#   ylab("") + xlab("") + 
+#   ggtitle(paste0(metadata_var$description, " (", metadata_var$unit_symbol,") - ",metadata_var$label)) + 
+#   guides(color="none")
+
 }
-  
-}) %>% 
-  setNames(var_clim) %>% 
-  bind_rows(.id="var") 
-
-# we sort the average z-scores (across populations and years) to determine 
-# which climatic variables have the highest abs(Z-scores)
-abs_mean_zscore <- zscores %>% 
-  spread(var,zscore) %>% 
-  mutate_if(is.numeric,abs) %>%
-  dplyr::select(all_of(var_clim)) %>% 
-  dplyr::summarise_all("mean") %>% 
-  gather(variable, value) %>% 
-  arrange(value)
 
 
-# Violin plots
-p <- zscores %>%
-  mutate(var=factor(var,levels=c(abs_mean_zscore$variable))) %>% 
-  ggplot(aes(x=var, y=zscore)) + 
-  geom_jitter(shape=16,aes(colour = Year),position=position_jitter(0.2),size=0.5) +
-  geom_violin(alpha=0.2) + 
-  scale_colour_gradient2(low = "blue", mid="yellow",high = "red",midpoint=(max_fut_clim+min_fut_clim)/2) +
-  coord_flip() +
-  xlab("") + ylab("Z-scores") +
-  theme_bw() +
-  theme(legend.position=c(0.8, 0.7),
-        legend.title = element_text(size = 18),
-        legend.text = element_text(size = 15),
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size=16),
-        legend.box.background = element_rect(colour = "black"))
-
-p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange_old.png", width=10,height=10)
+pdf(width = 9, height = 9, "figs/ExploratoryAnalyses/RidgelinePlotsClimatePopulations.pdf")
+lapply(var_clim, make_ggridge_plots)
+dev.off()
 ```
+
+### interpretation
 
 *Temperature*-related variables show the *highest deviations* from their distribution under the reference period 1901-1950 and also all show a consistent increase across populations and years.
 
@@ -684,7 +704,31 @@ p %>% ggsave(file="figs/ExploratoryAnalyses/ExposureClimateChange_old.png", widt
 
 For `AHM` (annual heat moisture index), the two populations of Northern Africa are predicted to show a very high increase for this variable. Even stronger for `GDD18`, some Iberian Atlantic populations are expected to show a strong increase for this variable. <span style="color: red;">**How reliable are these predictions?**</span>
 
+`AHM` is calculated as follows: `AHM`= (`bio1`+10)/(`bio12`/1000)) with `bio1` the annual mean temperature and `bio12` the annual precipitation.
+
+We look at the values of `AHM`, `bio1` and `bio12` for the two populations from North Africa in the table below. `mean_ref` and `sd_ref` are the mean and standard deviation of the distribution of the climatic variables across the reference period 1901-1950. `mean_fut` is the predicted mean value of the climatic variable for the period 2041-2070. `zscore` is the z-score calculated as follows: `zscore` = (`mean_fut` - `mean_past` ) / `sd_ref`.
+
+```{r TableAHMValues}
+zscores %>% 
+  dplyr::filter(clim_var %in% c("bio1","bio12","AHM")) %>% 
+  dplyr::filter(mainGPpop %in% c("Northern Africa")) %>% 
+  dplyr::select(-year) %>% 
+  kable_mydf()
+```
+
+We do the same for `SHM` which is calculated as follows: `SHM` = `MWMT`/(`SP`/1000) with `MWMT` the mean warmest month temperature and `SP` the summer precipitation.
+
+```{r TableSHMValues}
+zscores %>% 
+  dplyr::filter(clim_var %in% c("MWMT","SP","SHM")) %>% 
+  dplyr::filter(mainGPpop %in% c("Northern Africa")) %>% 
+  dplyr::select(-year) %>% 
+  kable_mydf()
+```
+
 **Notes on the graph interpretation:** Figure \@ref(fig:ViolinPlotExposureCC) quantifies the relative deviations of the values of the climate variables from their distribution over the reference period 1901-1950. The highest deviations of temperature-related variables do not imply that populations will be less affected by future changes in precipitation than in temperatures.  Indeed, for some climate variables, even minor changes can severely affect populations. For example, some populations may already be suffering from summer droughts and even a small decrease in precipitation could have dramatic consequences.
+
+
 
 ## Criteria 2: a predictive approach{#StepwiseSelection}
 
@@ -709,7 +753,7 @@ nbmodels <- 100
 
 We perform `r nbmodels` iterations of the stepwise selection procedure.
 
-```{r StepwiseSelectionPopLevel, eval=F}
+```{r StepwiseSelectionPopLevel, eval=T}
 # we standardize the climatic variables
 climsc <- clim %>% dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
 
@@ -1080,7 +1124,7 @@ return(sum_tab_RDA)
 
 I left this part in the document but I think we should only use the variance partitioning based on population-level allele frequencies.
 
-```{r VartPartIndividualLevel, eval=F}
+```{r VartPartIndividualLevel, eval=T}
 list_sum_var_part <- lapply(list(yearly_var,drought_var, set3_var), function(x){
 
   var_part(df_geno=geno_ind,
@@ -1096,7 +1140,7 @@ list_sum_var_part <- lapply(list(yearly_var,drought_var, set3_var), function(x){
 saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 ```
 
-```{r ShowSummaryVarPartIndividualLevel, eval=F}
+```{r ShowSummaryVarPartIndividualLevel, eval=T}
 list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 
 # yearly-climate variables
@@ -1117,7 +1161,7 @@ geography <- "coordinates"
 ```
 
 
-```{r VartPartPopLevelCoordinates, eval=F}
+```{r VartPartPopLevelCoordinates, eval=T}
 list_sum_var_part <- lapply(list(yearly_var,drought_var,set3_var), function(x){
   
   var_part(df_geno=geno_pop,
@@ -1156,7 +1200,7 @@ We keep the first four dbMEMs.
 geography <- "dbMEMs"
 ```
 
-```{r VartPartPopLevelMEMs, eval=F}
+```{r VartPartPopLevelMEMs, eval=T}
 list_sum_var_part <- lapply(list(yearly_var,drought_var,set3_var), function(x){
   
   var_part(df_geno=geno_pop,
@@ -1389,7 +1433,7 @@ plot_RDA <- function(df,x,GPs){
 
 
 
-```{r RunRDAmodels, eval=F, results="hide"}
+```{r RunRDAmodels, eval=T, results="hide"}
 # We store in a list the four combinations of: 
   # - the two sets of selected climatic variables
   # - correction or not by population structure
