@@ -38,10 +38,16 @@ library(gradientForest)
 library(parallel)
 library(foreach)
 library(doParallel)
+library(readxl)
 library(here)
 library(data.table)
 library(cowplot)
+library(magrittr)
 library(ggVennDiagram)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
 ```
 
 
@@ -49,14 +55,23 @@ library(ggVennDiagram)
 # Introduction
 
 
-Most analyses conducted in this document are based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental.
+Most analyses conducted in the present report were conducted following @fitzpatrick2021experimental and @capblancq2023common, and the R code arebased on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
 
 
-In this report, the GF algorithm is used to identify potential outliers using the raw estimates of population minor allele frequencies [GF-raw in @fitzpatrick2021experimental].
+**Goal:** Identify candidate SNPs for local adaptation to climate using the **Gradient Forest (GF) algorithm**. 
+
+To this goal, we will apply the GF algorithm to:
+  
+  - the 'raw' or *uncorrected* allele frequencies (**GF-raw** in @fitzpatrick2021experimental and @capblancq2023common).
+  
+  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population reladness. In @fitzpatrick2021experimental and @capblancq2023common, they use the population genetic variance-covariance matrix from Bayenv 2 to correct for population structure and called the matrix of corrected allele frequencies **GF-X**. From @fitzpatrick2021experimental: 'The GF-X approach was included to explore a more robust approach to allele frequency estimation that corrects for finite sampling and population relatedness prior to feeding into GF for outlier detection.' In our case, we extract the matrix of corrected allele frequencies using the latent factor mixed model (LFMM) approach; see section 5 'Corrected allele frequencies' in the `6_LEAanalysis.qmd` report.
 
 
-**Strengths** of the GF algorithm: incorporation of multivariate predictors, interactions between predictors, and nonlinear allele frequency gradients.
+**Strengths** of the GF algorithm: nonparametric (nonlinear allele frequency gradients), makes no assumption about the particular form of the gene–environment relationship, incorporates multivariate predictors, interactions among predictors.
+
 **Weakness**: not controlling for demographic history.
+
+From @gain2023quantitative: 'Nonlinearity makes the GF model more flexible than linear models, but the additional degrees of freedom may not always be desirable when resolving bias-variance trade-offs.'
 
 GF models are fitted to each locus individually and a $R^2$ is obtained for each locus. Empirical p-values are then calculated.
 
@@ -71,16 +86,6 @@ $$\hat{p}_l = 1 - (r_l / n)$$
  with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the  $n$ randomly selected SNPs. 
 
 # Options, parameters and functions
-
-```{r FunctionToGenerateMyKables}
-# my function to build tables
-kable_mydf <- function(x, boldfirstcolumn){
-  x %>% 
-  kable() %>%  
-  kable_styling(bootstrap_options = c("stripped","hover", "condensed"), full_width = F,font_size =11) %>% 
-  {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
-}
-```
 
 ## Functions from @fitzpatrick2021experimental
 
@@ -105,7 +110,7 @@ format_geno <- function(genodata, selected_snps, rm_rare_alleles, selected_rando
   if(length(selected_snps)>1){genodata <- genodata %>% dplyr::select(all_of(selected_snps))}
   
   # remove SNPs that are polymorphic in fewer than five populations?
-  if(rm_rare_alleles==T){genodata  <- genodata %>% dplyr::select(which(unlist(lapply(apply(., 2, unique), length))>=6))}
+  if(rm_rare_alleles==T){genodata  <- genodata %>% dplyr::select(which(unlist(lapply(lapply(., unique), length))>=6))}
   
   # run GF on a random subset of SNPs?
   if(selected_random_snps>0){genodata <- genodata %>% dplyr::select(sample(colnames(.),selected_random_snps))}
@@ -293,117 +298,127 @@ return(gf_out)
 
 ## Genomic data
 
+We load the *uncorrected* and *corrected* allele frequency matrices in a list.
+
+The *uncorrected* allele frequency matrix is already a matrix a population-level allele frequencies, i.e. so with the number of populations in rows and the number of genetic markers in columns.
+
+The *corrected* allele frequency matrix is a matrix of genotype-level (ie individual-level) allele frequencies, i.e. so with the number of genotypes (ie clones, individuals) in rows and the number of genetic markers in columns. We have to transform it in a population-level allele frequency matrix.
 
 ```{r LoadGenomicData}
-# Population-based allele frequencies
-# ===================================
-genodata <- read.csv(here::here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_NOMAF_34pops_9817snps.csv"),
-                     row.names = 1) 
+# we load the two genomic matrices
+list_geno <- list(mat_raw = read.csv(here::here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"), 
+                                     row.names = 1), 
+                  mat_X = read.csv(here::here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"), 
+                                     row.names = 1))
 
-genodata[1:10,1:10] %>% 
-  mutate(across(where(is.numeric), round, 2)) %>% 
-  kable_mydf(boldfirstcolumn = T)
+
+# we calculate the population-level allele frequencies for the corrected matrix
+list_geno$mat_X <- list_geno$mat_X %>% 
+  rownames_to_column(var="pop") %>% 
+  mutate(pop=str_sub(pop,1,3)) %>% 
+  group_by(pop) %>% 
+  summarise_all(~sum(., na.rm = TRUE)/((n()-sum(is.na(.)))*2)) %>% 
+  column_to_rownames("pop")
+  
 ```
 
-The genomic dataset contains **population-based allele frequencies** of `r ncol(genodata)-1` populations and `r nrow(genodata)` SNPs.
 
 **Comment:** This data contains the population-based allele frequencies of the **minor allele**. The minor allele was identified as the minor allele across all individuals. However, as the populations do not contain the same number of individuals, the average of the population-based allele frequencies is higher than 0.5 for some SNPs.
 
 ```{r HighFreqAlleles}
-high_freqs <- genodata %>% 
+high_freqs <- lapply(list_geno, function(x)
+
+  x %>% 
   summarise_all(mean) %>% 
   pivot_longer(everything(),names_to = "snp",values_to= "mean") %>% 
-  filter(mean>0.5)
+  filter(mean>0.5))
 ```
 
 
-`r length(high_freqs$snp)` SNPs have average population-based allele frequencies higher than 0.5. Can we still call them population minor allele frequencies?
+For the corrected matrix, `r length(high_freqs$mat_X$snp)` have average population-based allele frequencies higher than 0.5. However, for the uncorrected matrix, `r length(high_freqs$mat_raw$snp)` SNPs have average population-based allele frequencies higher than 0.5. Can we still call them population minor allele frequencies?
 
 ## Climatic data
 
-```{r LoadEnvData}
-# We load the scaled climatic variables
-climdata <- readRDS(here::here("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds"))[[2]]
+We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report `2_RedundancyAnalysis_part1.Rmd`):
+
+```{r LoadClimaticData}
+# Which set of climatic variables are we going to use?
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+
+# we load the population-specific data of the climatic variables of interest
+clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+               show_col_types = FALSE) %>% 
+  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
 
 
-# Selected summer-drought variables
-# =================================
-drought_var <- list(name="Summer-drought variables",
-                   code="Droughtvar",
-                   variables=c("MSP","MWMT"))
 
-
-
-# Selected global-climate variables
-# =================================
-global_var <- list(name="Global-climate variables",
-                   code="GCvar",
-                   variables=c("bio1","bio12","bio15","bio3","bio4"))
+extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  kable_mydf()
 ```
 
 
 # Identify GF outliers
 
 
-
-
 ```{r IdentifyGFoutliers, eval=F}
 set.seed(55)
 
-gf_out <- identify_GFoutliers(genodata = genodata,
-                              climdata = climdata,
-                              list_climvars=list(global_var,drought_var),
-                              rm_rare_alleles = T, 
-                              selected_snps = "all", 
-                              ntree=500,
-                              cores = 9, 
-                              selected_random_snps = 0,
-                              nb_neutral_snps = 1000)
+gf_out <- lapply(list_geno, function(geno)
+
+identify_GFoutliers(genodata = geno,
+                    climdata = clim_past,
+                    list_climvars=list(clim_var),
+                    rm_rare_alleles = T, 
+                    selected_snps = "all", 
+                    ntree=500,
+                    cores = 9, 
+                    selected_random_snps = 0,
+                    nb_neutral_snps = 1000)) %>% 
+  setNames(c("gf_raw","gf_X"))
 
 saveRDS(gf_out, here::here("outputs/GF/gf_outliers.rds"))
 ```
 
 # Common outliers with RDA
 
+
+
 ```{r VennDiagrams, fig.height=8, fig.width=10}
 rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
 
 
-# Global climatic variables
-# -------------------------
-list_outliers <- list("RDA" = rda_outliers[[1]]$outliers$snp,
-                      "RDA + PS" = rda_outliers[[2]]$outliers$snp,
-                      "GF" = gf_out$GCvar$outliers$outliers001)
+list_outliers <- list("RDA" = rda_outliers[[5]]$outliers$snp,
+                      "RDA + PS" = rda_outliers[[6]]$outliers$snp,
+                      "GF-raw" = gf_out$gf_raw$set3_var$outliers$outliers001,
+                      "GF-X" = gf_out$gf_X$set3_var$outliers$outliers001)
 
-p_gc <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
+ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
   scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
   guides(fill = "none") + 
-  labs(caption='Global climatic variables') +
+  #labs(caption='Set 3 climatic variables') +
   theme(text = element_text(size=16),
         plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
   scale_x_continuous(expand = expansion(mult = .2))
 
 
-# Summer-drought variables
-# ------------------------
-
-list_outliers <- list("RDA" = rda_outliers[[3]]$outliers$snp,
-                      "RDA + PS" = rda_outliers[[4]]$outliers$snp,
-                      "GF" = gf_out$Droughtvar$outliers$outliers001)
-
-p_drought <- ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
+ggVennDiagram(list_outliers[c(2,4)],lty="solid", size=0.2) + 
   scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
   guides(fill = "none") + 
-  labs(caption='Summer-drought variables') +
+  labs(caption='GEAs corrected for population structure') +
   theme(text = element_text(size=16),
         plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
   scale_x_continuous(expand = expansion(mult = .2))
 
-p <- plot_grid(p_gc,p_drought, ncol=2)
-
-ggsave(here::here("figs/GF/VennDiagramOutliers.pdf"),p,width = 10, height = 8)
-
-p
+ggVennDiagram(list_outliers[c(1,3)],lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
+  guides(fill = "none") + 
+  labs(caption='GEAs not corrected for population structure') +
+  theme(text = element_text(size=16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
 ```
 
