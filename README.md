@@ -27,9 +27,10 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
     
     *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/RDAplots_outliers_2.pdf" target="_blank">RDAplots_outliers_2.pdf</a> RDA plots with outliers and  Manhattan plots following [Capblancq and Forester (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13722) (and the [associated Github repository](https://github.com/Capblancq/RDA-landscape-genomics)).
 
--   [3_GradientForest_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_GradientForest_part1.html) Identification of candidate SNPs with the Gradient Forest algorithm.
+-   [3_GradientForest_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_GradientForest_part1.html) Identification of candidate SNPs with the Gradient Forest (GF) algorithm.
 
 -   [4_BaypassAnalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_BaypassAnalysis.html) Identification of candidate SNPs with BayPass.
 
--   [6_LEAanalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_LEAanalysis.html) Estimation of the genetic gap with the `LEA` package, which uses the **latent factor mixed model** (LFMM) approach. 
+-   [6_LEAanalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_LEAanalysis.html) Identification of candidate SNPs and estimation of the genetic gap (i.e. genomic offset) with the `LEA` R package (Gain & Francois 2021), which uses the **latent factor mixed model** (LFMM) approach. 
 
+-   [GeneratingSNPsets.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/GeneratingSNPsets.html) Identifying the common candidates across the different gene-environment association (GEA) methods, looking at their genomic position and generating a set of control SNPs.
