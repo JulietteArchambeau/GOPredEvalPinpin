@@ -643,23 +643,28 @@ Below, we do the matrix multiplication of the matrix $\mathbf{X}$ (dimension $n 
 
 ```{r ExtractCorrectedAlleleFrequencies}
 # we load the imputed genomic data with allele counts (and with MAF)
-geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withmaf.csv")) %>% 
+geno_withmaf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withmaf.csv")) %>% 
   column_to_rownames("snp_ID") %>% 
   t()
 
 # We run LFMM 
-mod_withmaf <- lfmm2(input = geno,
+mod_withmaf <- lfmm2(input = geno_withmaf,
                      env = as.matrix(clim_past),
                      K = 5,
                      effect.sizes = T) # to return the matrix B (the matrix of effect sizes)
 
 # Matrix multiplication of matrix X and the transpose of matrix B
 geno_corrected <- as.matrix(clim_past) %*% t(mod_withmaf@B) %>% 
-  set_rownames(rownames(geno)) %>% 
-  as.data.frame()
+  set_rownames(rownames(geno_withmaf)) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="clon")
 
-# save the matrix for future analyses
+# save the matrix for future analyses with and without MAF
 geno_corrected %>% write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withmaf.csv"))
+
+geno_corrected %>% 
+  dplyr::select(all_of(colnames(geno))) %>% 
+  write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"))
 
 geno_corrected[1:10,1:10] %>%
   kable_mydf(boldfirstcolumn = 1)
