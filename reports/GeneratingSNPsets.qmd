@@ -191,4 +191,22 @@ snppos %>%
   kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
+# Control SNPs
+
+We *randomly* sample a set of SNPs (approximately the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
+
+```{r ControlSNPs}
+# names of the SNPs that were identified by at least one GEA method
+all_candidates <- list_candidates %>% unlist() %>% unique()
+
+# remove the candidates from the set of SNPs used in the GEA analyses
+no_candidates <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv")) %>% 
+  pull(snp_ID) %>% 
+  setdiff(all_candidates)
+
+# sample the set of control SNPs
+set.seed(36)
+control_snps <- sample(no_candidates,30,replace = F)
+```
+
   
