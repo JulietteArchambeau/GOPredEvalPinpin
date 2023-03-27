@@ -136,45 +136,25 @@ Gmatrix[1:5,1:6] %>%
   kable_mydf(boldfirstcolumn = F)
 ```
 
+# Climatic data
 
-# Estimating gene-environment associations
-
-
-## Input data
-
-### Past climatic data {#sec-PastClim}
 
 We load the population-specific climatic information for the climatic variables of interest. To run `lfmm2`, individuals (genotypes in our case) have to be in rows and climatic variables in columns.
 
+The past and future climatic data have been scaled with the parameters (mean and variance) of the past climatic data (which is done by the function `generate_clim_datatsets`).
+
+
 ```{r LoadClimaticData}
-# we load the names of the selected climatic variables
+# Selected climatic variables
+# ===========================
 clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
   `[[`(3) # We keep the set 3 of climatic variables (the third list element)
 
-# we load the population-specific data of the climatic variables of interest
-clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-               show_col_types = FALSE) %>% 
-  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
-```
 
-We have to scale (i.e. mean-center) the climatic variables, but we have to keep the scaling parameters to scale present and future climatic data with the same parameter values. So we save the mean and standard deviation of the climatic variables in a list.
-
-```{r SaveScalingParams}
-scale_params <- lapply(clim_var$variables, function(x){
-  
-  vec_var <- clim_past[,x] %>% pull()
-  
-  list(mean = mean(vec_var),
-       sd = sd(vec_var))
-  
-}) %>% setNames(clim_var$variables)
-```
-
-Then we mean-center the climatic variables.
-
-```{r ScalingClimaticVariables}
-clim_past <- clim_past %>% 
-  dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.)))
+# Past and future climatic data
+# =============================
+source(here("scripts/functions/generate_clim_datasets.R"))
+clim_dfs <- generate_clim_datasets(clim_var)
 ```
 
 We attribute climatic values to each genotype, i.e. genotypes from the same populations will have the same climatic values.
@@ -187,9 +167,16 @@ genotypes <- geno %>%
 
 clim_past <- genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
-  left_join(clim_past, by="pop") %>% 
+  left_join(clim_dfs$clim_past, by="pop") %>% 
   dplyr::select(-pop,-clon)
 ```
+
+
+# Estimating gene-environment associations
+
+
+## Input data
+
 
 ### Genomic data
 
@@ -202,6 +189,8 @@ geno <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutma
   t() %>% 
   as_tibble()
 ```
+
+
 
 ## Run lfmm2 {#sec-LFMMequation}
 
@@ -353,23 +342,13 @@ Below, we will estimate the genetic gap for:
 
 ## Future climatic data
 
-We load the predicted values of the climatic variables for the years 2041-2070 and we scale them (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950 (see @sec-PastClim).
+We load the predicted values of the climatic variables for the years 2041-2070 that have been scaled (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950.
 
 ```{r LoadFutureClimate}
-# we load the future climatic data of the climatic variables of interest
-clim_fut <- read_csv(here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"),
-               show_col_types = FALSE) %>% 
-  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
-
-# We scale the future climatic variables with the scaling parameters of the climatic values from the period 1901-1950
-for(i in clim_var$variables){
-  clim_fut[,i] <- (clim_fut[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd
-}
-
 # Attribute climatic values for each genotype
 clim_fut <- genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
-  left_join(clim_fut, by="pop") %>% 
+  left_join(clim_dfs$clim_fut, by="pop") %>% 
   dplyr::select(-pop,-clon)
 ```
 
@@ -439,13 +418,18 @@ gp_poplevel <- gps %>%
   dplyr::select(pop, main_gp_pop) %>% 
   distinct()
   
-# we built a dataset with the information of the main gene pool for each clone, and for each pop
-gps <- gps %>% 
+# Information of the main gene pool for each pop
+gp_poplevel <- gps %>% 
   dplyr::select(main_gp_clon,color_main_gp_clon) %>% 
   distinct() %>% 
   dplyr::rename(main_gp_pop=main_gp_clon,
                 color_main_gp_pop=color_main_gp_clon) %>% 
-  right_join(gp_poplevel,by="main_gp_pop") %>% 
+  right_join(gp_poplevel,by="main_gp_pop") 
+
+saveRDS(gp_poplevel, here("data/GenomicData/MainGenePoolPopulations.rds"))
+
+# Information of the main gene pool for each clone
+gps <- gp_poplevel %>% 
   right_join(gps, by="pop") %>% 
   arrange(clon) # The clone order has to be the same as in the genomic data used to fit the LFMM models!
 
@@ -473,20 +457,7 @@ We see that only two dimensions of the climatic space influence the genetic gap.
 
 ```{r FunctionEuclideanDistancePlots}
 # Function to build the plots 
-make_plot <- function(X,Y,colors, color_names, plot_title=NULL, xlim=NULL,ylim=NULL,cex=1.2,pch=19,ylab) {
-plot(X, Y, 
-     xlab ="Euclidean distance",  ylab =ylab, 
-     cex = cex , pch = pch, 
-     col = colors,
-     xlim = xlim, ylim = ylim,
-     main = plot_title)
-legend("topleft", 
-       legend=unique(color_names),
-       col=unique(colors),
-       bty="n", pch=pch, cex=cex, ncol=1,
-       title="Main gene pools")
-recordPlot()
-}
+source(here("scripts/functions/make_eucli_plot.R"))
 ```
 
 
@@ -494,7 +465,7 @@ recordPlot()
 ```{r PlotAllSNPsEucliDistance}
 # par(mfrow=c(1,2))
 # plot the climatic distance vs Euclidean environmental distance
-# make_plot(X = dist_env,
+# make_eucli_plot(X = dist_env,
 #           Y = g_gap$distance,
 #           ylab = "sqrt(distance)",
 #           colors = gps$color_main_gp_pop, 
@@ -502,7 +473,7 @@ recordPlot()
 #           plot_title = "Climatic distance ~ Euclidean climatic distance")
 
 # plot the squared root of the genetic gap vs Euclidean environmental distance
-make_plot(X = dist_env,
+make_eucli_plot(X = dist_env,
           Y = sqrt(g_gap$offset),
           colors = gps$color_main_gp_pop, 
           color_names = gps$main_gp_pop,
@@ -514,7 +485,7 @@ The plot below is exactly the same as the previous one except that the x and y a
 
 ```{r PlotAllSNPsEucliDistanceAxisLimits}
 # par(mfrow=c(1,2))
-# make_plot(X = dist_env,
+# make_eucli_plot(X = dist_env,
 #           Y = g_gap$distance,
 #           ylab = "sqrt(distance)",
 #           colors = gps$color_main_gp_pop, 
@@ -522,7 +493,7 @@ The plot below is exactly the same as the previous one except that the x and y a
 #           plot_title = "Climatic distance ~ Euclidean climatic distance",
 #           xlim=c(0,22),ylim=c(0,1.1))
 
-make_plot(X = dist_env,
+make_eucli_plot(X = dist_env,
           Y = sqrt(g_gap$offset),
           colors = gps$color_main_gp_pop, 
           color_names = gps$main_gp_pop,
@@ -574,14 +545,14 @@ return(x)
 ```{r PlotSetSNPsEucliDistance, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-lapply(list_ggap, function(x) make_plot(
+lapply(list_ggap, function(x) make_eucli_plot(
   X = dist_env,
   Y = sqrt(x$g_gap$offset),
   colors = gps$color_main_gp_pop,
   color_names = gps$main_gp_pop,
   ylab = "sqrt(genetic gap)",
   plot_title = x$set_name,
-  xlim=c(0,200),ylim=c(0,20.5)))
+  xlim=c(0,200),ylim=c(0,22)))
 ```
 
 Same plots as above but with the x and y axes cut off to help visualization.
@@ -589,7 +560,7 @@ Same plots as above but with the x and y axes cut off to help visualization.
 ```{r PlotSetSNPsEucliDistanceAxisLimits, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-lapply(list_ggap, function(x) make_plot(
+lapply(list_ggap, function(x) make_eucli_plot(
   X = dist_env,
   Y = sqrt(x$g_gap$offset),
   colors = gps$color_main_gp_pop,

@@ -209,4 +209,19 @@ set.seed(36)
 control_snps <- sample(no_candidates,30,replace = F)
 ```
 
+
+```{r SaveThreeSetsSNPs}
+snp_sets <- list(cand_corrected = list(set_code = "cand_corrected",
+                                       set_name = "Common candidates (with correction)",
+                                       set_snps = common_cand_corrected),
+                 cand_notcorrected = list(set_code = "cand_notcorrected",
+                                       set_name = "Common candidates (no correction)",
+                                       set_snps = common_cand_notcorrected),
+                 control = list(set_code = "control_snps",
+                                set_name = "Control SNPs",
+                                set_snps = control_snps))
+
+saveRDS(snp_sets,here("outputs/list_snp_sets.rds"))
+```
+
   

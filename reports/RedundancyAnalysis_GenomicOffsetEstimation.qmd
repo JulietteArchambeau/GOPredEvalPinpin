@@ -1,0 +1,294 @@
+---
+title: "RDA analysis"
+subtitle: "Genomic offset predictions"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+</style>
+
+
+```{r setup, include=F}
+knitr::opts_chunk$set(cache=F, size="tiny")
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)
+library(vegan)
+library(here)
+library(cowplot)
+library(magrittr)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+
+
+
+# Introduction
+
+Most analyses conducted in this document are based on @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
+
+
+# Data
+
+> Genomic data
+
+```{r LoadData}
+# Population-based allele frequencies
+# ===================================
+geno <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"),
+                     row.names = 1)
+
+# SNP sets
+# ========
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+```
+
+> Climatic data
+
+```{r}
+# Set of climatic variables
+# =========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+
+
+# Climatic data
+# =============
+
+source(here("scripts/functions/generate_clim_datasets.R"))
+
+clim_dfs <- generate_clim_datasets(clim_var)
+```
+
+
+# Adaptive landscape
+
+> Projecting adaptive gradient(s) across space
+
+## Adaptively enriched genetic space
+
+The different sets of SNPs (one set of control SNPs and two sets of putative adaptive loci) are used as **multivariate response** in a new 'adaptively enriched' RDA, using the selected climatic variables as explanatory variables.
+
+
+```{r FunctionToRunRDA}
+runRDA <- function(snp_set, clim_var, clim_df, geno){
+  
+# Keep the genomic data of the selected SNPs
+geno <- geno[,snp_set]
+  
+# RDA formula  
+form_rda <- paste("geno ~ ", paste(clim_var$variables,collapse= " + "))
+  
+# run RDA with only the selected SNPs
+rda_outliers <- rda(as.formula(form_rda), clim_df)
+
+}
+```
+
+```{r RunRDA}
+snp_sets <- lapply(snp_sets, function(x) {
+  
+x$rda_model <- runRDA(snp_set = x$set_snps,
+                      clim_var = clim_var,
+                      clim_df = clim_dfs$clim_past,
+                      geno = geno)
+return(x)
+
+}) %>% setNames(names(snp_sets))
+```
+
+An RDA biplot can be used to visualize the relationship between the selected SNPs and the underlying climatic variables.
+
+```{r FunctionToMakeRDAbiplots}
+make_RDAbiplot <- function(x) {
+  
+TAB_loci <- as.data.frame(scores(x$rda_model, choices=c(1:2), display="species", scaling="none"))
+TAB_var <- as.data.frame(scores(x$rda_model, choices=c(1:2), display="bp"))
+
+eigenvalues <- summary(eigenvals(x$rda_model, model = "constrained")) %>% as.data.frame()
+varexp_axis1 <- eigenvalues[2,1] *100 
+varexp_axis2 <- eigenvalues[2,2] *100 
+
+
+ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(data = TAB_loci, aes(x=RDA1*3, y=RDA2*3), colour = "#EB8055FF", size = 2, alpha = 0.8) + #"#F9A242FF"
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", linewidth=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 3) +
+  xlab(paste0("RDA 1 (",round(varexp_axis1,1),"%)")) + 
+  ylab(paste0("RDA 2 (",round(varexp_axis2,1),"%)")) +
+  facet_wrap(~paste0(x$set_name, " (n=",length(x$set_snps),")")) +
+  guides(color=guide_legend(title="Locus type")) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), 
+        plot.background = element_blank(), 
+        panel.background = element_blank(), 
+        strip.text = element_text(size=11))
+
+}
+```
+
+
+```{r MakeRDAbiplots, fig.width=14, fig.height=6}
+rda_biplots <- lapply(snp_sets, make_RDAbiplot)
+
+grid_RDAbiplots <- plot_grid(rda_biplots[[1]],rda_biplots[[2]],rda_biplots[[3]], 
+                         nrow=1)
+ggsave(here("figs/RDA/RDAbiplots_SNPsets.pdf"), grid_RDAbiplots, width = 14, height=6)
+
+grid_RDAbiplots
+```
+
+## Adaptive index across the landscape
+
+From @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics): The scores (loadings) of the climatic variables along the RDA axes can be used to calculate a genetic-based index of adaptation for each pixel of the landscape. This index is estimated independently for each RDA axis of interest using the formula:
+
+$$\sum_{i=1}^{n}a_ib_i$$
+where $a$ is the climatic variable score (loading) along the RDA axis, $b$ is the standardized value for this particular variable at the focal pixel, and $i$ refers to one of the $n$ different variables used in the RDA model.
+
+
+# Genomic offset
+
+Below, the past and future climatic data are scaled with the parameters (mean and variance) of the past climatic data.
+
+```{r FunctionCalculateGOSpatialPoints}
+# Function to calculate the RDA genetic offset
+# ============================================
+
+# clim_fit = climatic data used to fit the RDA model (the climate-of-origin of the populations)
+
+# clim_pred = climatic data used for predictions (so either the future climate of the populations, 
+            # or climate of the common gardens or the NFI plots)
+
+# weights = if NULL, the adaptive index is not weighted by the relative importance of the RDA axes in 
+# explaining the variance.
+
+# K = number of RDA axes used to calculate the genomic offset
+
+# snp_set = list with at least the RDA models 
+
+pred_GO_spatial_points <- function(snp_set, K, clim_fit, clim_pred, weights = NULL){
+  
+# weights based on the variance explained by the different axes
+weights <- (snp_set$rda_model$CCA$eig/sum(snp_set$rda_model$CCA$eig))[1:K]
+
+
+list_AI <- lapply(list(clim_fit,clim_pred), function(df){
+  
+  lapply(1:K, function(i){
+  
+# Below we calculate the adaptive index for the axis i
+# For that, we multiply the value of the variables at the location of the population
+    # by the loadings of the variables along the axis i
+ai <- apply(df[,-1], 1, function(x) sum(x * snp_set$rda_model$CCA$biplot[,i]))
+
+if(!is.null(weights)){ai <- ai * weights[i]}
+    
+  }) %>% 
+    setNames(paste0("RDA", 1:length(.))) %>% 
+    as.data.frame()
+  
+})
+
+
+eucloffset <- unlist(lapply(1:nrow(list_AI[[1]]), function(x) dist(rbind(list_AI[[1]][x,], list_AI[[2]][x,]), method = "euclidean")))
+
+
+return(eucloffset)
+}
+```
+
+```{r FunctionEuclideanDistancePlots}
+source(here("scripts/functions/make_eucli_plot.R"))
+```
+
+```{r CalculateEucliDistance}
+# Euclidean distance
+Delta = clim_dfs$clim_past[,-1] - clim_dfs$clim_fut[,-1]
+dist_env = sqrt( rowSums(Delta^2) ) 
+```
+
+```{r LoadInfoMainGenePoolPerPop}
+# Main gene pools (for the figures)
+gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% 
+  arrange(pop)
+```
+
+  
+```{r PredictGO}
+snp_sets <- lapply(snp_sets, function(x) {
+  
+x$go <- pred_GO_spatial_points(snp_set = x,
+                               K = 2, # why K=2??
+                               clim_fit = clim_dfs$clim_past,
+                               clim_pred = clim_dfs$clim_fut,
+                               weights = T)
+return(x)
+})
+```
+
+```{r MakeEucliPlots, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(snp_sets, function(x) make_eucli_plot(
+  X = dist_env,
+  Y = x$go,
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
+  ylab = "RDA genomic offset",
+  plot_title = x$set_name))
+```
+
+
+Same plots as above but with the x and y axes cut off to help visualization.
+
+```{r PlotSetSNPsEucliDistanceAxisLimits, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(snp_sets, function(x) make_eucli_plot(
+  X = dist_env,
+  Y = x$go,
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
+  ylab = "RDA genomic offset",
+  plot_title = x$set_name,
+  xlim=c(0,22),ylim=c(0,15)))
+```
+
+
+
+
+
+# NFI
+
+```{r}
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate_AcrossSurveyPeriod.rds"))
+  
+nfi_dfs <- generate_clim_datasets(clim_var, clim_fut = nfi_clim)
+```
+

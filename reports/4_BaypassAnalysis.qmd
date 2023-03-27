@@ -73,7 +73,7 @@ The genomic data for <span style="font-variant:small-caps;">BayPass</span> needs
 count_2nd_allele <- function(x) {2*length(x)-sum(x)}
 
 # We generate the genomic data in BayPass format
-list_geno <- lapply(c("withoutmaf","withmaf"), function(x){
+lapply(c("withoutmaf","withmaf"), function(x){
   
 geno <- read.csv(here(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",x,".csv")),
                           row.names = 1) %>% 
@@ -194,7 +194,7 @@ We visualize the matrix.
 ```{r VisualizeOmega, fig.height=8,fig.width=10, eval=F}
 # Upload the estimated Omega matrix
 omega=as.matrix(read.table("data/BayPassAnalysis/outputs/anacore_mat_omega.out"))
-pop.names <- colnames(dfsum1) %>% str_sub(1,-2)
+pop_names <- clim_past$pop
 dimnames(omega)=list(pop.names,pop.names)
 
 # Visualization of the matrix
