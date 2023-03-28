@@ -16,8 +16,8 @@ editor_options:
 ---
 
 <style type="text/css">
-body, td {
-   font-size: 14px;
+body {
+   font-size: 15px;
 }
 code.r{
   font-size: 11px;
@@ -25,10 +25,14 @@ code.r{
 pre {
   font-size: 11px
 }
+
+table {
+  font-size: 11px
+}
 </style>
 
-
 ```{r setup, include=F}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(cache=F, size="tiny")
 options(width = 300)
 library(knitr)      # CRAN v1.26
@@ -38,6 +42,9 @@ library(vegan)
 library(here)
 library(cowplot)
 library(magrittr)
+library(rnaturalearthdata)
+library(rnaturalearth)
+library(sf)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -174,6 +181,9 @@ where $a$ is the climatic variable score (loading) along the RDA axis, $b$ is th
 
 # Genomic offset
 
+
+## Estimation
+
 Below, the past and future climatic data are scaled with the parameters (mean and variance) of the past climatic data.
 
 ```{r FunctionCalculateGOSpatialPoints}
@@ -192,7 +202,13 @@ Below, the past and future climatic data are scaled with the parameters (mean an
 
 # snp_set = list with at least the RDA models 
 
-pred_GO_spatial_points <- function(snp_set, K, clim_fit, clim_pred, weights = NULL){
+
+pred_GO_spatial_points <- function(snp_set, 
+                                   K, 
+                                   clim_fit, 
+                                   clim_pred, 
+                                   weights = NULL, 
+                                   CG=F){
   
 # weights based on the variance explained by the different axes
 weights <- (snp_set$rda_model$CCA$eig/sum(snp_set$rda_model$CCA$eig))[1:K]
@@ -215,13 +231,37 @@ if(!is.null(weights)){ai <- ai * weights[i]}
   
 })
 
-
+if(CG==F){
+  
 eucloffset <- unlist(lapply(1:nrow(list_AI[[1]]), function(x) dist(rbind(list_AI[[1]][x,], list_AI[[2]][x,]), method = "euclidean")))
 
+} else if(CG==T){
+  
+eucloffset <- lapply(1:nrow(list_AI[[2]]), function(x) as.matrix(dist(rbind(list_AI[[2]][x,],list_AI[[1]]), method = "euclidean"))[2:(nrow(list_AI[[1]])+1),1]) %>% 
+  setNames(clim_pred[,1] %>% pull()) %>% 
+  as.data.frame() %>% 
+  cbind(clim_fit[,1])
+  
+  
+  }
 
 return(eucloffset)
 }
 ```
+
+```{r PredictGO}
+snp_sets <- lapply(snp_sets, function(x) {
+  
+x$go <- pred_GO_spatial_points(snp_set = x,
+                               K = 2, # why K=2??
+                               clim_fit = clim_dfs$clim_past,
+                               clim_pred = clim_dfs$clim_fut,
+                               weights = T)
+return(x)
+})
+```
+
+## Relationship with Euclidean distance
 
 ```{r FunctionEuclideanDistancePlots}
 source(here("scripts/functions/make_eucli_plot.R"))
@@ -237,19 +277,6 @@ dist_env = sqrt( rowSums(Delta^2) )
 # Main gene pools (for the figures)
 gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% 
   arrange(pop)
-```
-
-  
-```{r PredictGO}
-snp_sets <- lapply(snp_sets, function(x) {
-  
-x$go <- pred_GO_spatial_points(snp_set = x,
-                               K = 2, # why K=2??
-                               clim_fit = clim_dfs$clim_past,
-                               clim_pred = clim_dfs$clim_fut,
-                               weights = T)
-return(x)
-})
 ```
 
 ```{r MakeEucliPlots, fig.width=12, results="hide"}
@@ -280,15 +307,164 @@ lapply(snp_sets, function(x) make_eucli_plot(
   xlim=c(0,22),ylim=c(0,15)))
 ```
 
+## Maps
+
+```{r FunctionToMakeGomaps}
+make_go_map <- function(dfcoord, 
+                        snp_set, 
+                        point_size=2, 
+                        x_limits = c(-10, 12),
+                        y_limits = c(33, 50),
+                        CG=F,
+                        cg_name=NULL,
+                        cg_coord=NULL){
+
+  if(CG==FALSE){
+  point_go <- dfcoord %>% mutate(GO=snp_set$go)  
+  plot_title <- snp_set$set_name
+  } else if(CG==TRUE){
+  point_go <- dfcoord %>% 
+    left_join(snp_set$go[,c("pop",cg_name)], by="pop") %>% 
+    dplyr::rename(GO=all_of(cg_name))
+  plot_title <- paste0(str_to_title(cg_name), " - ",snp_set$set_name)
+  }
+  
+p <-  ggplot() + 
+  geom_sf(data = world, fill="gray98") + 
+  theme_bw() +
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) + 
+  geom_point(data=point_go, aes(x=longitude,y=latitude,color=GO), size=point_size) + 
+  xlab("") + ylab("") +
+  ggtitle(plot_title) +
+  scale_color_gradientn(name = "GO", colours = rev(rainbow(5)))
+
+if(CG==T){
+p <- p + geom_point(data=cg_coord[cg_coord$site==cg_name,],
+               aes(x=longitude,y=latitude), 
+               size=5, color="black", shape=8)}
+
+return(p)
+}
+```
+
+
+I show only one map here because they are almost the same.
+
+```{r GOmaps, fig.width=8,fig.height=8, results="hide"}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+pop_coord <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+                        show_col_types = FALSE) %>%
+  dplyr::select(pop,longitude,latitude)
+
+
+go_maps <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
+                                                    snp_set = x,
+                                                    point_size = 3))
+go_maps[[1]]
+```
 
 
 
+```{r OtherMaps, eval=F}
+# another way to make maps with ggplot2
+library(maps)
+
+world_map <- map_data("world")
+
+ggplot() + 
+  geom_map(data=world_map, map=world_map,
+           aes(map_id=region),
+           color="gray30", size=0.1, fill=NA)+
+  scale_x_continuous(limits = c(-10, 12)) +
+  scale_y_continuous(limits = c(32, 50)) + 
+  coord_fixed(ratio = 1) + 
+  xlab("Longitude (in degrees)") +
+  ylab("Latitude (in degrees)") +
+  theme_bw() +
+  geom_point(data=point_go, aes(x=longitude,y=latitude,color=GO), size=1.5) + 
+  scale_color_gradientn(colours = rev(rainbow(5))) + 
+  theme(legend.position = c(0.91, 0.16),
+        legend.background = element_rect(linewidth=0.3, color = "gray90"))
+```
 
 # NFI
 
-```{r}
-nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate_AcrossSurveyPeriod.rds"))
+I show only one set of SNPs because the maps for the three sets of SNPs are very similar.
+
+```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
   
-nfi_dfs <- generate_clim_datasets(clim_var, clim_fut = nfi_clim)
+nfi_dfs <- generate_clim_datasets(clim_var, clim_past = nfi_clim$clim_past, clim_fut = nfi_clim$clim_survey)
+
+
+snp_sets_nfi <- lapply(snp_sets, function(x) {
+  
+x$go <- pred_GO_spatial_points(snp_set = x,
+                               K = 2, # why K=2??
+                               clim_fit = nfi_dfs$clim_past,
+                               clim_pred = nfi_dfs$clim_fut,
+                               weights = T)
+return(x)
+})
+
+# checking missing data
+# lapply(snp_sets_nfi, function(x) sum(is.na(x$go)))
+
+go_maps_nfi <- lapply(snp_sets_nfi, function(x) make_go_map(dfcoord=nfi_clim$plot_coord, 
+                                                            snp_set = x,
+                                                            point_size = 0.5,
+                                                            y_limits = c(35, 51)))
+
+go_maps_nfi[[1]]
+```
+
+
+# Common gardens
+
+
+```{r CalcGOCGs}
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
+cg_coord <- read_csv(here("data/ClimaticData/CommonGardens/CommonGardensPreExtraction.csv"), 
+                     show_col_types = FALSE)
+cg_dfs <- generate_clim_datasets(clim_var, clim_fut = cg_clim)
+  
+
+
+
+snp_sets_cg <- lapply(snp_sets, function(x) {
+  
+x$go <- pred_GO_spatial_points(snp_set = x,
+                               K = 2, # why K=2??
+                               clim_fit = cg_dfs$clim_past,
+                               clim_pred = cg_dfs$clim_fut,
+                               weights = T,
+                               CG=T)
+return(x)
+})
+```
+
+```{r MakeGoMapsCG, fig.width=15, fig.height=6, results="hide"}
+go_maps_cg <- lapply(cg_dfs$clim_fut$cg, function(cg_name){
+  
+p <- lapply(snp_sets_cg, function(x) make_go_map(dfcoord=pop_coord, 
+                                           snp_set = x,
+                                           point_size = 3,
+                                           CG=T,
+                                           cg_name=cg_name,
+                                           cg_coord=cg_coord))
+
+plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
+  
+}) %>% setNames(cg_dfs$clim_fut$cg)
+
+
+pdf(here("figs/RDA/GOmaps_CGs.pdf"), width=15,height=6)
+lapply(go_maps_cg, function(x) x)
+dev.off()
+
+# show maps
+lapply(go_maps_cg, function(x) x)
 ```
 
