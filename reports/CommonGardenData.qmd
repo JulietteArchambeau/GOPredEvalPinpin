@@ -1,0 +1,118 @@
+---
+title: "Common garden data"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=F}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
+knitr::opts_chunk$set(cache=F, size="tiny")
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)
+library(here)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+# Preparation file for ClimateDT
+
+```{r}
+coord <- read_csv(here("data/CommonGardenData/CommonGardenCoordinates.csv"), show_col_types = FALSE)
+  
+# As we do not have elevation data for the CG, we use the ClimateDT elevation data 
+coord %>% 
+  dplyr::select(site,latitude,longitude) %>% 
+  arrange(site) %>% 
+  mutate(elevation=case_when(site=="asturias" ~ 449,
+                             site=="caceres" ~ 290,
+                             site=="bordeaux" ~ 58,
+                             site=="madrid" ~ 598,
+                             site=="portugal" ~ 865)) %>% 
+  write_csv(here("data/ClimaticData/CommonGardens/CommonGardensPreExtraction.csv"))
+```
+
+# Calculating mean climate for each site
+
+Time period in each common garden:
+
+  - Height measurement in **Asturias** (Spain) in November 2012 when the trees were 21 month-old: 2011 to 2012 (trees were planted in February 2011).
+  
+  - Height measurement in **Fundão** (Portugal) in October 2012 when the trees were 20 month-old: 2011 to 2012 (trees were planted in February 2011)
+  
+  - Height measurement in **Bordeaux** (France) in November 2018 when the trees were 85 month-old: 2012 to 2018 (trees were planted in October 2011).
+  
+  - Mortality and height measurements in **Madrid** (Spain) in December 2011 when the trees were 13 month-old: 2011 (trees were planted in November 2010).
+  
+  - Mortality and height measurements in **Caceres** (Spain) in December 2011 when the trees were 8 month-old: 2011 (trees were planted in April 2011).
+
+
+```{r DefineCGmeasurementPeriods}
+cg_periods <- list(asturias = 2011:2012,
+     portugal = 2011:2012,
+     bordeaux = 2012:2018,
+     caceres = 2011,
+     madrid = 2011)
+```
+
+```{r SetSelectedClimaticVariables}
+# Set of climatic variables
+# =========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+```
+
+
+```{r CalculateMeanClimateForEachCG}
+clim <- read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 
+  dplyr::rename(cg=ID,year=Year,SP=MSP) %>% 
+  dplyr::select(cg,year,all_of(clim_var$variables)) %>% 
+  #group_by(cg) %>% 
+  group_split(cg) %>% 
+  purrr::map(\(x){
+    
+cg <- unique(x$cg)
+cg_period <- cg_periods[[cg]]     
+    
+x %>% 
+  dplyr::filter(year %in% cg_period) %>% 
+  dplyr::select(-year) %>% 
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>% 
+  mutate(cg=cg) %>% 
+  select(cg,everything())
+  }) %>% list_rbind() 
+
+
+clim %>% kable_mydf(boldfirstcolumn = T, font_size = 13)
+
+clim %>% saveRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
+```
+
