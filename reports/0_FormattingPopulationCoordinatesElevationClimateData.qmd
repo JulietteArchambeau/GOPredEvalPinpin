@@ -16,14 +16,18 @@ editor_options:
 ---
 
 <style type="text/css">
-body, td {
-   font-size: 14px;
+body {
+   font-size: 15px;
 }
 code.r{
   font-size: 11px;
 }
 pre {
   font-size: 11px
+}
+
+table {
+  font-size: 10px
 }
 </style>
 
