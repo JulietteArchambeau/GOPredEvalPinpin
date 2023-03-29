@@ -36,3 +36,5 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 -   [GeneratingSNPsets.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/GeneratingSNPsets.html) Identifying the common candidates across the different gene-environment association (GEA) methods, looking at their genomic position and generating a set of control SNPs.
 
 - [RedundancyAnalysis_GenomicOffsetEstimation.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/RedundancyAnalysis_GenomicOffsetEstimation.html) Predicting the genomic offset with RDA.
+
+- [GeneralizedDissimilarityModelling.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/GeneralizedDissimilarityModelling.html) Predicting the genomic offset with the Generalized Dissimilarity Modelling(GDM) approach.
