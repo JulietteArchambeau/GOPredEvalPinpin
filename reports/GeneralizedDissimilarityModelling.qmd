@@ -1,0 +1,398 @@
+---
+title: "Generalized Dissimilarity Modelling (GDM)"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
+format: 
+  html:
+    
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(kableExtra)
+library(here)
+library(magrittr)
+library(hierfstat)
+library(cowplot)
+library(gdm)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+# Introduction
+
+Resources on *Generalized Dissimilarity Modelling* (GDM):
+
+  - Papers: @ferrier2007using, @mokany2022working and @fitzpatrick2015ecological.
+  
+  - GDM website: <https://mfitzpatrick.al.umces.edu/gdm/>
+  
+  - GDM Github: <https://github.com/fitzLab-AL/gdm>
+
+
+From the GDM website: 'The R package `gdm` implements *Generalized Dissimilarity Modeling* [@ferrier2007using] to analyze and map spatial patterns of biodiversity. GDM models biological variation as a function of environment and geography using **distance matrices** – specifically by relating biological dissimilarity between sites to how much sites differ in their environmental conditions (environmental distance) and how isolated they are from one another (geographical distance). [...] GDM also can be used to model other biological levels of organization, notably genetic [@fitzpatrick2015ecological] [..] and the approaches for doing so are largely identical to the species-level case with the exception of using a different biological dissimilarity metric depending on the type of response variable.'
+
+# Formatting data
+
+## Genomic data
+
+### Pairwise $F_{ST}$ matrices
+
+The GDM analysis takes as inputs matrices of pairwise $F_{ST}$.
+
+To estimate the pairwise $F_{ST}$, we use the **individual-level** (i.e. allele counts for each genotype) **genomic data with missing data** (i.e. no imputation of the missing data), and without minor allele frequencies. 
+
+We use the **Weir and Cockerham method**, with the function `pairwise.WCfst` of the `hierfstat` package. We could have used the function `gene.dist` (with the option `WC84`), as in @gougherty2021maladaptation (and the preprint [Gougherty et al. 2020](https://www.biorxiv.org/content/10.1101/2020.02.28.961060v1.abstract)). `gene.dist` keeps only the lower triangle of the $F_{ST}$ matrix, while `pairwise.WCfst` keeps the whole matrix.
+
+```{r LoadAlleleCountsGenotypeLevel}
+# we load the allele counts of each genotype
+geno <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"), row.names = 1)
+
+geno[geno ==1] <- 12
+geno[geno ==2] <- 22
+geno[geno ==0] <- 11
+
+geno <- geno %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  dplyr::mutate(pop=substr(row.names(.), 0, 3)) %>% 
+  dplyr::select(pop, everything())
+
+geno[1:10,1:10] %>% kable_mydf(boldfirstcolumn = T)
+```
+
+
+We load the sets of candidate and control SNPs.
+
+```{r LoadSnpsSets}
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+```
+
+We calculate the pariwise $F_{ST}$ matrices.
+
+```{r CalculatePairwiseFstMatrices, eval=F}
+fst_matrices <- sapply(snp_sets, function(x){ 
+  
+geno %>% 
+  dplyr::select(pop,all_of(x$set_snps)) %>%
+  pairwise.WCfst(diploid=TRUE)
+    
+}, USE.NAMES = TRUE,simplify=FALSE)
+
+# save it
+saveRDS(fst_matrices,file=here("data/GDManalysis/FstMatrices.rds"))
+```
+
+```{r LoadPairwiseFstMatrices,echo=F}
+fst_matrices <- readRDS(file=here("data/GDManalysis/FstMatrices.rds"))
+```
+
+### Negative values
+
+```{r NegValuestoZeroFstMatrix}
+neg_vals <- sapply(fst_matrices, function(x){ length(x[which(x <0)])}, USE.NAMES = TRUE,simplify=FALSE)
+```
+
+The pairwise $F_{ST}$ matrices contains some **negative values**:
+
+  - `r neg_vals[["cand_corrected"]]` in the matrix of the reference SNPs.
+  - `r neg_vals[["cand_notcorrected"]]` in the matrix of the merged candidates.
+  - `r neg_vals[["control"]]` in the matrix of the common candidates.
+  
+
+It generally means there is more variation within than among populations and is likely to result from uneven sample sizes.
+
+### Scaling the $F_{ST}$ matrices
+
+We have to scale the $F_{ST}$ matrices between 0 and 1 to facilitate model convergence and to enable comparisons the different sets of SNPs, which display different ranges of observed $F_{ST}$ values.
+
+We standardize the $F_{ST}$ values in the following way:
+
+$$x_{new} = \frac{x- x_{min}}{x_{max}-x_{min}} $$
+
+This was proposed here: https://www.statisticshowto.com/probability-and-statistics/normal-distributions/normalized-data-normalization/
+
+
+```{r ScalingFSTmatrixStandardization}
+fst_matrices <- sapply(fst_matrices, function(x){
+  
+ (x-min(x,na.rm=T))/(max(x,na.rm=T)-min(x,na.rm=T))
+  
+}, USE.NAMES = TRUE,simplify=FALSE)
+
+
+# To check that it worked
+# sapply(fst_matrices, function(x){range(x,na.rm=T)}, USE.NAMES = TRUE,simplify=FALSE)
+```
+
+### Matrix visualization
+
+
+```{r visualizeMatrixFunctions}
+source(here("scripts/functions/corpmat.R"))
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+
+viz_matrix <- function(x,plot_title) {
+
+  p.mat <- corpmat(x)
+
+  p <- corrplot::corrplot(x, method="color", col=col(200),
+                   type="upper", order="hclust", 
+                   addCoef.col = "black", # Add coefficient of correlation
+                   tl.col="black", tl.srt=23, #Text label color and rotation
+                   # Combine with significance
+                   p.mat = p.mat, sig.level = 0.05, insig = "blank", number.cex =0.8,tl.cex = 0.8,
+                   # hide correlation coefficient on the principal diagonal
+                   diag=FALSE,
+                   title = plot_title,mar=c(0,0,2,0)) # add an upper margin to see the title
+  
+  return(p)
+}
+```
+
+```{r VizPairwiseFstMatrices, fig.height=12, fig.width=14, results="hide"}
+lapply(1:3, function(x) viz_matrix(x=fst_matrices[[x]], 
+                                   plot_title = snp_sets[[x]]$set_name))
+```
+
+
+### Matrix formatting for GDM
+
+For the `gdm` package: the distance matrix must have as the first column the names of the populations.
+
+```{r SavingMatricesForGDM}
+fst_matrices <- sapply(fst_matrices, function(x){
+  
+x <- x %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column("pop") 
+  
+}, USE.NAMES = TRUE,simplify=FALSE)
+
+
+saveRDS(fst_matrices,file=here("data/GDManalysis/ScaledFstMatrices.rds"))
+```
+
+## Climatic data
+
+We do not have to scale the climatic data before the GDM analysis, as **scaling of predictors is part of model fitting in GDM**, as said in @mokany2022working: 'As different predictors are measured on different scales (e.g., temperature in degrees, precipitation in mm), they are transformed as part of model fitting, such that the transformed distance between a pair of sites for different predictors can be meaningfully compared and combined.'
+
+```{r LoadClimaticData}
+# Selected climatic variables
+# ===========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+
+
+# Past and future climatic data with dbMEMs
+# =========================================
+clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+                        show_col_types = FALSE) %>%
+  dplyr::select(pop,contains("ude"),clim_var$variables) # we keep only the climatic variables of interest and the dbMEMs
+
+clim_fut <- read_csv(here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"),
+                       show_col_types = FALSE) %>% 
+  dplyr::select(pop,clim_var$variables)
+```
+
+Selected climatic variables:
+
+```{r MetaDataClimaticVariables}
+extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  kable_mydf(font_size = 12)
+```
+
+
+# GDM fitting
+
+> Combining genomic and climatic data with `formatsitepair`
+
+We use the `formatsitepair` function to combine the genomic and climatic data into 'population-pair' table format. In our case, we use a **pairwise biological dissimilarity matrix** (i.e. pairwise $F_{ST}$) as response variable, and therefore we have to set `bioFormat=3` in the `formatsitepair` function.
+
+
+<span style="color: orange;">**Warning!**</span> The rows and columns of the distance matrix have to be in the same order as the rows of the climatic variables. And the distance matrix and the climatic data must not include NAs. 
+
+<span style="color: orange;">**Warning!**</span> Note that the `formatsitepair` function assumes that the coordinates of the sites are in the same coordinate system as the rasters. At present, no checking is performed to ensure this is the case. Note also that if your site coordinates are longitude-latitude that the **calculation of geographic distances between sites will have errors**, the size of which will depend on the geographic extent and location of your study region. We hope to deal with this in a later release, but <span style="color: red;">**for now you can avoid these problems by using a projected coordinate system (e.g., equidistant)**</span>.
+
+> GDM fitting
+
+From the GDM website: 'GDM is a nonlinear extension of permutational matrix regression that uses flexible splines and generalized linear modeling (GLM) to accommodate two types of nonlinearity common in ecological datasets: (1) variation in the rate of compositional turnover (non-stationarity) along environmental gradients, and (2) the curvilinear relationship between biological distance and environmental and geographical distance.
+
+Generalized dissimilarity models are fitted with the `gdm` function.
+
+Different options are available:
+  
+  - `geo=T` to specify that the model should be fit with geographical distance.
+  
+  - `splines` an optional vector specifying the the number of I-spline basis functions (the default is three, with larger values producing more complex splines).
+  
+  - `knots` an optional vector specifying the locations of “knots” along the splines (defaults to 0 (minimum), 50 (median), and 100 (maximum) quantiles when three I-spline basis functions are used). E
+  
+From the GDM website: 'Even though these option are available, using the default values for these parameters will work fine for most applications. In other words, unless you have a good reason, you should probably use the default settings for splines and knots. The effects (and significance) of altering the number of splines and knot locations has not been systematically explored.'
+
+
+```{r FormatSitePairFunction}
+snp_sets <- lapply(snp_sets, function(x){
+  
+x$gdm_tab <- gdm_tab <- formatsitepair(bioData=fst_matrices[[x$set_code]], 
+                                       bioFormat=3,
+                                       XColumn="longitude", 
+                                       YColumn="latitude", 
+                                       predData=clim_past, 
+                                       siteColumn="pop")  
+
+
+
+x$gdm_mod <- gdm_mod  <- gdm(data=gdm_tab, geo=TRUE)
+
+return(x)
+
+})
+```
+
+
+# GDM plots
+
+
+> Observed genetic distance vs predicted climatic distance
+
+
+```{r PlotPredictedClimaticDistanceVsObservededGeneticDistance, fig.width=12}
+# Plot predicted climatic distance vs observed genetic distance
+
+plots <- lapply(snp_sets, function(x){
+  
+overlay_x <- seq( from=min(x$gdm_mod$ecological), to=max(x$gdm_mod$ecological), length=length(x$gdm_mod$ecological) )
+overlay_y <- 1 - exp( - overlay_x )
+dfline <- tibble(x=overlay_x,y=overlay_y)  
+
+tibble(clim=x$gdm_mod$ecological,
+       obs=x$gdm_mod$observed) %>% 
+  ggplot(aes(x=clim,y=obs)) + 
+  geom_point(color=rgb(0,0,1,0.5)) +
+  geom_line(data=dfline,aes(x=x,y=y), color="gray60") +
+  xlim(c(0,1.3)) + 
+  ylim(c(0,1)) + 
+  xlab("Predicted climatic distance") +
+  ylab("Observed genetic distance") +
+  ggtitle(x$set_name) + 
+  theme_bw()
+  
+})
+
+plot_grid(plotlist=plots, nrow=1)
+```
+
+> Predicted versus observed genetic distance
+
+```{r PlotObservedVsPredictedGeneticDistance, fig.width=12}
+plots <- lapply(snp_sets, function(x){
+  
+tibble(obs=x$gdm_mod$observed, # can also be extracted with x$gdm_tab$distance
+       pred=x$gdm_mod$predicted) %>% 
+  ggplot(aes(x=obs,y=pred)) + 
+  geom_abline(intercept = 0, slope = 1, color="gray60") +
+  geom_point(color=rgb(0,0,1,0.5)) +
+  xlim(c(0,1)) + ylim(c(0,1)) + 
+  xlab("Observed genetic distance") +
+  ylab("Predicted genetic distance") +
+  ggtitle(x$set_name) + 
+  theme_bw()
+  
+})
+
+plot_grid(plotlist=plots, nrow=1)
+```
+
+
+> I-splines
+
+From the GDM website: 'The **fitted splines** represent one of the most informative components of a fitted GDM and so plotting and scrutinizing the splines is a major part of interpreting GDM and the analyzed biological patterns.'
+
+I-splines are shown for predictors with non-zero coefficients, i.e. predictors with a relationship with the genetic distance.
+
+**I-spline interpretation:** (from the GDM website) 'The **maximum height of each spline** indicates the **magnitude of total genetic change** along that gradient and thereby corresponds to the **relative importance** of that predictor in contributing to allelic turnover while holding all other variables constant (i.e., is a partial climatic distance). The **spline’s shape** indicates how the **rate of genetic change** varies with position along that gradient. Thus, the splines provide insight into the total magnitude of genetic change as a function of each gradient and where along each gradient those changes are most pronounced.
+
+```{r MakePlotsIsplines, fig.width=8,fig.height=8, results="hide"}
+lapply(snp_sets, function(x){
+  
+spline_data <- isplineExtract(x$gdm_mod)
+
+# extract variables with importance different from 0
+predictors <- which(apply(spline_data$y,2, sum) != 0) %>% names() 
+
+plots <- lapply(predictors, function(predictor){
+ 
+if(predictor=="Geographic"){
+  predictor_name <- "Geography"
+}  else {
+predictor_name <- extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+  dplyr::select(label,description,unit) %>% 
+  filter(label %in% predictor) %>% 
+  pull(description)
+predictor_name <- paste0(predictor_name," (",predictor,")")
+}
+  
+tibble(x=spline_data$x[,predictor],
+       y=spline_data$y[,predictor]) %>% 
+  ggplot() + 
+  geom_line(aes(x=x,y=y),color="blue",linewidth=2) +
+  ylim(c(0,1)) + 
+  xlab("Partial climatic distance") +
+  ylab(predictor_name) +
+  theme_bw() 
+  
+})
+
+# make title
+title <- ggdraw() + 
+  draw_label(x$set_name,
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots
+p <- plot_grid(plotlist=plots)
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1)
+)
+})
+```
+
+

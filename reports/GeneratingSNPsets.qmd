@@ -217,7 +217,7 @@ snp_sets <- list(cand_corrected = list(set_code = "cand_corrected",
                  cand_notcorrected = list(set_code = "cand_notcorrected",
                                        set_name = "Common candidates (no correction)",
                                        set_snps = common_cand_notcorrected),
-                 control = list(set_code = "control_snps",
+                 control = list(set_code = "control",
                                 set_name = "Control SNPs",
                                 set_snps = control_snps))
 
