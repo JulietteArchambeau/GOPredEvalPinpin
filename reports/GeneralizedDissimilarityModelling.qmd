@@ -46,6 +46,13 @@ library(hierfstat)
 library(cowplot)
 library(gdm)
 
+library(sp)
+library(raster)
+library(terra)
+
+library(sf)
+library(rgdal)
+
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
 source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
@@ -220,7 +227,7 @@ clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>%
 # =========================================
 clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
                         show_col_types = FALSE) %>%
-  dplyr::select(pop,contains("ude"),clim_var$variables) # we keep only the climatic variables of interest and the dbMEMs
+  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
 
 clim_fut <- read_csv(here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"),
                        show_col_types = FALSE) %>% 
@@ -237,6 +244,35 @@ extract_climatedt_metadata(var_clim = clim_var$variables) %>%
 ```
 
 
+
+<span style="color: orange;">**Warning!**</span> (from the GDM website) Note that if your site coordinates are longitude-latitude, the **calculation of geographic distances between sites will have errors**, the size of which will depend on the geographic extent and location of your study region. We hope to deal with this in a later release, but <span style="color: red;">**for now you can avoid these problems by using a projected coordinate system (e.g., equidistant)**</span>.
+
+Therefore, we reproject the *geographic* (spheroid) CRS of the population coordinates (with units in degrees longitude and latitude) to a *projected* (two-dimensional; cartesian) CRS (typically with units of meters from a datum). We will use the CRS **EPSG:3035**.
+
+```{r}
+# Steps:
+  # extract the geographic coordinates of the populations
+  # transform the coordinates in spatial points and specify the CRS (WGS84) with sp package
+  # transform to a SpatVector object for the terra package
+  # reproject with terra package in CRS EPSG:3035
+  # extract population coordinates from the SpatVector with terra package
+
+pop_coord_proj <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
+                        show_col_types = FALSE) %>%
+  dplyr::select(contains("ude")) %>% 
+  sp::SpatialPoints(proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")) %>% 
+  terra::vect() %>% 
+  terra::project("EPSG:3035") %>% 
+  terra::crds() %>% 
+  as_tibble() %>% 
+  dplyr::rename(longitude=x, latitude=y)
+
+# merge the population coordinates with the climatic variables
+clim_past <- bind_cols(clim_past,pop_coord_proj)
+clim_fut <- bind_cols(clim_fut,pop_coord_proj)
+```
+
+
 # GDM fitting
 
 > Combining genomic and climatic data with `formatsitepair`
@@ -245,8 +281,6 @@ We use the `formatsitepair` function to combine the genomic and climatic data in
 
 
 <span style="color: orange;">**Warning!**</span> The rows and columns of the distance matrix have to be in the same order as the rows of the climatic variables. And the distance matrix and the climatic data must not include NAs. 
-
-<span style="color: orange;">**Warning!**</span> Note that the `formatsitepair` function assumes that the coordinates of the sites are in the same coordinate system as the rasters. At present, no checking is performed to ensure this is the case. Note also that if your site coordinates are longitude-latitude that the **calculation of geographic distances between sites will have errors**, the size of which will depend on the geographic extent and location of your study region. We hope to deal with this in a later release, but <span style="color: red;">**for now you can avoid these problems by using a projected coordinate system (e.g., equidistant)**</span>.
 
 > GDM fitting
 
@@ -305,7 +339,7 @@ tibble(clim=x$gdm_mod$ecological,
   ggplot(aes(x=clim,y=obs)) + 
   geom_point(color=rgb(0,0,1,0.5)) +
   geom_line(data=dfline,aes(x=x,y=y), color="gray60") +
-  xlim(c(0,1.3)) + 
+  xlim(c(0,1.6)) + 
   ylim(c(0,1)) + 
   xlab("Predicted climatic distance") +
   ylab("Observed genetic distance") +
@@ -341,7 +375,7 @@ plot_grid(plotlist=plots, nrow=1)
 
 > I-splines
 
-From the GDM website: 'The **fitted splines** represent one of the most informative components of a fitted GDM and so plotting and scrutinizing the splines is a major part of interpreting GDM and the analyzed biological patterns.'
+From the GDM website: 'The **fitted I-splines** provide an indication of **how population genetic composition changes along each climatic gradient**. They are one of the most informative components of a fitted GDM and so plotting and scrutinizing the splines is a major part of interpreting GDM and the analyzed biological patterns.'
 
 I-splines are shown for predictors with non-zero coefficients, i.e. predictors with a relationship with the genetic distance.
 
@@ -358,22 +392,22 @@ predictors <- which(apply(spline_data$y,2, sum) != 0) %>% names()
 plots <- lapply(predictors, function(predictor){
  
 if(predictor=="Geographic"){
-  predictor_name <- "Geography"
+  predictor_name <- "Geography (km)"
+  spline_data$x[,predictor] <- spline_data$x[,predictor] / 1000
 }  else {
 predictor_name <- extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
-  dplyr::select(label,description,unit) %>% 
   filter(label %in% predictor) %>% 
-  pull(description)
-predictor_name <- paste0(predictor_name," (",predictor,")")
+  mutate(predictor_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+  pull(predictor_legend)
 }
   
 tibble(x=spline_data$x[,predictor],
        y=spline_data$y[,predictor]) %>% 
   ggplot() + 
   geom_line(aes(x=x,y=y),color="blue",linewidth=2) +
-  ylim(c(0,1)) + 
-  xlab("Partial climatic distance") +
-  ylab(predictor_name) +
+  ylim(c(0,1.3)) + 
+  ylab("Partial genetic distance") +
+  xlab(predictor_name) +
   theme_bw() 
   
 })
@@ -393,6 +427,99 @@ p <- plot_grid(plotlist=plots)
 plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1)
 )
 })
+```
+
+# GDM projections
+
+
+
+<span style="color: orange;">**Warning!**</span> Note that the `formatsitepair` function assumes that the coordinates of the sites are in the same coordinate system as the rasters. At present, no checking is performed to ensure this is the case.</span>.
+
+# GDM predictions
+
+From the GDM website: A GDM model can be used to (i) predict the genetic dissimilarity between population pairs in space or between times using the `predict` function and (ii) transform the predictor variables from their arbitrary climatic scales to a common biological importance scale using the `gdm.transform` function.
+
+## Genomic offset of the populations
+
+We want to predict the expected degree of maladaptation in units of the response variable ($F_{ST}$) for each population.
+
+
+### Using spatial points
+
+For that, we create a dataset with:
+  
+  - the genetic distance fixed to O. Indeed, we want the disruption of the current gene-climate relationships under future climates, so we assume that the genetic composition is the same between current and future climate to do this calculation.
+  
+  - weights are fixed to 1.
+
+
+```{r PredictGOForPopulations}
+pop_tab_pred <- clim_fut %>% 
+  dplyr::select(-pop) %>% 
+  dplyr::rename(xCoord=longitude,yCoord=latitude) %>% 
+  set_colnames(paste0("s2.",colnames(.)))
+
+pop_tab_pred <- clim_past %>% 
+  dplyr::select(-pop) %>% 
+  dplyr::rename(xCoord=longitude,yCoord=latitude) %>% 
+  set_colnames(paste0("s1.",colnames(.))) %>% 
+  bind_cols(pop_tab_pred) %>% 
+  mutate(distance=0,weights=0) %>% 
+  dplyr::select(distance,weights,contains("Coord"), everything())
+  
+
+snp_sets <- lapply(snp_sets, function(x){
+x$go_pops <- predict(x$gdm_mod,pop_tab_pred)
+return(x)
+})
+```
+
+```{r FunctionEuclideanDistancePlots}
+# Function to plot the relationship between the Euclidean climatic distance and the GDM genetic offset
+source(here("scripts/functions/make_eucli_plot.R"))
+
+# Calculate the Euclidean climatic distance
+Delta = clim_past %>% dplyr::select(-pop,-contains("ude")) - clim_fut %>% dplyr::select(-pop,-contains("ude")) 
+dist_env = sqrt( rowSums(Delta^2) ) 
+
+# Main gene pools (for the figures)
+gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% 
+  arrange(pop)
+```
+
+```{r MakeEucliPlots, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(snp_sets, function(x) make_eucli_plot(
+  X = dist_env,
+  Y = x$go_pops,
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
+  ylab = "GDM genomic offset",
+  legend_position="topright",
+  plot_title = x$set_name))
+```
+
+### Using rasters
+
+```{r PredictGOpopWithRasters, eval=F}
+# Past rasters
+path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-Juliette/")
+tif_paths <- lapply(clim_var$variables, function(x) paste0(path,"/",x,".tif"))
+past_rasts <- raster::stack(tif_paths) %>% projectRaster(crs = "EPSG:3035")
+
+
+# Future rasters
+path <- here("data/ClimaticData/ClimateDTRasters/1km_GFDL-ESM4_2041-2070_ssp370_Extent-Juliette/")
+tif_paths <- lapply(clim_var$variables, function(x) paste0(path,"/",x,".tif"))
+fut_rasts <- raster::stack(tif_paths)
+fut_rasts <- projectRaster(fut_rasts, crs = "EPSG:3035")
+
+
+pred_rast <- predict(x$gdm_mod,
+                     past_rasts, # raster with current climate at 2.5 minutes resolution
+                     time=TRUE,
+                     fut_rasts)  # Rasters with future climates at 2.5 minutes resolution
 ```
 
 
