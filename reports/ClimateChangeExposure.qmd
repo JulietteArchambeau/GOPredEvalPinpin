@@ -1,0 +1,138 @@
+---
+title: "Population exposure to climate change"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(raster)
+library(magrittr)
+
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+The rasters were provided by Maurizio Marchi.
+
+Folders extracted:
+
+```{bash, echo=F}
+cd data/ClimaticData/ClimateDTRasters
+ls
+```
+
+
+```{bash, eval=F, echo=F}
+# Bash commands that have been applied after the extraction
+
+# we remove some rasters to free space
+find . -name "tmn*.tif" -exec rm {} \; # remove the 12 tmn*.tif files
+find . -name "tmx*.tif" -exec rm {} \; # remove the 12 tmx*.tif files
+find . -name "prc*.tif" -exec rm {} \; # remove the 12 prc*.tif files
+find . -name "pet*.tif" -exec rm {} \; # remove the 12 pet*.tif files
+find . -name "solRad*.tif" -exec rm {} \; # remove the 12 solRad*.tif files
+find . -name "GDD*.tif" -exec rm {} \; # remove GDD0.tif and GDD18.tif
+find . -name "*FFP.tif" -exec rm {} \; # remove eFFP.tif and FFP.tif
+find . -name "PAS.tif"  -exec rm {} \; # remove PAS.tif
+
+find . -name "MSP.tif" -execdir mv {} SP.tif \; # rename MSP.tif to SP.tif
+```
+
+
+Rasters within the folders:
+
+```{bash, echo=F}
+cd data/ClimaticData/ClimateDTRasters
+ls 1km_GFDL-ESM4_2041-2070_ssp370_Extent-Juliette/
+```
+
+
+We will look at the exposure to climate change for the given set of climatic variables:
+
+```{r ListSelectedClimVariables}
+# Selected climatic variables
+# ===========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+  `[[`(3) # We keep the set 3 of climatic variables (the third list element)#
+
+# clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+#   lapply(function(x) x$variables) %>% 
+#   unlist() %>% 
+#   unique() %>% 
+#   setdiff(c("bio15","bio9","Eref")) # no raster for bio15, bio9 and Eref
+
+extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  kable_mydf()
+```
+
+
+```{r}
+# Population coordinates
+clim_past <- readRDS("data/ClimaticData/MaritimePinePops/MeanStandardDeviationPopulationClimaticVariables.rds") %>% 
+  dplyr::filter(variable %in% clim_var$variables)
+
+pop_coord <-  read.csv(here::here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv")) %>% 
+  dplyr::select(longitude,latitude) %>% 
+  SpatialPoints(proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs"))
+
+gcm_names <- list.files(here("data/ClimaticData/ClimateDTRasters/")) %>%  str_sub(5,-34) %>% setdiff("")
+
+
+clim_df <- lapply(clim_var$variables, function(x){
+  
+lapply(gcm_names, function(gcm){
+  
+  raster::raster(here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-Juliette/",x,".tif"))) %>% 
+  extract(pop_coord)
+  
+}) %>% 
+  setNames(gcm_names) %>% 
+  as_tibble() %>% 
+  mutate(pop=unique(clim_past$pop))
+
+}) %>% 
+  setNames(clim_var$variables) %>% 
+  bind_rows(.id = "variable") %>% 
+  pivot_longer(names_to = "gcm",values_to="mean_fut",cols=all_of(gcm_names)) %>% 
+  left_join(clim_past, by=c("pop","variable")) %>% 
+  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref)
+```

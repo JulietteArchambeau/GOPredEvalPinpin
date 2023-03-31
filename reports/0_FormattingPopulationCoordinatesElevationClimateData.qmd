@@ -38,6 +38,8 @@ library(knitr)      # CRAN v1.26
 library(kableExtra) # CRAN v1.1.0
 library(tidyverse)  # CRAN v1.3.0
 library(janitor)
+library(purrr)
+library(magrittr)
 library(here)
 library(adespatial) # to calculate the Moran eigen vectors
 
@@ -265,20 +267,42 @@ clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoo
   dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
 
 
-# mean of the annual climatic values between 1901 and 1950
-# --------------------------------------------------------
+# Past climates
+# =============
 clim_past <- clim %>% 
   dplyr::filter(!Year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
   dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
   dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 and 1950
-  group_by(pop) %>% # group by population
-  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
   dplyr::select(-Year) %>%
-  bind_cols(dbmem(.[,c("latitude","longitude")])) # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+  group_by(pop) # group by population
 
-# saving the dataset in the DRYAD repository:
-clim_past %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"))
 
+# mean of the annual climatic values between 1901 and 1950
+clim_past %>% 
+  summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
+  bind_cols(dbmem(.[,c("latitude","longitude")])) %>%  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+  write_csv(here::here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"))
+
+# mean and sd of the annual climatic values between 1901 and 1950
+clim_past %>% 
+  dplyr::select(-contains("ude"), -elevation) %>% 
+  group_split() %>% 
+  purrr::map(\(x){
+    
+x_mean <- x %>% summarise_if(is.numeric,"mean") 
+x_sd <- x %>% summarise_if(is.numeric,"sd")   
+
+bind_rows(x_mean,x_sd) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  set_colnames(c("mean_ref","sd_ref")) %>% 
+  rownames_to_column("variable") %>% 
+  as_tibble()
+
+  }) %>% 
+    set_names(unique(clim_past$pop)) %>% 
+    list_rbind(names_to="pop") %>% 
+  saveRDS(here("data/ClimaticData/MaritimePinePops/MeanStandardDeviationPopulationClimaticVariables.rds"))
 
 
 # predictions of future climates for the period 2041-2070
