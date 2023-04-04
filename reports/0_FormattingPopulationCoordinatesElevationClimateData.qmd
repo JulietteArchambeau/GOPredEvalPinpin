@@ -236,7 +236,7 @@ We generate a `csv` file for the extraction with ClimateDT. The format of the in
 # -----------------------------------------------
 pop_coord %>% 
   dplyr::select(code,latitude,longitude,altitude) %>% # rm the column dataset
-  write_csv(here("data/ClimaticData/Extraction/PopCoordinates_ClimateDT_PreExtractionTab.csv"))
+  write_csv(here("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Preextraction/PopCoordinates_ClimateDT_PreExtractionTab.csv"))
 ```
 
 
@@ -255,7 +255,7 @@ clonapin_name_pops <- pop_coord %>%
   
 # keeping climatic variables of interest for the CLONAPIN populations
 # -------------------------------------------------------------------
-clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoordinatesPreExtractionTab.csv"),
+clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_PopCoordinates_ClimateDT_PreExtractionTab.csv"),
                show_col_types = FALSE) %>% 
   dplyr::select(-contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei")) %>% # remove monthly variables
   dplyr::rename(longitude=Longitude,
@@ -267,24 +267,33 @@ clim <- read_csv(here("data/ClimaticData/MaritimePinePops/ClimateDT_cmip6_PopCoo
   dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
 
 
+
 # Past climates
 # =============
-clim_past <- clim %>% 
+
+# two reference periods
+list_ref_periods <- list(ref_1901_1950 = list(range=c(1901,1950)),
+                         ref_1961_1990 = list(range=c(1961,1990)))
+
+generate_past_climate_df <- function(ref_period,clim_df){
+
+
+  clim_past <- clim_df %>% 
   dplyr::filter(!Year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
   dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
-  dplyr::filter(Year<1951) %>%  # we keep the years btw 1901 and 1950
+  dplyr::filter(ref_period$range[[1]]<=Year& Year<=ref_period$range[[2]]) %>%  # we keep the years btw 1901 and 1950
   dplyr::select(-Year) %>%
   group_by(pop) # group by population
 
 
-# mean of the annual climatic values between 1901 and 1950
-clim_past %>% 
+# mean of the annual climatic values
+ref_period$ref_means <- clim_past %>% 
   summarise_all("mean") %>% # take the average of the annual values for the ref period 1901-1950
-  bind_cols(dbmem(.[,c("latitude","longitude")])) %>%  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
-  write_csv(here::here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"))
+  bind_cols(dbmem(.[,c("latitude","longitude")]))  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+  #write_csv(here::here(paste0("data/DryadRepo/PopulationCoordinatesPastClimateInformation_",ref_period[[1]],"_",ref_period[[2]],".csv")))
 
-# mean and sd of the annual climatic values between 1901 and 1950
-clim_past %>% 
+# mean and sd of the annual climatic values
+ref_period$ref_sdmeans <- clim_past %>% 
   dplyr::select(-contains("ude"), -elevation) %>% 
   group_split() %>% 
   purrr::map(\(x){
@@ -301,17 +310,42 @@ bind_rows(x_mean,x_sd) %>%
 
   }) %>% 
     set_names(unique(clim_past$pop)) %>% 
-    list_rbind(names_to="pop") %>% 
-  saveRDS(here("data/ClimaticData/MaritimePinePops/MeanStandardDeviationPopulationClimaticVariables.rds"))
+    list_rbind(names_to="pop") 
+  
+return(ref_period)
 
 
-# predictions of future climates for the period 2041-2070
+}
+
+lapply(list_ref_periods, function(x) generate_past_climate_df(ref_period = x, clim_df = clim)) %>% 
+saveRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations.rds"))
+```
+
+
+```{r}
+# Predictions of future climates for the period 2041-2070
 # -------------------------------------------------------
-clim_fut <- clim %>% 
+
+# GCM names
+gcm_names <- c("GFDL-ESM4","IPSL-CM6A-LR","MPI-ESM1-2-HR","MRI-ESM2-0","UKESM1-0-LL")
+
+
+lapply(gcm_names, function(x){
+  
+  read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_",x,"_PopCoordinates_ClimateDT_PreExtractionTab.csv")), show_col_types = FALSE) %>% 
+  dplyr::select(-contains("prc"), -contains("tmx"), -contains("tmn"), -contains("spi"), -contains("spei")) %>% # remove monthly variables
+  dplyr::rename(longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                pop=ID,
+                SP=MSP) %>% # replace mean summer precipitation by summer precipitation
+  dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>% # the VAL-VMQ population is referred as VAL in the present study
   dplyr::filter(Year=="2041-2070") %>% 
   dplyr::select(-Year)
-
-# saving the dataset in the DRYAD repository:
-clim_fut %>% write_csv(here::here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"))
+  
+}) %>% 
+  setNames(gcm_names) %>% 
+  saveRDS(here::here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))
 ```
 
