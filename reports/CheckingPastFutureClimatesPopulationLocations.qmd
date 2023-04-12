@@ -2,6 +2,7 @@
 title: "Checking past and future climates at the location of the populations"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
 format: 
   html:
     toc: true
@@ -72,9 +73,13 @@ find . -name "PAS.tif"  -exec rm {} \; # remove PAS.tif
 find . -name "MSP.tif" -execdir mv {} SP.tif \; # rename MSP.tif to SP.tif
 ```
 
-# Goals
+# Introduction
 
-**Goal:** compare the values of the climatic variables at the location of the populations under current and future climates.
+**Goal:** compare the values of the climatic variables at the location of the populations under current and future climates. The climatic data can be generated in two ways:
+  
+  - **point estimates** at the location of the population, generated using **scale-free downscaling**, resulting in **higher precision**.
+  
+  - **extracted values from rasters**. The pixel values in the raster file correspond to the mean values of the climatic variables across the period considered.
 
 
 **Comment:** in all the plots below, the points corresponds to the 34 studied populations of maritime pine and the colors correspond to the main gene pool they belong to.
@@ -113,20 +118,25 @@ Until now, we have used the reference period 1901-1950 to capture as much as pos
 Another reason we used the reference period 1901-1950 is that our reference period has to be before 1983 because we have to use the gene-climate relationships estimated under this reference period to then predict the disruption of the gene-environment relationships under the climates between 1983 and 2014 at the location of the National Forest Inventory plots (one of the validation steps of the genomic offset method we do in the paper).
 
 Note that the historic climatic layers for the 1901-1950 period may not be very accurate according to Maurizio Marchi, that's why he suggested to use the 1961-1990 period.
-
   
-Below, we compare the mean values of the climatic variables of interest for the **reference period 1901-1950** and **1961-1990**.
+Below, we compare the mean values of the climatic variables of interest for the **reference period 1901-1950** and **1961-1990**. We use **point estimates climatic data** adjusted or not for elevation.
+
 
 ```{r LoadPastClimateAndGenePoolInfo}
-# Load population past climate
-# The loaded file is a list with different reference periods, here 1901-1950 and 1961-1990
-clim_past <- readRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations.rds"))
+# Load population past climate (point estimates) in a list with data adjusted or not for elevation
+# The rds file corresponds to a list with different reference periods, here 1901-1950 and 1961-1990
+list_clim_past <- list(ADJ=list(name="adjusted for elevation",
+                                code="ADJ",
+                                data=readRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations_ADJ.rds"))),
+                       noADJ=list(name="NOT adjusted for elevation",
+                                  code="noADJ",
+                                  data=readRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations_noADJ.rds"))))
  
 # Load information about the main gene pool of each population (for the figures)
 gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% arrange(pop)
 
 # Population coordinates as spatial points (for the extraction of future climates)
-pop_coord <-  clim_past[[1]]$ref_means %>% 
+pop_coord <-  list_clim_past[[1]]$data$ref_1901_1950$ref_means %>% 
   dplyr::select(longitude,latitude) %>% 
   SpatialPoints(proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs"))
 ```
@@ -172,10 +182,13 @@ df %>%
 
 
 ```{r ScatterPlotsCompareRefPeriods, fig.height=11,fig.width=21, results="hide", warning=F}
+lapply(list_clim_past, function(clim_past){
+  
+  
 # Generate the scatter plots
 scatter_plots <- lapply(clim_var$variables, function(x){
 
-  lapply(clim_past, function(y){
+  lapply(clim_past$data, function(y){
     
     y$ref_means %>% 
       dplyr::select(pop,all_of(x))
@@ -185,8 +198,8 @@ scatter_plots <- lapply(clim_var$variables, function(x){
     set_colnames(c("pop","x","y"))  %>% 
     make_ggscatter_plots(x=x,
                        gps=gps,
-                       xlab=paste0("Reference period ",clim_past[[1]]$range[[1]],"-",clim_past[[1]]$range[[2]]),
-                       ylab=paste0("Reference period ",clim_past[[2]]$range[[1]],"-",clim_past[[2]]$range[[2]]))
+                       xlab=paste0("Reference period ",clim_past$data[[1]]$range[[1]],"-",clim_past$data[[1]]$range[[2]]),
+                       ylab=paste0("Reference period ",clim_past$data[[2]]$range[[1]],"-",clim_past$data[[2]]$range[[2]]))
 })
 
 
@@ -196,29 +209,52 @@ p <- plot_grid(plotlist=scatter_plots)
 legend <- get_legend(scatter_plots[[1]] + theme(legend.position = c(0.5,0.5)) )
 
 # merge plots + legend
-plot_grid(p, legend, ncol = 2,rel_widths = c(1, 0.2))
+p <- plot_grid(p, legend, ncol = 2,rel_widths = c(1, 0.2))
+
+
+# make title
+title <- ggdraw() + 
+  draw_label(paste0("Climatic data ",clim_past$name),
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
+  
+  
+})
 ```
 
 
-<span style="color: orange;">**Interpretation:**</span>  The mean climatic values across the reference periods 1901-1950 and 1961-1990 are quite similar. We observe an increase in mean annual temperature for all populations across the 1961-1990 period compared to the 1901-1950 period. The patterns are more contrasted for the other climatic variables. For instance, populations from the French Atlantic gene pool experienced a decrease in isothermality while populations from the Iberian gene pool experienced an increase in isothermality.
+<span style="color: orange;">**Interpretation:**</span> 
+
+  - No important differences between adjusted or not adjusted climatic data.
+  
+  - The mean climatic values across the reference periods 1901-1950 and 1961-1990 are mostly similar for AHM and SHM. 
+  
+  - Increase in mean annual temperature (bio1) for all populations across the 1961-1990 period compared to the 1901-1950 period. 
+  
+  - Populations from the French Atlantic gene pool experienced a decrease in isothermality and Hargreaves reference evaporation and an increase in mean temperature of the driest quarter.
+  
+  - Populations from the Iberian gene pool experienced an increase in isothermality, mean annual temperature, mean temperature of the driest quarter and Hargreaves reference evapotranspiration.
+  
+  - The **OLB population from Central Spain** with a marked difference between the mean temperature of the driest quarter: 10.3 degrees for the period 1901-1950 and 12.7 degrees for the period 1961-1990.
+  
+  
 
 ## Point estimates vs raster extraction
 
-The past climates can be generated in two ways:
-  
-  - point estimates provided by Maurizio Marchi at the location of the population. This corresponds to the climatic values we used in the graphs above.
-  
-  - extracted values from raster files. The pixel values in the raster file correspond to the mean values of the climatic variables across the period considered.
-  
-Below, we compare the point estimates climatic values (from csv) with extracted values from raster files for the period 1901-1950.
+We compare the point estimates climatic values (from csv) with extracted values from raster files for the period 1901-1950.
 
 
 ```{r ExtractClimVariables}
 extract_clim_var <- function(x,gcm,period,ssp){
   
 if(period=="1901-1950"){
-  path <- paste0("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-Juliette/",x,".tif")} else {
-  path <- paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_",period,"_",ssp,"_Extent-Juliette/",x,".tif")
+  path <- paste0("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/",x,".tif")} else {
+  path <- paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_",period,"_",ssp,"_Extent-JulietteA/",x,".tif")
   }
   
 # For the variable Eref, there are some NAs for some populations
@@ -267,16 +303,19 @@ return(ext_simple)
 
 
 ```{r ScatterPlotsPtEstimatesVsExtractedValues, fig.height=11,fig.width=21, results="hide", warning=F}
+lapply(list_clim_past, function(clim_past){
+  
+  
 scatter_plots <- lapply(clim_var$variables, function(x) {
   
     
-clim_past$ref_1901_1950$ref_means[,c("pop",x)] %>% 
+clim_past$data$ref_1901_1950$ref_means[,c("pop",x)] %>% 
     mutate(ext_var =extract_clim_var(x=x,period="1901-1950")) %>% 
     set_colnames(c("pop","x","y")) %>% 
     make_ggscatter_plots(x=x,
                        gps=gps,
-                       xlab="Point estimates climatic values",
-                       ylab="Extracted climatic values from raster")
+                       xlab="Point estimates",
+                       ylab="Extracted values from raster")
   }) 
 
 p <- plot_grid(plotlist=scatter_plots)
@@ -285,10 +324,29 @@ p <- plot_grid(plotlist=scatter_plots)
 legend <- get_legend(scatter_plots[[1]] + theme(legend.position = c(0.5,0.5)) )
 
 # merge plots + legend
-plot_grid(p, legend, ncol = 2,rel_widths = c(1, 0.2))
+p <- plot_grid(p, legend, ncol = 2,rel_widths = c(1, 0.2))
+
+
+# make title
+title <- ggdraw() + 
+  draw_label(paste0("Point estimates ",clim_past$name),
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
+  
+  
+})
 ```
 
-<span style="color: orange;">**Interpretation:**</span> Point estimate climatic values are **systematically higher** than the extracted values from rasters for the mean annual temperature and the isothermality. I found weird that the way climatic values are obtained (raster extraction vs point estimates) introduces a **systematic bias in the climatic values** (i.e. a bias towards systematic higher values for point estimate values). And this is annoying as it would mean that depending on which way of extracting the climatic data we decide to use, we will not have the same climatic shifts between past and future climates...
+<span style="color: orange;">**Interpretation:**</span>
+
+  - Point estimates are **systematically lower** than extracted values from rasters for the isothermality (`bio3`), and to a lesser extent for the mean temperature of the driest quarter (`bio9`). And the point estimates are almost systematically higher for the summer heat moisture index (SHM), in particular for high values (south-eastern Spain populations). I found weird that the way climatic values are obtained (raster extraction vs point estimates) introduces a **systematic bias in the climatic values** (i.e. a bias towards systematic lower values for point estimate values). And this is annoying as it would mean that depending on which way of extracting the climatic data we decide to use, we will not have the same climatic shifts between past and future climates...
+  
+  - For the **OLB population from Central Spain**, `bio9` = **10.3 degrees** with point estimates, and `bio9` = **5.10 degrees** with values extracted from rasters (for the period 1901-1950)... Some important differences for the French Atlantic populations and sone populations from Central Spain.
 
 
 # Future climates
@@ -300,14 +358,221 @@ We aim to compare the predictions of five global climate models (GCMs) and quant
 
 To compare past and future climatic values, we calculate, for each GCM and each climatic variable, the mean $\mu_{ref}$ and standard deviation $\sigma_{ref}$ of the annual values of the climatic variable across the reference period (1901-1950 or 1961-1990). $\mu_{ref}$ and $\sigma_{ref}$ are then used to calculated a z-score, such as: *z-score* = $(x - \mu_{ref})/\sigma_{ref}$, where $x$ is the predicted mean value $X$ of the climatic variable of interest across the period 2041-2070.
 
-On the graph below, the z-scores are on the y-axis and are calculated for four combinations of past and future climatic values:
+For that, we use **point estimate data for the past climates**.
 
-  - either using the reference period 1901-1950 or 1961-1990. Note that in this section the past climatic values come from point estimates from csv files.
+
+### Future climates from rasters
+
+On the graph below, the z-scores are on the y-axis and are calculated using point estimates for the past climates and raster data for the future climates (mean predicted climatic values across the period 2041-2070 and the SSP3-7.0. The past climates correspond to:
+
+  - either the reference period 1901-1950 or 1961-1990.
   
-  - either using future climatic values extracted from raster files (corresponding to the mean predicted climatic values across the period 2041-2070 and the SSP3-7.0), or using future climatic values from point estimates from csv files (also for the period 2041-2070 and the SSP3-7.0). Note that those point estimates climatic values were calculated based on the population elevation data that we provided to Maurizio Marchi and not the elevation data from the ClimateDT DEEM, which may introduce some biaises.
+  - either the adjusted or not adjusted data for elevation.
 
 
 ```{r LoadFutureClimatePointEstimatesSentByMaurizio, warning=F}
+# Point estimate future climatic values
+fut_clim <- readRDS(here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))
+
+# GCM names
+gcm_names <- list.files(here("data/ClimaticData/ClimateDTRasters/")) %>%  str_sub(5,-35) %>% setdiff("")
+
+# Extract population future climate for each GCM
+fut_rast <- lapply(list_clim_past, function(clim_past){
+  
+lapply(clim_past$data, function(y){
+
+lapply(clim_var$variables, function(x){
+  
+lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",ssp="ssp370")) %>% 
+  setNames(gcm_names) %>% 
+  as_tibble() %>% 
+  mutate(pop=unique(clim_past$data[[1]]$ref_means$pop))
+
+}) %>% 
+  setNames(clim_var$variables) %>% 
+  bind_rows(.id = "variable") %>% 
+  pivot_longer(names_to = "gcm",values_to="mean_fut",cols=gcm_names) %>% 
+  mutate(fut_method= "extracted from rasters") %>% 
+  mutate(ref_period=paste0(y$range[[1]],"-",y$range[[2]])) %>% 
+  left_join(y$ref_sdmeans, by=c("pop","variable")) %>% 
+  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref) %>% 
+  left_join(gps, by="pop") 
+    
+
+}) %>% 
+    bind_rows() %>% 
+    mutate(adj=clim_past$code)
+  
+}) %>%  bind_rows()
+```
+
+
+
+```{r CheckingNAs, eval=F}
+# We check that there is no NAs:
+sapply(fut_rast, function(x) sum(is.na(x)))
+```
+
+```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide"}
+# Violin plots
+
+violin_plots <- lapply(unique(fut_rast$adj), function(y){
+  
+lapply(unique(fut_rast$ref_period), function(z){
+
+violin_plots <- lapply(gcm_names, function(x) {
+  
+fut_rast %>% 
+  dplyr::filter(gcm %in% x) %>% 
+  dplyr::filter(ref_period %in% z) %>% 
+  dplyr::filter(adj %in% y) %>% 
+  mutate(main_gp_pop=factor(main_gp_pop,levels=c("Northern Africa",
+                                                 "Corsica",
+                                                 "Central Spain",
+                                                 "French Atlantic",
+                                                 "Iberian Atlantic",
+                                                 "South-eastern Spain"))) %>% 
+  ggplot(aes(x=variable, y=zscore)) + 
+  geom_hline(yintercept=0, color=bg_color) +
+  geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
+  geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=1.7) +
+  scale_colour_manual(values = c("orangered3",
+                                                             "gold2",
+                                                             "darkorchid3",
+                                                              "navyblue",
+                                                             "turquoise2",
+                                                             "green3")) +
+  xlab("") + 
+  ylab("Z-scores") +
+  labs(colour="Main gene pool") +
+  theme_bw() +
+  ggtitle(x) +
+  theme(legend.position="none",
+        legend.title = element_text(size=14, color=bg_color),
+        legend.text = element_text(size = 14, color=bg_color),
+        axis.text = element_text(size = 14, color=bg_color),
+        axis.title = element_text(size=16, color=bg_color)) + 
+  guides(colour = guide_legend(override.aes = list(size=4))) 
+})
+
+
+# legend 
+violin_plots$legend <- get_legend(violin_plots[[1]] + theme(legend.position = c(0.5,0.5)) )
+
+# make title
+title <- ggdraw() + 
+  draw_label(paste0("Future climate from rasters vs reference period ",z," (point estimates ",list_clim_past[[y]]$name,")"),
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots
+p <- plot_grid(plotlist=violin_plots)
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
+          
+  
+})
+
+})
+
+violin_plots
+```
+
+
+### Future data from point estimates 
+
+In the graphs below, the future and past climates correspond to point estimates adjusted or not for elevelation.
+
+
+
+```{r ViolinPlotsFutureDataPointEstimatesVsPastClimatesPointEstimates, fig.height=12,fig.width=14, results="hide"}
+
+violin_plots <- lapply(unique(fut_rast$adj), function(y){
+  
+violin_plots <- lapply(unique(fut_rast$ref_period), function(z){
+  
+
+df <- fut_rast %>% 
+  dplyr::filter(ref_period %in% z) %>% 
+  dplyr::filter(adj %in% y) %>% 
+  dplyr::filter(gcm %in% "GFDL-ESM4") %>% 
+  dplyr::select(-mean_fut, -fut_method,-adj,-zscore)
+  
+fut_clim[[y]] %>%
+  dplyr::select(pop,all_of(clim_var$variables)) %>% 
+  pivot_longer(cols=all_of(clim_var$variables), names_to="variable",values_to="mean_fut") %>% 
+  arrange(variable,pop) %>% 
+  mutate(gcm="GFDL-ESM4") %>% 
+  inner_join(df, by=c("pop","variable","gcm")) %>% 
+  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref) %>% 
+  
+  mutate(main_gp_pop=factor(main_gp_pop,levels=c("Northern Africa",
+                                                 "Corsica",
+                                                 "Central Spain",
+                                                 "French Atlantic",
+                                                 "Iberian Atlantic",
+                                                 "South-eastern Spain"))) %>% 
+  ggplot(aes(x=variable, y=zscore)) + 
+  geom_hline(yintercept=0, color=bg_color) +
+  geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
+  geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=1.7) +
+  scale_colour_manual(values = c("orangered3",
+                                                             "gold2",
+                                                             "darkorchid3",
+                                                              "navyblue",
+                                                             "turquoise2",
+                                                             "green3")) +
+  xlab("") + 
+  ylab("Z-scores") +
+  labs(colour="Main gene pool") +
+  theme_bw() +
+  ggtitle(paste0("Climatic data ",list_clim_past[[y]]$name," - reference period ",z)) +
+  theme(legend.position="none",
+        legend.title = element_text(size=14, color=bg_color),
+        legend.text = element_text(size = 14, color=bg_color),
+        axis.text = element_text(size = 14, color=bg_color),
+        axis.title = element_text(size=16, color=bg_color)) + 
+  guides(colour = guide_legend(override.aes = list(size=4))) 
+  
+})
+  
+plot_grid(plotlist=violin_plots)
+  
+}) 
+
+
+# make title
+title <- ggdraw() + 
+  draw_label("Future and past climate from point estimates - GCM GFDL-ESM4",
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots
+p <- plot_grid(plotlist=violin_plots,nrow=2)
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
+```
+
+<span style="color: orange;">**Interpretation:**</span> 
+
+  - Predictions are coherent among the different modalities tested (i.e. point estimates vs raster for future climates, reference periods for past climates).
+  
+  - Some differences among GCMs that are worth noting: for a population from Central Spain, GFDL-ESM4 and MRI-ESM2-0 predict a decrease in mean temperature of the driest quarter (which is surprising..) while the other GCMs predict an increase. Eref also shows strong differences among GCMs, with for instance very high predicted increase with the GFDL-ESM4 for some Central Spain populations while a lot more modest increase with the MRI-ESM2-0 GCM. 
+
+So we may want to average the predictions of the different GCMs. In particular, if we decide to use point estimate data to estimate the genomic offset, we will need the point estimate data of the different GCMs for future climates, and not only those of the GFDL-ESM4 GCM.
+
+
+
+<!-- OLD GRAPHS -->
+
+```{r LoadFutureClimatePointEstimatesSentByMaurizioOld, warning=F,eval=F,echo=F}
 # Point estimate future climatic values
 fut_clim <- readRDS(here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))
 
@@ -350,12 +615,12 @@ return(y)
 ```
 
 
-```{r CheckingNAs, eval=F}
+```{r CheckingNAsOld, eval=F,echo=F}
 # We check that there is no NAs:
 lapply(clim_df, function(y) { lapply(y$zscores, function(z) {z %>%  sapply(function(x) sum(is.na(x))) })  })
 ```
 
-```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide"}
+```{r MakeViolinPlotsOld, fig.height=12,fig.width=14, results="hide",eval=F,echo=F}
 # Violin plots
 
 violin_plots <- lapply(clim_df, function(y){
@@ -422,20 +687,175 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 violin_plots
 ```
 
-<span style="color: orange;">**Interpretation:**</span> Point estimates future climate values are **very different** from the distribution of past climatic values extracted from raster files (very high z-scores), which is not the case when we use future climatic values extracted from raster files, <span style="color: red;">**how can we explain that??**</span> Another thing that bothers me is that the mean annual temperature (`bio1`) and the mean temperature of the driest quarter (`bio9`) are predicted to decrease for most populations under some GCMs, I am a bit worried that there is something wrong somewhere..
+<!-- <span style="color: orange;">**Interpretation:**</span> Point estimates future climate values are **very different** from the distribution of past climatic values extracted from raster files (very high z-scores), which is not the case when we use future climatic values extracted from raster files, <span style="color: red;">**how can we explain that??**</span> Another thing that bothers me is that the mean annual temperature (`bio1`) and the mean temperature of the driest quarter (`bio9`) are predicted to decrease for most populations under some GCMs, I am a bit worried that there is something wrong somewhere.. -->
 
 
 ## Raw differences between past and future climates
 
-We aim to check whether the predicted decrease in mean annual temperature (`bio1`) and mean temperature of the driest quarter (`bio9`) for some populations can be due to the higher climatic values obtained with point estimates than with extracted values from rasters for the past climates (see first section)
 
 We compare the differences between mean future climate and mean past climate using:
 
-  - climatic values extracted from rasters for the future climates (as they appear more realistic according to the graph above)
+  - climatic values extracted from rasters for the future climates
   
-  - past climatic values either from point estimates from csv files, or extracted values from rasters. 
+  - past climatic values either from point estimates or extracted from rasters. 
+
 
 ```{r ViolinPlotsDiffFuturePastClimates,fig.height=12,fig.width=20, results="hide", warning=F}
+violin_plots <- lapply(unique(fut_rast$adj), function(y){
+
+# We generate a table of 1020 rows: 34 populations * 5 GCMs * 6 climatic variables
+clim_df <- fut_rast %>% 
+  filter(ref_period =="1901-1950") %>% 
+  filter(adj==y)
+
+
+clim_df <- lapply(clim_var$variables, function(x) {
+  
+    
+list_clim_past$ADJ$data$ref_1901_1950$ref_means[,"pop"] %>% 
+    mutate(mean_ref_rast =extract_clim_var(x=x,period="1901-1950"),
+           variable=x) 
+  }) %>% 
+  bind_rows() %>% 
+  right_join(clim_df,by = c("pop", "variable"))
+
+
+
+clim_df %>% 
+  pivot_longer(cols=c("mean_ref_rast","mean_ref"),names_to="mean_ref_meth",values_to = "mean_ref") %>% 
+  group_split(mean_ref_meth) %>% 
+  lapply(function(meth){
+
+
+violin_plots <- lapply(clim_var$variables, function(x) {
+  
+var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+  mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+  pull(var_legend)
+  
+meth %>% 
+    dplyr::filter(variable %in% x) %>% 
+    mutate(diff=mean_fut-mean_ref) %>% 
+    mutate(main_gp_pop=factor(main_gp_pop,levels=c("Northern Africa",
+                                                 "Corsica",
+                                                 "Central Spain",
+                                                 "French Atlantic",
+                                                 "Iberian Atlantic",
+                                                 "South-eastern Spain"))) %>% 
+  ggplot(aes(x=gcm, y=diff)) + 
+  geom_hline(yintercept=0, color=bg_color) +
+  geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
+  geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=2) +
+  scale_colour_manual(values = c("orangered3",
+                                                             "gold2",
+                                                             "darkorchid3",
+                                                              "navyblue",
+                                                             "turquoise2",
+                                                             "green3")) +
+  xlab("") + 
+  ylab("mean future climate - mean past climate") +
+  labs(colour="Main gene pool") +
+  theme_bw() +
+  scale_x_discrete(guide = guide_axis(angle = 90)) +
+  ggtitle(var_name) +
+  theme(legend.position="none",
+        legend.title = element_text(size=14, color=bg_color),
+        legend.text = element_text(size = 14, color=bg_color),
+        axis.text = element_text(size = 14, color=bg_color), 
+        axis.title = element_text(size=16, color=bg_color),
+        ) + 
+  guides(colour = guide_legend(override.aes = list(size=4))) 
+})
+
+p <- plot_grid(plotlist=violin_plots)
+
+# legend 
+legend <- get_legend(violin_plots[[6]] + theme(legend.position = c(0.5,0.5)) )
+
+# merge plots + legend
+p <- plot_grid(p, legend, ncol = 2,rel_widths = c(1, 0.2))
+
+
+# make title
+if(unique(meth$mean_ref_meth)=="mean_ref"){
+  name_title <- paste0("Past climatic values from point estimates ", list_clim_past[[y]]$name, " - reference period 1901-1950")
+} else {
+  name_title <- paste0("Past climatic values extracted from raster files - reference period 1901-1950")
+}
+
+title <- ggdraw() + 
+  draw_label(name_title,
+             fontface = 'bold',
+             x = 0,
+             hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge plots + title
+plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
+
+})
+
+})
+
+
+violin_plots[[1]]
+violin_plots[[2]][[1]]
+```
+
+
+
+<span style="color: orange;">**Interpretation**</span> 
+
+  - For the mean temperature of the driest quarter (`bio9`), the **OLB population from Central Spain** shows inconsistent patterns across GCMs and whether past climates are extracted from rasters or are point estimates. When past climates are point estimates, the GFDL-ESM4 and MRI-ESM2-0 GCMs predict a decrease in `bio9` in the future, while the other GCM predict an increase. However, when past climates are extracted from rasters, all GCMs predict an increase in `bio9` but the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs predict a stronger increase than the GFDL-ESM4 and MRI-ESM2-0 GCMs. 
+  
+  To better understand how these values for the OLB population are obtained, the tables below show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters. 
+  
+  Past climatic values for the period 1901-1950:
+  
+```{r OLBpopPastClimate}
+lapply(list("ADJ","noADJ"), function(x){
+  
+  list_clim_past[[x]]$data$ref_1901_1950$ref_means[,c("pop","bio9")] %>% 
+  mutate(ext_var =extract_clim_var(x="bio9",period="1901-1950")) %>% 
+  filter(pop=="OLB") %>% 
+  set_colnames(c("Population","Point estimate","Extracted value from raster")) 
+  
+}) %>% 
+  setNames(c("ADJ","noADJ")) %>% 
+  bind_rows(.id="Adjust for elevation") %>% 
+  kable_mydf()
+```
+
+ Future climatic value extracted from rasters:
+
+```{r OLBFutClimateRasters}
+fut_rast %>% 
+  filter(ref_period =="1901-1950") %>% 
+  filter(variable=="bio9") %>% 
+  filter(pop=="OLB") %>% 
+  dplyr::select(pop,gcm,mean_fut) %>% 
+  set_colnames(c("Population","Global Climate Model","Value extracted from rasters")) %>% 
+  kable_mydf()
+```
+
+  Future climatic values from point estimates (GFDL-ESM4 GCM):
+
+```{r OLBFutureClimatePointEstimates}
+fut_clim %>% 
+  bind_rows(.id="adj") %>%  
+  filter(pop=="OLB") %>% 
+  dplyr::select(pop,bio9,adj) %>% 
+  set_colnames(c("Population","Point estimate","Adjust for elevation")) %>% 
+  kable_mydf()
+```
+  
+
+
+<span style="color: red;">**How can we explain so strong differences for the OLB population?**</span>
+
+
+
+```{r ViolinPlotsDiffFuturePastClimatesOld,fig.height=12,fig.width=20, results="hide", warning=F,eval=F,echo=F}
 clim_df$ref_1901_1950$zscores[[1]] <- lapply(clim_var$variables, function(x) {
   
     
@@ -524,7 +944,3 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 })
 ```
 
-
-<span style="color: orange;">**Interpretation:**</span> The differences between past and future climates do not show substantial differences depending on whether we use point estimates or extracted values from rasters for past climates. However, for mean annual temperature, we can see that there is a **clear trend towards more positive values** (higher temperatures in the future) when we use climatic values extracted from rasters for the past climate. 
-
-<span style="color: red;">**FINAL COMMENT: So, we really have to think about which climatic values we use!!**</span>
