@@ -695,9 +695,9 @@ violin_plots
 
 We compare the differences between mean future climate and mean past climate using:
 
-  - climatic values extracted from rasters for the future climates
+  - climatic values extracted from rasters for the future climates (2041-2070, SSP3-7.0)
   
-  - past climatic values either from point estimates or extracted from rasters. 
+  - past climatic values either from point estimates or extracted from rasters (reference period 1901-1950). 
 
 
 ```{r ViolinPlotsDiffFuturePastClimates,fig.height=12,fig.width=20, results="hide", warning=F}
@@ -826,7 +826,7 @@ lapply(list("ADJ","noADJ"), function(x){
   kable_mydf()
 ```
 
- Future climatic value extracted from rasters:
+ Future climatic value extracted from rasters (2041-2070, SSP3-7.0):
 
 ```{r OLBFutClimateRasters}
 fut_rast %>% 
@@ -838,7 +838,7 @@ fut_rast %>%
   kable_mydf()
 ```
 
-  Future climatic values from point estimates (GFDL-ESM4 GCM):
+Future climatic values from point estimates (GFDL-ESM4 GCM):
 
 ```{r OLBFutureClimatePointEstimates}
 fut_clim %>% 
