@@ -85,7 +85,7 @@ find . -name "MSP.tif" -execdir mv {} SP.tif \; # rename MSP.tif to SP.tif
 **Comment:** in all the plots below, the points corresponds to the 34 studied populations of maritime pine and the colors correspond to the main gene pool they belong to.
 
 
-**Climatic variables of interest:**
+**Set of the climatic variables of interest:**
 
 ```{r ListSelectedClimVariables}
 # Selected climatic variables
@@ -119,10 +119,10 @@ Below, we compare the mean values of the climatic variables of interest for the 
 # The rds file corresponds to a list with different reference periods, here 1901-1950 and 1961-1990
 list_clim_past <- list(ADJ=list(name="adjusted for elevation",
                                 code="ADJ",
-                                data=readRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations_ADJ.rds"))),
+                                data=readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_ADJ.rds"))),
                        noADJ=list(name="NOT adjusted for elevation",
                                   code="noADJ",
-                                  data=readRDS(here("data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations_noADJ.rds"))))
+                                  data=readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds"))))
  
 # Load information about the main gene pool of each population (for the figures)
 gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% arrange(pop)
@@ -347,10 +347,10 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 # Point estimate future climatic values
 list_fut_clim <-  list(ADJ=list(name="adjusted for elevation",
                                 code="ADJ",
-                                data=readRDS(here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))[[1]]),
+                                data=readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationsPointEstimates_GFDL-ESM4_SSP370_2041-2070.rds"))[[1]]),
                        noADJ=list(name="NOT adjusted for elevation",
                                   code="noADJ",
-                                  data=readRDS(here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))[[2]]))                    
+                                  data=readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationsPointEstimates_GFDL-ESM4_SSP370_2041-2070.rds"))[[2]]))                    
                       
 
 lapply(list_fut_clim, function(fut_clim){
@@ -393,23 +393,29 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 ```
 
 
-<span style="color: orange;">**Interpretation:**</span> Point estimate values and climatic values extracted from rasters are very similar, thus suggesting that we can use them interchangeably.
+<span style="color: orange;">**Conclusion:**</span> Point estimate values and climatic values extracted from rasters are very similar, thus suggesting that we can use them interchangeably. Point estimate values adjusted or not for elevation are also similar, so using one or the other should not influence the results of the following analyses.
 
 
 # Comparing past and future climates
 
-We compare the differences between **mean future climate** and **mean past climate** using:
+We compare the past and future climates using either:
+
+  -  the raw difference between the **mean future climate** and **mean past climate** (i.e. **mean future climate** - **mean past climate**)
+  
+  - the relative climatic distance: **relative distance = ( future climatic value - past climatic value ) / past climatic value**.
+  
+## Raw differences between past and future climates
+
+We calculate the raw difference between the **mean future climate** and **mean past climate** (i.e. **mean future climate** - **mean past climate**) using:
 
   - climatic values extracted from rasters for the future climates of the five global climate models (GCMs) for the period 2041-2070 and SSP3-7.0.
   
   - past climatic values either from point estimates or extracted from rasters (reference period 1901-1950). 
   
-  
-## Raw differences between past and future climates
 
 ```{r FormattingDatasetsToCompareFuturePastClimates}
 # Point estimate future climatic values (2041-2070 - GFDL-ESM4 - SSP 3.7-0)
-fut_clim <- readRDS(here("data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds"))
+fut_clim <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationsPointEstimates_GFDL-ESM4_SSP370_2041-2070.rds"))
 
 # GCM names
 gcm_names <- list.files(here("data/ClimaticData/ClimateDTRasters/")) %>%  str_sub(5,-35) %>% setdiff("")
@@ -552,9 +558,7 @@ violin_plots[[2]][[1]]
 
 
 
-<span style="color: orange;">**Interpretation**</span> 
-
-  - the predictions are quite consistent across GCMs, except for the mean temperature of the driest quarter (`bio9`) of the **OLB population from Central Spain**. Indeed, for this population, the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs GCMs predict a larger increase in `bio9` in the future than the GFDL-ESM4 and MRI-ESM2-0 GCMs. See the tables below that show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters. 
+Predictions are quite **consistent across GCMs**, except for the mean temperature of the driest quarter (`bio9`) of the **OLB population from Central Spain**. Indeed, for this population, the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs GCMs predict a larger increase in `bio9` in the future than the GFDL-ESM4 and MRI-ESM2-0 GCMs. See the tables below that show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters. 
   
 > Past climatic values for the period 1901-1950:
   
@@ -596,23 +600,20 @@ fut_clim %>%
 ```
   
 
-<span style="color: red;">**How can we explain so strong differences among GCMs for the OLB population?**</span>
+<span style="color: orange;">**The strong differences among GCMs for the OLB population may be explained by its location in a mountainous region with complicated orography.**</span>
+
+## Relative climatic distance
+
+To compare past and future climatic values, we calculate, for each GCM and each climatic variable, the relative distance between past and future climatic values, i.e **relative distance = ( future climatic value - past climatic value ) / past climatic value**.
 
 
-<!-- ## Using z-scores -->
+### Future climatic data from rasters
 
-<!-- To compare past and future climatic values, we calculate, for each GCM and each climatic variable, the mean $\mu_{ref}$ and standard deviation $\sigma_{ref}$ of the annual values of the climatic variable across the reference period (1901-1950 or 1961-1990). $\mu_{ref}$ and $\sigma_{ref}$ are then used to calculated a z-score, such as: *z-score* = $(x - \mu_{ref})/\sigma_{ref}$, where $x$ is the predicted mean value $X$ of the climatic variable of interest across the period 2041-2070. -->
+On the graph below, the relative distances are on the y-axis and are calculated using point estimates for the past climates and raster data for the future climates (mean predicted climatic values across the period 2041-2070 and the SSP3-7.0. The past climates correspond to:
 
-<!-- For that, we use **point estimate data for the past climates**. -->
+  - either the reference period 1901-1950 or 1961-1990.
 
-
-<!-- ### Future climates from rasters -->
-
-<!-- On the graph below, the z-scores are on the y-axis and are calculated using point estimates for the past climates and raster data for the future climates (mean predicted climatic values across the period 2041-2070 and the SSP3-7.0. The past climates correspond to: -->
-
-<!--   - either the reference period 1901-1950 or 1961-1990. -->
-
-<!--   - either the adjusted or not adjusted data for elevation. -->
+  - either the adjusted or not adjusted data for elevation.
 
 
 ```{r LoadFutureClimatePointEstimatesSentByMaurizio, warning=F, eval=F,echo=F}
@@ -653,7 +654,7 @@ lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",
 sapply(fut_rast, function(x) sum(is.na(x)))
 ```
 
-```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide", eval=F,echo=F}
+```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide"}
 # Violin plots
 
 violin_plots <- lapply(unique(fut_rast$adj), function(y){
@@ -666,13 +667,14 @@ fut_rast %>%
   dplyr::filter(gcm %in% x) %>% 
   dplyr::filter(ref_period %in% z) %>% 
   dplyr::filter(adj %in% y) %>% 
+  mutate(rel_diff=(mean_fut-mean_ref)/mean_ref) %>% 
   mutate(main_gp_pop=factor(main_gp_pop,levels=c("Northern Africa",
                                                  "Corsica",
                                                  "Central Spain",
                                                  "French Atlantic",
                                                  "Iberian Atlantic",
                                                  "South-eastern Spain"))) %>% 
-  ggplot(aes(x=variable, y=zscore)) + 
+  ggplot(aes(x=variable, y=rel_diff)) + 
   geom_hline(yintercept=0, color=bg_color) +
   geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
   geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=1.7) +
@@ -683,7 +685,7 @@ fut_rast %>%
                                                              "turquoise2",
                                                              "green3")) +
   xlab("") + 
-  ylab("Z-scores") +
+  ylab("Relative climatic distance") +
   labs(colour="Main gene pool") +
   theme_bw() +
   ggtitle(x) +
@@ -721,14 +723,16 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 violin_plots
 ```
 
-
-<!-- ### Future data from point estimates  -->
-
-<!-- In the graphs below, the future and past climates correspond to point estimates adjusted or not for elevation. -->
+**Interpretation:** For all populations, `AHM`, `SHM`, `bio1` and `bio9` and `Eref` are predicted to increase under future climates. Some exceptions for `AHM` for some populations from the Iberian and French Atlantic regions for the MRI-ESM2-0 GCM. Different predictions across GCMs for the OLB populations. <span style="color: orange;">**The different predictions across GCMs show the importance of calculating the genomic offset under the different GCMs.**</span>
 
 
 
-```{r ViolinPlotsFutureDataPointEstimatesVsPastClimatesPointEstimates, fig.height=12,fig.width=14, results="hide", eval=F,echo=F}
+### Future climatic data from point estimates
+
+In the graphs below, the future and past climates correspond to point estimates adjusted or not for elevation.
+
+
+```{r ViolinPlotsFutureDataPointEstimatesVsPastClimatesPointEstimates, fig.height=12,fig.width=14, results="hide"}
 
 violin_plots <- lapply(unique(fut_rast$adj), function(y){
   
@@ -739,7 +743,7 @@ df <- fut_rast %>%
   dplyr::filter(ref_period %in% z) %>% 
   dplyr::filter(adj %in% y) %>% 
   dplyr::filter(gcm %in% "GFDL-ESM4") %>% 
-  dplyr::select(-mean_fut, -fut_method,-adj,-zscore)
+  dplyr::select(-mean_fut, -fut_method,-adj)
   
 fut_clim[[y]] %>%
   dplyr::select(pop,all_of(clim_var$variables)) %>% 
@@ -747,7 +751,7 @@ fut_clim[[y]] %>%
   arrange(variable,pop) %>% 
   mutate(gcm="GFDL-ESM4") %>% 
   inner_join(df, by=c("pop","variable","gcm")) %>% 
-  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref) %>% 
+  dplyr::mutate(rel_diff=(mean_fut-mean_ref)/mean_ref) %>% 
   
   mutate(main_gp_pop=factor(main_gp_pop,levels=c("Northern Africa",
                                                  "Corsica",
@@ -755,7 +759,7 @@ fut_clim[[y]] %>%
                                                  "French Atlantic",
                                                  "Iberian Atlantic",
                                                  "South-eastern Spain"))) %>% 
-  ggplot(aes(x=variable, y=zscore)) + 
+  ggplot(aes(x=variable, y=rel_diff)) + 
   geom_hline(yintercept=0, color=bg_color) +
   geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
   geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=1.7) +
@@ -766,7 +770,7 @@ fut_clim[[y]] %>%
                                                              "turquoise2",
                                                              "green3")) +
   xlab("") + 
-  ylab("Z-scores") +
+  ylab("Relative climatic distance") +
   labs(colour="Main gene pool") +
   theme_bw() +
   ggtitle(paste0("Climatic data ",list_clim_past[[y]]$name," - reference period ",z)) +
@@ -798,12 +802,4 @@ p <- plot_grid(plotlist=violin_plots,nrow=2)
 # merge plots + title
 plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 ```
-
-<!-- <span style="color: orange;">**Interpretation:**</span>  -->
-
-<!--   - Predictions are coherent among the different modalities tested (i.e. point estimates vs raster for future climates, reference periods for past climates). -->
-
-<!--   - Some differences among GCMs that are worth noting: for a population from Central Spain, GFDL-ESM4 and MRI-ESM2-0 predict a decrease in mean temperature of the driest quarter (which is surprising..) while the other GCMs predict an increase. Eref also shows strong differences among GCMs, with for instance very high predicted increase with the GFDL-ESM4 for some Central Spain populations while a lot more modest increase with the MRI-ESM2-0 GCM.  -->
-
-<!-- So we may want to average the predictions of the different GCMs. In particular, if we decide to use point estimate data to estimate the genomic offset, we will need the point estimate data of the different GCMs for future climates, and not only those of the GFDL-ESM4 GCM. -->
 
