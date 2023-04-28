@@ -90,10 +90,9 @@ find . -name "MSP.tif" -execdir mv {} SP.tif \; # rename MSP.tif to SP.tif
 ```{r ListSelectedClimVariables}
 # Selected climatic variables
 # ===========================
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)#
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
-extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+extract_climatedt_metadata(var_clim = clim_var) %>% 
   dplyr::select(label,description,unit) %>% 
   set_colnames(str_to_title(colnames(.))) %>% 
   kable_mydf(font_size = 12)
@@ -179,7 +178,7 @@ lapply(list_clim_past, function(clim_past){
   
   
 # Generate the scatter plots
-scatter_plots <- lapply(clim_var$variables, function(x){
+scatter_plots <- lapply(clim_var, function(x){
 
   lapply(clim_past$data, function(y){
     
@@ -304,7 +303,7 @@ We compare the point estimates climatic values (from csv) with extracted values 
 lapply(list_clim_past, function(clim_past){
   
   
-scatter_plots <- lapply(clim_var$variables, function(x) {
+scatter_plots <- lapply(clim_var, function(x) {
   
     
 clim_past$data$ref_1901_1950$ref_means[,c("pop",x)] %>% 
@@ -356,7 +355,7 @@ list_fut_clim <-  list(ADJ=list(name="adjusted for elevation",
 lapply(list_fut_clim, function(fut_clim){
   
   
-scatter_plots <- lapply(clim_var$variables, function(x) {
+scatter_plots <- lapply(clim_var, function(x) {
   
     
 fut_clim$data[,c("pop",x)] %>% 
@@ -427,17 +426,17 @@ lapply(clim_past$data, function(y){
 
   
 df_ref_means <-  y$ref_means %>% 
-  dplyr::select(pop,all_of(clim_var$variables)) %>% 
-  pivot_longer(cols=clim_var$variables,names_to="variable",values_to="mean_ref")
+  dplyr::select(pop,all_of(clim_var)) %>% 
+  pivot_longer(cols=clim_var,names_to="variable",values_to="mean_ref")
   
-lapply(clim_var$variables, function(x){
+lapply(clim_var, function(x){
   
 lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",ssp="ssp370")) %>% 
   setNames(gcm_names) %>% 
   as_tibble() %>% 
   mutate(pop=unique(clim_past$data[[1]]$ref_means$pop))
 
-}) %>% setNames(clim_var$variables) %>% 
+}) %>% setNames(clim_var) %>% 
   bind_rows(.id = "variable") %>% 
   pivot_longer(names_to = "gcm",values_to="mean_fut",cols=all_of(gcm_names)) %>% 
   mutate(fut_method= "extracted from rasters") %>% 
@@ -463,7 +462,7 @@ clim_df <- fut_rast %>%
   filter(adj==y)
 
 
-clim_df <- lapply(clim_var$variables, function(x) {
+clim_df <- lapply(clim_var, function(x) {
   
     
 list_clim_past$ADJ$data$ref_1901_1950$ref_means[,"pop"] %>% 
@@ -481,7 +480,7 @@ clim_df %>%
   lapply(function(meth){
 
 
-violin_plots <- lapply(clim_var$variables, function(x) {
+violin_plots <- lapply(clim_var, function(x) {
   
 var_name <- extract_climatedt_metadata(var_clim = x) %>% 
   mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
@@ -556,51 +555,51 @@ violin_plots[[1]]
 violin_plots[[2]][[1]]
 ```
 
+Predictions **consistent across GCMs**.
+
+<!-- Predictions are quite **consistent across GCMs**, except for the mean temperature of the driest quarter (`bio9`) of the **OLB population from Central Spain**. Indeed, for this population, the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs GCMs predict a larger increase in `bio9` in the future than the GFDL-ESM4 and MRI-ESM2-0 GCMs. See the tables below that show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters.  -->
+
+<!-- > Past climatic values for the period 1901-1950: -->
+
+<!-- ```{r OLBpopPastClimate} -->
+<!-- lapply(list("ADJ","noADJ"), function(x){ -->
+
+<!--   list_clim_past[[x]]$data$ref_1901_1950$ref_means[,c("pop","bio9")] %>%  -->
+<!--   mutate(ext_var =extract_clim_var(x="bio9",period="1901-1950")) %>%  -->
+<!--   filter(pop=="OLB") %>%  -->
+<!--   set_colnames(c("Population","Point estimate","Extracted value from raster"))  -->
+
+<!-- }) %>%  -->
+<!--   setNames(c("ADJ","noADJ")) %>%  -->
+<!--   bind_rows(.id="Adjust for elevation") %>%  -->
+<!--   kable_mydf() -->
+<!-- ``` -->
+
+<!-- > Future climatic value extracted from rasters (2041-2070, SSP3-7.0): -->
+
+<!-- ```{r OLBFutClimateRasters} -->
+<!-- fut_rast %>%  -->
+<!--   filter(ref_period =="1901-1950") %>%  -->
+<!--   filter(variable=="bio9") %>%  -->
+<!--   filter(pop=="OLB") %>%  -->
+<!--   dplyr::select(pop,gcm,mean_fut) %>%  -->
+<!--   set_colnames(c("Population","Global Climate Model","Value extracted from rasters")) %>%  -->
+<!--   kable_mydf() -->
+<!-- ``` -->
+
+<!-- > Future climatic values from point estimates (GFDL-ESM4 GCM): -->
+
+<!-- ```{r OLBFutureClimatePointEstimates} -->
+<!-- fut_clim %>%  -->
+<!--   bind_rows(.id="adj") %>%   -->
+<!--   filter(pop=="OLB") %>%  -->
+<!--   dplyr::select(pop,bio9,adj) %>%  -->
+<!--   set_colnames(c("Population","Point estimate","Adjust for elevation")) %>%  -->
+<!--   kable_mydf() -->
+<!-- ``` -->
 
 
-Predictions are quite **consistent across GCMs**, except for the mean temperature of the driest quarter (`bio9`) of the **OLB population from Central Spain**. Indeed, for this population, the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs GCMs predict a larger increase in `bio9` in the future than the GFDL-ESM4 and MRI-ESM2-0 GCMs. See the tables below that show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters. 
-  
-> Past climatic values for the period 1901-1950:
-  
-```{r OLBpopPastClimate}
-lapply(list("ADJ","noADJ"), function(x){
-  
-  list_clim_past[[x]]$data$ref_1901_1950$ref_means[,c("pop","bio9")] %>% 
-  mutate(ext_var =extract_clim_var(x="bio9",period="1901-1950")) %>% 
-  filter(pop=="OLB") %>% 
-  set_colnames(c("Population","Point estimate","Extracted value from raster")) 
-  
-}) %>% 
-  setNames(c("ADJ","noADJ")) %>% 
-  bind_rows(.id="Adjust for elevation") %>% 
-  kable_mydf()
-```
-
-> Future climatic value extracted from rasters (2041-2070, SSP3-7.0):
-
-```{r OLBFutClimateRasters}
-fut_rast %>% 
-  filter(ref_period =="1901-1950") %>% 
-  filter(variable=="bio9") %>% 
-  filter(pop=="OLB") %>% 
-  dplyr::select(pop,gcm,mean_fut) %>% 
-  set_colnames(c("Population","Global Climate Model","Value extracted from rasters")) %>% 
-  kable_mydf()
-```
-
-> Future climatic values from point estimates (GFDL-ESM4 GCM):
-
-```{r OLBFutureClimatePointEstimates}
-fut_clim %>% 
-  bind_rows(.id="adj") %>%  
-  filter(pop=="OLB") %>% 
-  dplyr::select(pop,bio9,adj) %>% 
-  set_colnames(c("Population","Point estimate","Adjust for elevation")) %>% 
-  kable_mydf()
-```
-  
-
-<span style="color: orange;">**The strong differences among GCMs for the OLB population may be explained by its location in a mountainous region with complicated orography.**</span>
+<!-- <span style="color: orange;">**The strong differences among GCMs for the OLB population may be explained by its location in a mountainous region with complicated orography.**</span> -->
 
 ## Relative climatic distance
 
@@ -622,7 +621,7 @@ fut_rast <- lapply(list_clim_past, function(clim_past){
   
 lapply(clim_past$data, function(y){
 
-lapply(clim_var$variables, function(x){
+lapply(clim_var, function(x){
   
 lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",ssp="ssp370")) %>% 
   setNames(gcm_names) %>% 
@@ -630,7 +629,7 @@ lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",
   mutate(pop=unique(clim_past$data[[1]]$ref_means$pop))
 
 }) %>% 
-  setNames(clim_var$variables) %>% 
+  setNames(clim_var) %>% 
   bind_rows(.id = "variable") %>% 
   pivot_longer(names_to = "gcm",values_to="mean_fut",cols=gcm_names) %>% 
   mutate(fut_method= "extracted from rasters") %>% 
@@ -746,8 +745,8 @@ df <- fut_rast %>%
   dplyr::select(-mean_fut, -fut_method,-adj)
   
 fut_clim[[y]] %>%
-  dplyr::select(pop,all_of(clim_var$variables)) %>% 
-  pivot_longer(cols=all_of(clim_var$variables), names_to="variable",values_to="mean_fut") %>% 
+  dplyr::select(pop,all_of(clim_var)) %>% 
+  pivot_longer(cols=all_of(clim_var), names_to="variable",values_to="mean_fut") %>% 
   arrange(variable,pop) %>% 
   mutate(gcm="GFDL-ESM4") %>% 
   inner_join(df, by=c("pop","variable","gcm")) %>% 
