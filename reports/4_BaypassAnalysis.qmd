@@ -123,21 +123,17 @@ write.table(file = here(paste0("data/BayPassAnalysis/GenomicInputBayPass_",x,".t
 ## Environmental data
 
 
-We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report `2_RedundancyAnalysis_part1.Rmd`):
+We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 2 in the report `2_RedundancyAnalysis_part1.Rmd`):
 
 ```{r LoadClimaticData}
 # Which set of climatic variables are we going to use?
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
-# we load the population-specific data of the climatic variables of interest
-clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-               show_col_types = FALSE) %>% 
-  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
+# we load the population-specific climatic data of the climatic variables of interest
+source(here("scripts/functions/generate_clim_datasets.R"))
+clim_past <- generate_clim_datasets(clim_var)[["clim_past"]]
 
-
-
-extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+extract_climatedt_metadata(var_clim = clim_var) %>% 
   dplyr::select(label,description,unit) %>% 
   set_colnames(str_to_title(colnames(.))) %>% 
   kable_mydf()
@@ -145,7 +141,7 @@ extract_climatedt_metadata(var_clim = clim_var$variables) %>%
 
 ```{r LoadEnvPopStructureData}
 # We save one table per covariate
-for(i in c(clim_var$variables)){
+for(i in c(clim_var)){
   clim_past %>% 
   dplyr::select(all_of(i)) %>% 
   pull() %>% 
@@ -253,7 +249,7 @@ Bash code with the loops:
 
 # Working directory before running the loop: data/BayPassAnalysis/outputs
 
-for var in AHM bio1 bio3 bio9 Eref SHM
+for var in bio1 bio3 bio4 bio12 bio15 SHM
 do
 cd ISruns_${var}
 for seed in {1..5}
@@ -270,47 +266,4 @@ done
 ```
 
 
-Bash code without the loops:
-
-```{bash ISrunsBio3, eval=F}
-# ** Bash script **
-# =================
-
-# Working directory: data/BayPassAnalysis/outputs/ISruns_bio3
-
-~/Bureau/baypass_2.2/sources/g_baypass \
-    -gfile ../../GenomicInputBayPass.txt \
-    -efile ../../EnvironmentalVariables/bio3.txt\
-    -omegafile ../anacore_mat_omega.out \
-    -outprefix anacovis1 \
-    -seed 1
-    
-~/Bureau/baypass_2.2/sources/g_baypass \
-    -gfile ../../GenomicInputBayPass.txt \
-    -efile ../../EnvironmentalVariables/bio3.txt\
-    -omegafile ../anacore_mat_omega.out \
-    -outprefix anacovis2 \
-    -seed 2
-
-~/Bureau/baypass_2.2/sources/g_baypass \
-    -gfile ../../GenomicInputBayPass.txt \
-    -efile ../../EnvironmentalVariables/bio3.txt\
-    -omegafile ../anacore_mat_omega.out \
-    -outprefix anacovis3 \
-    -seed 3
-
-~/Bureau/baypass_2.2/sources/g_baypass \
-    -gfile ../../GenomicInputBayPass.txt \
-    -efile ../../EnvironmentalVariables/bio3.txt\
-    -omegafile ../anacore_mat_omega.out \
-    -outprefix anacovis4 \
-    -seed 4
-
-~/Bureau/baypass_2.2/sources/g_baypass \
-    -gfile ../../GenomicInputBayPass.txt \
-    -efile ../../EnvironmentalVariables/bio3.txt\
-    -omegafile ../anacore_mat_omega.out \
-    -outprefix anacovis5 \
-    -seed 5
-```
 
