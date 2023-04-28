@@ -44,7 +44,6 @@ library(SPEI)
 library(raster)
 library(magrittr)
 library(here)
-library(adespatial) # to calculate the Moran eigen vectors
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -257,259 +256,12 @@ The climatic variables are calculated based on the `biovars` function of the dis
 
 #### Past climate 
 
-```{r FunctionGeneratePastClimaticDatasets}
-# Function from the dismo R package
-window <- function(x)  { 
-			lng <- length(x)
-			x <- c(x,  x[1:3])
-			m <- matrix(ncol=3, nrow=lng)
-			for (i in 1:3) { m[,i] <- x[i:(lng+i-1)] }
-			apply(m, MARGIN=1, FUN=sum)}
-
-
-# Function to generate a list of two datasets of past climates.
-# Each element of the list corresponds to a reference period
-
-generate_past_climate_df <- function(ref_period,clim_df){
-  
-# ====================================================================================================
-# Generating a dataset with the climatic variables calculated across the reference period of interest
-# ====================================================================================================
-  
-# Selecting the years of interest
-clim_past <- clim_df %>% 
-  dplyr::filter(!Year %in% c("2041-2070","baseline")) %>% # we remove future climatic data (which are not noted as a unique year)
-  dplyr::mutate(Year=as.numeric(Year)) %>% # year column as numeric so that we can remove years after a given date
-  dplyr::filter(ref_period$range[[1]]<=Year& Year<=ref_period$range[[2]]) %>%  # we keep the years of the period of interest
-  dplyr::select(-Year)
-
-# Calculating the mean of tmn, tmx and prc over the period considered
-tab <- clim_past %>% 
-  group_by(pop) %>% 
-  summarise_at(vars(contains("tmn"),contains("tmx"),contains("prc")),"mean")
-
-tavg <- (tab %>% dplyr::select(contains("tmn")) + tab %>% dplyr::select(contains("tmx")))  / 2
-tmx <- tab %>% dplyr::select(contains("tmx"))
-tmn <- tab %>% dplyr::select(contains("tmn"))
-prc <- tab %>% dplyr::select(contains("prc"))
-wet <- t(apply(prc, 1, window))
-tmp <- t(apply(tavg, 1, window)) / 3
-
-
-tab$bio1 <- apply(tavg ,MARGIN=1, FUN=mean)
-tab$bio2 <- apply(tmx-tmn , MARGIN=1, FUN=mean)
-tab$bio4 <- 100 * apply(tavg, 1, sd)
-tab$bio5 <- apply(tmx, 1, max)
-tab$bio6 <- apply(tmn, 1, min)
-tab$bio7 <- tab$bio5 - tab$bio6
-tab$bio3 <- 100 * tab$bio2 / tab$bio7
-tab$bio12 <- apply(prc, MARGIN=1, FUN= sum)
-tab$bio13 <- apply(prc,1,max)
-tab$bio14 <- apply(prc,1,min)
-tab$bio15 <- apply(prc+1, 1, raster::cv) # the "1 +" is to avoid strange CVs for areas where mean rainfaill is < 1)
-tab$bio16 <- apply(wet,1,max)
-tab$bio17 <- apply(wet,1,min)
-
-
-if (all(is.na(wet))) {
-			tab$bio8 <- NA		
-			tab$bio9 <- NA		
-		} else {
-			wetqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.max)))
-			tab$bio8 <- tmp[wetqrt]
-
-			dryqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.min)))
-			tab$bio9 <- tmp[dryqrt]
-		}
-
-
-
-tab$bio10 <- apply(tmp, 1, max)
-tab$bio11 <- apply(tmp, 1, min) 
-
-if (all(is.na(tmp))) {
-			tab$bio18 <- NA		
-			tab$bio19 <- NA
-		} else {
-			hot <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.max)))
-			tab$bio18 <- wet[hot]
-
-			cold <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.min)))
-			tab$bio19 <- wet[cold]
-		}
-
-tab$AHM <- (tab$bio1+10)/(tab$bio12*1e-3)
-tab$MWMT <- apply(tavg,MARGIN=1, FUN=max)
-tab$SP <- apply(tab %>% dplyr::select(prc05,prc06,prc07,prc08,prc09),MARGIN=1,FUN=sum)
-tab$SHM <- (tab$MWMT)/((tab$SP+0.1)*1e-3)
-
-
-tab <- clim_past %>%
-  dplyr::select(pop,contains("ude"),elevation) %>% 
-  distinct() %>% 
-  right_join(tab,by="pop") %>% # adding the latitude and longitude of the populations
-  bind_cols(dbmem(.[,c("latitude","longitude")]))  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
-
-  
-tab$Eref <- lapply(c("tmn","tmx","prc"), function(x) {
-  
-tab %>% 
-  dplyr::select(pop,contains(x)) %>% 
-  pivot_longer(cols=contains(x),names_to="variable",values_to = "mean_ref") %>% 
-  mutate(month=str_sub(variable,4,-1),
-         variable=str_sub(variable,1,3)) 
-
-}) %>% 
-  bind_rows() %>% 
-  pivot_wider(names_from="variable", values_from=mean_ref) %>% 
-  left_join(tab[,c("pop","latitude")],by="pop") %>% 
-  group_by(pop) %>% 
-  group_split() %>% 
-  purrr::map(\(x){ 
-    
-hargreaves(Tmin = x$tmn, Tmax = x$tmx, lat = unique(x$latitude), Pre=x$prc, verbose=F) %>% sum() 
-    
-    }) %>% unlist()
-  
-
-ref_period$ref_means <- tab
-
-
-################################################################################################
-
-# =======================================================================================================================
-# Generating a dataset with the climatic variables means and standard deviations across the reference period of interest
-# =======================================================================================================================
-
-
-# I wrote the code below to calculate the mean and standard deviations of the climatic variables
-# over the period of interest. 
-# For that, I first calculated the annual values of the climatic variables based on tmn, tmx and prc
-# I then calculated the mean and sd over the period considered for each population.
-# But, this way of calculating the climatic variables gives different values than the way I used above 
-# ie first calculating the mean of tmn, tmx and prc over the period considered and then calculating the
-# climatic variables
-
-# tab_wide <- clim_past %>% 
-#   group_by(pop) %>% 
-#   group_split() %>% 
-#   purrr::map(\(x){
-# 
-# 
-# tavg <- (x %>% dplyr::select(contains("tmn")) + x %>% dplyr::select(contains("tmx")))/2
-# tmx <- x %>% dplyr::select(contains("tmx"))
-# tmn <- x %>% dplyr::select(contains("tmn"))
-# prc <- x %>% dplyr::select(contains("prc"))
-# wet <- t(apply(prc, 1, window))
-# tmp <- t(apply(tavg, 1, window)) / 3
-# 
-# vars <- list()
-# 
-# vars$bio1 <- apply(tavg,1,mean)
-# vars$bio2 <- apply(tmx-tmn , MARGIN=1, FUN=mean)
-# vars$bio4 <- 100 * apply(tavg, 1, sd)
-# vars$bio5 <- apply(tmx, 1, max)
-# vars$bio6 <- apply(tmn, 1, min)
-# vars$bio7 <- vars$bio5 - vars$bio6
-# vars$bio3 <- 100 * vars$bio2 / vars$bio7
-# vars$bio12 <- apply(prc, MARGIN=1, FUN= sum)
-# vars$bio13 <- apply(prc,1,max)
-# vars$bio14 <- apply(prc,1,min)
-# vars$bio15 <- apply(prc+1, 1, raster::cv) # the "1 +" is to avoid strange CVs for areas where mean rainfaill is < 1)
-# vars$bio16 <- apply(wet,1,max)
-# vars$bio17 <- apply(wet,1,min)
-# 
-# 
-# 		
-# if (all(is.na(wet))) {
-# 			vars$bio8 <- NA		
-# 			vars$bio9 <- NA		
-# 		} else {
-# 			wetqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.max)))
-# 			vars$bio8 <- tmp[wetqrt]
-# 
-# 			dryqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.min)))
-# 			vars$bio9 <- tmp[dryqrt]
-# 		}
-# 
-# 
-# 
-# vars$bio10 <- apply(tmp, 1, max)
-# vars$bio11 <- apply(tmp, 1, min) 
-# 
-# if (all(is.na(tmp))) {
-# 			vars$bio18 <- NA		
-# 			vars$bio19 <- NA
-# 		} else {
-# 			hot <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.max)))
-# 			vars$bio18 <- wet[hot]
-# 
-# 			cold <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.min)))
-# 			vars$bio19 <- wet[cold]
-# 		}
-# 
-# vars$AHM <- (vars$bio1+10)/(vars$bio12*1e-3)
-# vars$MWMT <- apply(tavg,MARGIN=1, FUN=max)
-# vars$SP <- apply(x %>% dplyr::select(prc05,prc06,prc07,prc08,prc09),MARGIN=1,FUN=sum)
-# vars$SHM <- (vars$MWMT)/((vars$SP+0.1)*1e-3)
-# 
-# 
-# 
-#   
-# vars$Eref <-  lapply(c("tmn","tmx","prc"), function(y) {
-#   
-# x %>% 
-#   dplyr::select(pop,contains(y),latitude) %>% 
-#   mutate(year=ref_period$range[[1]]:ref_period$range[[2]]) %>% 
-#   pivot_longer(cols=contains(y),names_to="variable",values_to = "mean_ref") %>% 
-#   mutate(month=str_sub(variable,4,-1),
-#          variable=str_sub(variable,1,3)) 
-# 
-# }) %>% 
-#   bind_rows() %>% 
-#   group_by(year) %>% 
-#   group_split() %>% 
-#   purrr::map(\(y){ 
-#     
-# df <- y %>% pivot_wider(names_from="variable", values_from=mean_ref)
-# hargreaves(Tmin = df$tmn, Tmax = df$tmx, lat = unique(df$latitude), Pre=df$prc, verbose=F) %>% sum()
-# 
-#     }) %>% unlist()
-# 
-# 
-# tab <- tibble(variable = names(vars),
-#               mean_ref = lapply(vars, function(x) mean(x)) %>% unlist(),
-#               sd_ref = lapply(vars, function(x) sd(x)) %>%  unlist())
-# 
-# 
-# })  %>% 
-#     set_names(unique(clim_past$pop)) %>% 
-#     list_rbind(names_to="pop") 
-#   
-# 
-# ref_period$ref_sdmeans <- tab_wide
-
-########
-#
-# TO check whether the two datasets gives similar values:
-#
-# lapply(unique(tab_wide$variable),function(x){
-#   all.equal(tab[,x] %>% pull() %>% as.numeric(),tab_wide[tab_wide$variable==x,"mean_ref"] %>% pull() %>% as.numeric())}) %>%
-#   setNames(unique(tab_wide$variable))
-# 
-########
-
-
-return(ref_period)
-
-
-}
-```
-
-
 
 ```{r BuildingClimaticDatasetClonapinPopForPresentStudy, results="hide"}
-# extracting CLONAPIN population names
+# Function to calculate the average of the climatic variables at the location of the populations
+source(here("scripts/functions/calc_avg_clim_var.R"))
+
+# Extracting CLONAPIN population names
 clonapin_name_pops <- pop_coord %>% 
   dplyr::filter(dataset=="CLONAPIN") %>% 
   dplyr::filter(!code %in% c("ROD","SID")) %>% # no genomic data for these two populations
@@ -517,8 +269,8 @@ clonapin_name_pops <- pop_coord %>%
 
 
 # Specify the reference periods for whichc are will calculate the mean climates
-list_ref_periods <- list(ref_1901_1950 = list(range=c(1901,1950)),
-                         ref_1961_1990 = list(range=c(1961,1990)))
+list_ref_periods <- list(ref_1901_1950 =  c(1901,1950),
+                         ref_1961_1990 = c(1961,1990))
   
 
 # we generate two files with climatic data adjusted (or not) for elevation
@@ -531,6 +283,7 @@ clim <- read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/
   dplyr::rename(longitude=Longitude,
                 latitude=Latitude,
                 elevation=Elevation,
+                year=Year,
                 pop=ID,
                 SP=MSP) %>% # replace mean summer precipitation by summer precipitation
   dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
@@ -538,7 +291,15 @@ clim <- read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/
 
 
 # we create a list with each element corresponding to a reference period
-lapply(list_ref_periods, function(ref_period) generate_past_climate_df(ref_period = ref_period, clim_df = clim)) %>% 
+lapply(list_ref_periods, function(ref_period){
+  
+ref_means <- calc_avg_clim_var(ref_period = ref_period, clim_df = clim)
+
+range <- c(ref_period[[1]],ref_period[[2]])
+
+return(list(range = range,
+            ref_means = ref_means))
+})  %>% 
 saveRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))
   
 })
@@ -549,111 +310,27 @@ saveRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocatio
 
 > for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and scenario  SSP3.7-0
 
+
 ```{r PredictionsFutureClimates}
 # Predictions of future climates for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and scenario  SSP3.7-0
 # -----------------------------------------------------------------------------------------------------------
 
 lapply(list("ADJ","noADJ"), function(adj){
   
-tab <-   read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_",adj,".csv")), 
+clim <- read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_",adj,".csv")), 
            show_col_types = FALSE) %>% 
   dplyr::rename(longitude=Longitude,
                 latitude=Latitude,
                 elevation=Elevation,
                 pop=ID,
+                year=Year,
                 SP=MSP) %>% # replace mean summer precipitation by summer precipitation
   dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
-  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>% # the VAL-VMQ population is referred as VAL in the present study
-  dplyr::filter(Year=="2041-2070") %>% 
-  dplyr::select(pop,elevation,contains("ude"),contains("prc"), contains("tmx"), contains("tmn"))
-  
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
 
-tavg <- (tab %>% dplyr::select(contains("tmn")) + tab %>% dplyr::select(contains("tmx")))  / 2
-tmx <- tab %>% dplyr::select(contains("tmx"))
-tmn <- tab %>% dplyr::select(contains("tmn"))
-prc <- tab %>% dplyr::select(contains("prc"))
-wet <- t(apply(prc, 1, window))
-tmp <- t(apply(tavg, 1, window)) / 3
+calc_avg_clim_var(ref_period = c(2041,2070), clim_df = clim, id_spatial_points = "pop")
 
-
-
-tab$bio1 <- apply(tavg ,MARGIN=1, FUN=mean)
-tab$bio2 <- apply(tmx-tmn , MARGIN=1, FUN=mean)
-tab$bio4 <- 100 * apply(tavg, 1, sd)
-tab$bio5 <- apply(tmx, 1, max)
-tab$bio6 <- apply(tmn, 1, min)
-tab$bio7 <- tab$bio5 - tab$bio6
-tab$bio3 <- 100 * tab$bio2 / tab$bio7
-tab$bio12 <- apply(prc, MARGIN=1, FUN= sum)
-tab$bio13 <- apply(prc,1,max)
-tab$bio14 <- apply(prc,1,min)
-tab$bio15 <- apply(prc+1, 1, raster::cv) # the "1 +" is to avoid strange CVs for areas where mean rainfaill is < 1)
-tab$bio16 <- apply(wet,1,max)
-tab$bio17 <- apply(wet,1,min)
-
-
-
-		
-if (all(is.na(wet))) {
-			tab$bio8 <- NA		
-			tab$bio9 <- NA		
-		} else {
-			wetqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.max)))
-			tab$bio8 <- tmp[wetqrt]
-
-			dryqrt <- cbind(1:nrow(wet), as.integer(apply(wet, 1, which.min)))
-			tab$bio9 <- tmp[dryqrt]
-		}
-
-
-
-tab$bio10 <- apply(tmp, 1, max)
-tab$bio11 <- apply(tmp, 1, min) 
-
-if (all(is.na(tmp))) {
-			tab$bio18 <- NA		
-			tab$bio19 <- NA
-		} else {
-			hot <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.max)))
-			tab$bio18 <- wet[hot]
-
-			cold <- cbind(1:nrow(tmp), as.integer(apply(tmp, 1, which.min)))
-			tab$bio19 <- wet[cold]
-		}
-
-tab$AHM <- (tab$bio1+10)/(tab$bio12*1e-3)
-tab$MWMT <- apply(tavg,MARGIN=1, FUN=max)
-tab$SP <- apply(tab %>% dplyr::select(prc05,prc06,prc07,prc08,prc09),MARGIN=1,FUN=sum)
-tab$SHM <- (tab$MWMT)/((tab$SP+0.1)*1e-3)
-
-
-tab <- tab %>% bind_cols(dbmem(.[,c("latitude","longitude")]))  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
-
-  
-tab$Eref <- lapply(c("tmn","tmx","prc"), function(x) {
-  
-tab %>% 
-  dplyr::select(pop,contains(x)) %>% 
-  pivot_longer(cols=contains(x),names_to="variable",values_to = "mean_ref") %>% 
-  mutate(month=str_sub(variable,4,-1),
-         variable=str_sub(variable,1,3)) 
-
-}) %>% 
-  bind_rows() %>% 
-  pivot_wider(names_from="variable", values_from=mean_ref) %>% 
-  left_join(tab[,c("pop","latitude")],by="pop") %>% 
-  group_by(pop) %>% 
-  group_split() %>% 
-  purrr::map(\(x){ 
-    
-hargreaves(Tmin = x$tmn, Tmax = x$tmx, lat = unique(x$latitude), Pre=x$prc, verbose=F) %>% sum() #mean()
-    
-    }) %>% unlist()
-  
-
-return(tab)
-
-}) %>% 
+  }) %>% 
   setNames(c("ADJ","noADJ")) %>% 
   saveRDS(here::here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationsPointEstimates_GFDL-ESM4_SSP370_2041-2070.rds"))
 ```
@@ -672,7 +349,7 @@ gcm_names <- list.files(here("data/ClimaticData/ClimateDTRasters/")) %>%  str_su
 
 # Climatic variables
 clim_var <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_ADJ.rds"))[[1]]$ref_means %>% 
-  dplyr::select(-pop,-elevation,-contains("ude"),-contains("tmn"),-contains("tmx"),-contains("prc"),-contains("MEM")) %>% 
+  dplyr::select(-pop,-elevation,-contains("ude"),-contains("tmn"),-contains("tmx"),-contains("prc")) %>% 
   colnames()
 
 # Population coordinates
@@ -719,10 +396,9 @@ clim_df %>% saveRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLo
 
 # Main gene pool of each population
 
-```{r MainGPpop}
+```{r LoadMainGPClone}
 # Incorporating gene pool information
 # -----------------------------------
-
 genotypes <- read_csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withmaf.csv"),show_col_types = FALSE) %>% 
   dplyr::select(-snp_ID) %>% 
   colnames() 
@@ -734,11 +410,50 @@ gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_c
                 main_gp_clon=main_gp,
                 color_main_gp_clon=color_main_gp)
 
-# we extract the main gene pool of each population
-# LEI and QUA populations have somes clones that belong to different gene pools, we have to account for that
-gp_poplevel <- gps %>% 
+gps_list <- gps %>% 
   group_by(pop) %>% 
   group_split() %>% 
+  setNames(unique(gps$pop))
+```
+
+
+
+We identify the populations for which the main gene pool is not the same for all genotypes:
+
+```{r IdentifyPopsWithDifferentMainGPclonLevel}
+gps_list %>% 
+  map_dfr(\(x) {
+    data.frame(Populations = unique(x$pop),
+               MainGenePoolNumber = x$main_gp_clon_code %>% unique() %>% length())
+  }) %>% 
+  group_by(MainGenePoolNumber) %>% 
+  group_split()  %>% 
+  map_dfr(\(x) {
+    data.frame(Populations = paste0(x$Populations, collapse =", "),
+               MainGenePoolNumber = unique(x$MainGenePoolNumber))
+  }) %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+
+
+The LEI and QUA populations have some clones that belong to different gene pools:
+
+  - Most clones of the LEI population belong to the Central Spain gene pool, except four clones that mostly belong to the Iberian Atlantic gene pool.
+  
+  - Most clones of the QUA population mostly belong to the Central Spain gene pool, except two clones that mostly belong to the south-eastern Spain gene pool.
+  
+We have to account for these clones when we generate a dataset with the main gene pool of each population.
+
+```{r VizAdmixtureLEIandQUApopulations}
+gps_list[["LEI"]] %>% kable_mydf(boldfirstcolumn = F)
+gps_list[["QUA"]] %>% kable_mydf(boldfirstcolumn = F)
+```
+
+
+```{r ExtractMainGPpop}
+# Extracting the main gene pool of each population
+gp_poplevel <- gps_list %>% 
   modify(\(x) mutate(x, main_gp_pop= x$main_gp_clon  %>% table() %>% which.max() %>% names())) %>% 
   list_rbind() %>% 
   dplyr::select(pop, main_gp_pop) %>% 

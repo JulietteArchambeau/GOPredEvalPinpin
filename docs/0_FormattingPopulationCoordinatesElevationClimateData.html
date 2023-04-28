@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Juliette Archambeau">
-<meta name="dcterms.date" content="2023-04-17">
+<meta name="dcterms.date" content="2023-04-28">
 
 <title>Populatin coordinates, elevation and climatic data</title>
 <style>
@@ -2829,8 +2829,17 @@ border: 0;
   <li><a href="#extracting-climatic-data" id="toc-extracting-climatic-data" class="nav-link" data-scroll-target="#extracting-climatic-data"><span class="toc-section-number">3</span>  Extracting climatic data</a>
   <ul>
   <li><a href="#preparing-a-file-for-the-extraction" id="toc-preparing-a-file-for-the-extraction" class="nav-link" data-scroll-target="#preparing-a-file-for-the-extraction"><span class="toc-section-number">3.1</span>  Preparing a file for the extraction</a></li>
-  <li><a href="#generating-datasets-with-climatic-information" id="toc-generating-datasets-with-climatic-information" class="nav-link" data-scroll-target="#generating-datasets-with-climatic-information"><span class="toc-section-number">3.2</span>  Generating datasets with climatic information</a></li>
+  <li><a href="#generating-datasets-with-climatic-information" id="toc-generating-datasets-with-climatic-information" class="nav-link" data-scroll-target="#generating-datasets-with-climatic-information"><span class="toc-section-number">3.2</span>  Generating datasets with climatic information</a>
+  <ul class="collapse">
+  <li><a href="#point-estimates" id="toc-point-estimates" class="nav-link" data-scroll-target="#point-estimates"><span class="toc-section-number">3.2.1</span>  Point estimates</a>
+  <ul class="collapse">
+  <li><a href="#past-climate" id="toc-past-climate" class="nav-link" data-scroll-target="#past-climate"><span class="toc-section-number">3.2.1.1</span>  Past climate</a></li>
+  <li><a href="#future-climates" id="toc-future-climates" class="nav-link" data-scroll-target="#future-climates"><span class="toc-section-number">3.2.1.2</span>  Future climates</a></li>
   </ul></li>
+  <li><a href="#raster-extracted-values" id="toc-raster-extracted-values" class="nav-link" data-scroll-target="#raster-extracted-values"><span class="toc-section-number">3.2.2</span>  Raster-extracted values</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#main-gene-pool-of-each-population" id="toc-main-gene-pool-of-each-population" class="nav-link" data-scroll-target="#main-gene-pool-of-each-population"><span class="toc-section-number">4</span>  Main gene pool of each population</a></li>
   </ul>
 </nav>
 </div>
@@ -2856,7 +2865,7 @@ border: 0;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">April 17, 2023</p>
+      <p class="date">April 28, 2023</p>
     </div>
   </div>
     
@@ -4960,412 +4969,780 @@ font-size: 10px
 </section>
 <section id="generating-datasets-with-climatic-information" class="level2" data-number="3.2">
 <h2 data-number="3.2" class="anchored" data-anchor-id="generating-datasets-with-climatic-information"><span class="header-section-number">3.2</span> Generating datasets with climatic information</h2>
-<p>We load the files sent by Maurizio Marchi with climatic variables extracted at the location of each population.</p>
-<p>We generate some datasets with climatic information for the variables of interest and only for the CLONAPIN populations. We generate two files: one for the climatic data adjusted for elevation, and one for the climatic data not adjusted for elevation. In each file, we store a list with each element corresponding to a reference period (i.e. 1901-1950 and 1961-1990). And for each reference period, we generate a dataset with the climatic variables in columns averaged over the period considered and a dataset with four columns: the populations, the climatic variables and the mean and standard deviation of the climatic variables over the period considered.</p>
-<p>The climatic variables are calculated based on the <code>biovars</code> function of the dismo R package: https://rdrr.io/cran/dismo/src/R/biovars.R</p>
+<section id="point-estimates" class="level3" data-number="3.2.1">
+<h3 data-number="3.2.1" class="anchored" data-anchor-id="point-estimates"><span class="header-section-number">3.2.1</span> Point estimates</h3>
+<p>We load the csv files sent by Maurizio Marchi with <strong>point estimate</strong> climatic values at the location of each population.</p>
+<p>We generate some datasets with climatic information for the variables of interest and only for the CLONAPIN populations. We generate two .rds files: one for the climatic data adjusted for elevation, and one for the climatic data not adjusted for elevation. In each file, we store a list with each element corresponding to a reference period (i.e. 1901-1950 and 1961-1990). And for each reference period, we generate a dataset with the climatic variables in columns averaged over the period considered. <strong>Important</strong>: In this dataset, the indices such <code>bio1</code>, <code>bio2</code>, <code>AHM</code>, <code>SHM</code> etc are re-calculated using the annual <code>tmn</code>, <code>tmx</code> and <code>prc</code> values averaged over the period considered.</p>
+<p>The climatic variables are calculated based on the <code>biovars</code> function of the dismo R package: <a href="https://rdrr.io/cran/dismo/src/R/biovars.R" class="uri">https://rdrr.io/cran/dismo/src/R/biovars.R</a></p>
+<section id="past-climate" class="level4" data-number="3.2.1.1">
+<h4 data-number="3.2.1.1" class="anchored" data-anchor-id="past-climate"><span class="header-section-number">3.2.1.1</span> Past climate</h4>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>window <span class="ot">&lt;-</span> <span class="cf">function</span>(x)  { </span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>            lng <span class="ot">&lt;-</span> <span class="fu">length</span>(x)</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>            x <span class="ot">&lt;-</span> <span class="fu">c</span>(x,  x[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>])</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>            m <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="at">ncol=</span><span class="dv">3</span>, <span class="at">nrow=</span>lng)</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>) { m[,i] <span class="ot">&lt;-</span> x[i<span class="sc">:</span>(lng<span class="sc">+</span>i<span class="dv">-1</span>)] }</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>            <span class="fu">apply</span>(m, <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>sum)}</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Function to generate a list of two datasets of past climates.</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Each element of the list corresponds to a reference period</span></span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>generate_past_climate_df <span class="ot">&lt;-</span> <span class="cf">function</span>(ref_period,clim_df){</span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="co"># ====================================================================================================</span></span>
-<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Generating a dataset with the climatic variables calculated across the reference period of interest</span></span>
-<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="co"># ====================================================================================================</span></span>
-<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Selecting the years of interest</span></span>
-<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>clim_past <span class="ot">&lt;-</span> clim_df <span class="sc">%&gt;%</span> </span>
-<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="sc">!</span>Year <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;2041-2070&quot;</span>,<span class="st">&quot;baseline&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co"># we remove future climatic data (which are not noted as a unique year)</span></span>
-<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">Year=</span><span class="fu">as.numeric</span>(Year)) <span class="sc">%&gt;%</span> <span class="co"># year column as numeric so that we can remove years after a given date</span></span>
-<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(ref_period<span class="sc">$</span>range[[<span class="dv">1</span>]]<span class="sc">&lt;=</span>Year<span class="sc">&amp;</span> Year<span class="sc">&lt;=</span>ref_period<span class="sc">$</span>range[[<span class="dv">2</span>]]) <span class="sc">%&gt;%</span>  <span class="co"># we keep the years of the period of interest</span></span>
-<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>Year)</span>
-<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculating the mean of tmn, tmx and prc over the period considered</span></span>
-<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>tab <span class="ot">&lt;-</span> clim_past <span class="sc">%&gt;%</span> </span>
-<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(pop) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise_at</span>(<span class="fu">vars</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>),<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>),<span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>)),<span class="st">&quot;mean&quot;</span>)</span>
-<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>tavg <span class="ot">&lt;-</span> (tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>)) <span class="sc">+</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>)))  <span class="sc">/</span> <span class="dv">2</span></span>
-<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>tmx <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>))</span>
-<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>tmn <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>))</span>
-<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>prc <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>))</span>
-<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>wet <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(prc, <span class="dv">1</span>, window))</span>
-<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(tavg, <span class="dv">1</span>, window)) <span class="sc">/</span> <span class="dv">3</span></span>
-<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a></span>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Function to calculate the average of the climatic variables at the location of the populations</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">here</span>(<span class="st">&quot;scripts/functions/calc_avg_clim_var.R&quot;</span>))</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Extracting CLONAPIN population names</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>clonapin_name_pops <span class="ot">&lt;-</span> pop_coord <span class="sc">%&gt;%</span> </span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(dataset<span class="sc">==</span><span class="st">&quot;CLONAPIN&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="sc">!</span>code <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;ROD&quot;</span>,<span class="st">&quot;SID&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co"># no genomic data for these two populations</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(code)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify the reference periods for whichc are will calculate the mean climates</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>list_ref_periods <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ref_1901_1950 =</span>  <span class="fu">c</span>(<span class="dv">1901</span>,<span class="dv">1950</span>),</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>                         <span class="at">ref_1961_1990 =</span> <span class="fu">c</span>(<span class="dv">1961</span>,<span class="dv">1990</span>))</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="co"># we generate two files with climatic data adjusted (or not) for elevation</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">list</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>), <span class="cf">function</span>(adj){</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="co"># A first filtering: keeping only CLONAPIN populations, removing monthly climatic variables</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>clim <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_&quot;</span>,adj,<span class="st">&quot;.csv&quot;</span>)), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">longitude=</span>Longitude,</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>                <span class="at">latitude=</span>Latitude,</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>                <span class="at">elevation=</span>Elevation,</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>                <span class="at">year=</span>Year,</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>                <span class="at">pop=</span>ID,</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>                <span class="at">SP=</span>MSP) <span class="sc">%&gt;%</span> <span class="co"># replace mean summer precipitation by summer precipitation</span></span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(pop <span class="sc">%in%</span> clonapin_name_pops) <span class="sc">%&gt;%</span> <span class="co"># we keep only CLONAPIN pops</span></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">pop=</span> <span class="fu">ifelse</span>(pop<span class="sc">==</span><span class="st">&quot;VAL-VMQ&quot;</span>, <span class="st">&quot;VAL&quot;</span>,pop)) <span class="co"># the VAL-VMQ population is referred as VAL in the present study</span></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a><span class="co"># we create a list with each element corresponding to a reference period</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(list_ref_periods, <span class="cf">function</span>(ref_period){</span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>ref_means <span class="ot">&lt;-</span> <span class="fu">calc_avg_clim_var</span>(<span class="at">ref_period =</span> ref_period, <span class="at">clim_df =</span> clim)</span>
 <span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg ,<span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>mean)</span>
-<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio2 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx<span class="sc">-</span>tmn , <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>mean)</span>
-<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio4 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> <span class="fu">apply</span>(tavg, <span class="dv">1</span>, sd)</span>
-<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio5 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx, <span class="dv">1</span>, max)</span>
-<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio6 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmn, <span class="dv">1</span>, min)</span>
-<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio7 <span class="ot">&lt;-</span> tab<span class="sc">$</span>bio5 <span class="sc">-</span> tab<span class="sc">$</span>bio6</span>
-<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio3 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> tab<span class="sc">$</span>bio2 <span class="sc">/</span> tab<span class="sc">$</span>bio7</span>
-<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio12 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc, <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span> sum)</span>
-<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio13 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,max)</span>
-<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio14 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,min)</span>
-<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio15 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc<span class="sc">+</span><span class="dv">1</span>, <span class="dv">1</span>, raster<span class="sc">::</span>cv) <span class="co"># the &quot;1 +&quot; is to avoid strange CVs for areas where mean rainfaill is &lt; 1)</span></span>
-<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio16 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,max)</span>
-<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio17 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,min)</span>
-<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(wet))) {</span>
-<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> <span class="cn">NA</span>      </span>
-<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> <span class="cn">NA</span>      </span>
-<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>            wetqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.max)))</span>
-<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> tmp[wetqrt]</span>
-<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>            dryqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.min)))</span>
-<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> tmp[dryqrt]</span>
-<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio10 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, max)</span>
-<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio11 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, min) </span>
-<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(tmp))) {</span>
-<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> <span class="cn">NA</span>     </span>
-<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>            hot <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.max)))</span>
-<span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> wet[hot]</span>
-<span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>            cold <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.min)))</span>
-<span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> wet[cold]</span>
-<span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-80"><a href="#cb14-80" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>AHM <span class="ot">&lt;-</span> (tab<span class="sc">$</span>bio1<span class="sc">+</span><span class="dv">10</span>)<span class="sc">/</span>(tab<span class="sc">$</span>bio12<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>MWMT <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg,<span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>max)</span>
-<span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>SP <span class="ot">&lt;-</span> <span class="fu">apply</span>(tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(prc05,prc06,prc07,prc08,prc09),<span class="at">MARGIN=</span><span class="dv">1</span>,<span class="at">FUN=</span>sum)</span>
-<span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>SHM <span class="ot">&lt;-</span> (tab<span class="sc">$</span>MWMT)<span class="sc">/</span>((tab<span class="sc">$</span>SP<span class="fl">+0.1</span>)<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>tab <span class="ot">&lt;-</span> clim_past <span class="sc">%&gt;%</span></span>
-<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,<span class="fu">contains</span>(<span class="st">&quot;ude&quot;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">right_join</span>(tab,<span class="at">by=</span><span class="st">&quot;pop&quot;</span>) <span class="sc">%&gt;%</span> <span class="co"># adding the latitude and longitude of the populations</span></span>
-<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_cols</span>(<span class="fu">dbmem</span>(.[,<span class="fu">c</span>(<span class="st">&quot;latitude&quot;</span>,<span class="st">&quot;longitude&quot;</span>)]))  <span class="co"># we add the distance-based Moran’s Eigenvector Maps (dbMEMs)</span></span>
-<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>Eref <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="st">&quot;tmn&quot;</span>,<span class="st">&quot;tmx&quot;</span>,<span class="st">&quot;prc&quot;</span>), <span class="cf">function</span>(x) {</span>
-<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a>tab <span class="sc">%&gt;%</span> </span>
-<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,<span class="fu">contains</span>(x)) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols=</span><span class="fu">contains</span>(x),<span class="at">names_to=</span><span class="st">&quot;variable&quot;</span>,<span class="at">values_to =</span> <span class="st">&quot;mean_ref&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">month=</span><span class="fu">str_sub</span>(variable,<span class="dv">4</span>,<span class="sc">-</span><span class="dv">1</span>),</span>
-<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a>         <span class="at">variable=</span><span class="fu">str_sub</span>(variable,<span class="dv">1</span>,<span class="dv">3</span>)) </span>
-<span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from=</span><span class="st">&quot;variable&quot;</span>, <span class="at">values_from=</span>mean_ref) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(tab[,<span class="fu">c</span>(<span class="st">&quot;pop&quot;</span>,<span class="st">&quot;latitude&quot;</span>)],<span class="at">by=</span><span class="st">&quot;pop&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(pop) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-106"><a href="#cb14-106" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-107"><a href="#cb14-107" aria-hidden="true" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map</span>(\(x){ </span>
-<span id="cb14-108"><a href="#cb14-108" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb14-109"><a href="#cb14-109" aria-hidden="true" tabindex="-1"></a><span class="fu">hargreaves</span>(<span class="at">Tmin =</span> x<span class="sc">$</span>tmn, <span class="at">Tmax =</span> x<span class="sc">$</span>tmx, <span class="at">lat =</span> <span class="fu">unique</span>(x<span class="sc">$</span>latitude), <span class="at">Pre=</span>x<span class="sc">$</span>prc, <span class="at">verbose=</span>F) <span class="sc">%&gt;%</span> <span class="fu">sum</span>() </span>
-<span id="cb14-110"><a href="#cb14-110" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb14-111"><a href="#cb14-111" aria-hidden="true" tabindex="-1"></a>    }) <span class="sc">%&gt;%</span> <span class="fu">unlist</span>()</span>
-<span id="cb14-112"><a href="#cb14-112" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-113"><a href="#cb14-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-114"><a href="#cb14-114" aria-hidden="true" tabindex="-1"></a>ref_period<span class="sc">$</span>ref_means <span class="ot">&lt;-</span> tab</span>
-<span id="cb14-115"><a href="#cb14-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-116"><a href="#cb14-116" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-117"><a href="#cb14-117" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################################</span></span>
-<span id="cb14-118"><a href="#cb14-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-119"><a href="#cb14-119" aria-hidden="true" tabindex="-1"></a><span class="co"># =======================================================================================================================</span></span>
-<span id="cb14-120"><a href="#cb14-120" aria-hidden="true" tabindex="-1"></a><span class="co"># Generating a dataset with the climatic variables means and standard deviations across the reference period of interest</span></span>
-<span id="cb14-121"><a href="#cb14-121" aria-hidden="true" tabindex="-1"></a><span class="co"># =======================================================================================================================</span></span>
-<span id="cb14-122"><a href="#cb14-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-123"><a href="#cb14-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-124"><a href="#cb14-124" aria-hidden="true" tabindex="-1"></a><span class="co"># I wrote the code below to calculate the mean and standard deviations of the climatic variables</span></span>
-<span id="cb14-125"><a href="#cb14-125" aria-hidden="true" tabindex="-1"></a><span class="co"># over the period of interest. </span></span>
-<span id="cb14-126"><a href="#cb14-126" aria-hidden="true" tabindex="-1"></a><span class="co"># For that, I first calculated the annual values of the climatic variables based on tmn, tmx and prc</span></span>
-<span id="cb14-127"><a href="#cb14-127" aria-hidden="true" tabindex="-1"></a><span class="co"># I then calculated the mean and sd over the period considered for each population.</span></span>
-<span id="cb14-128"><a href="#cb14-128" aria-hidden="true" tabindex="-1"></a><span class="co"># But, this way of calculating the climatic variables gives different values than the way I used above </span></span>
-<span id="cb14-129"><a href="#cb14-129" aria-hidden="true" tabindex="-1"></a><span class="co"># ie first calculating the mean of tmn, tmx and prc over the period considered and then calculating the</span></span>
-<span id="cb14-130"><a href="#cb14-130" aria-hidden="true" tabindex="-1"></a><span class="co"># climatic variables</span></span>
-<span id="cb14-131"><a href="#cb14-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-132"><a href="#cb14-132" aria-hidden="true" tabindex="-1"></a>tab_wide <span class="ot">&lt;-</span> clim_past <span class="sc">%&gt;%</span> </span>
-<span id="cb14-133"><a href="#cb14-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(pop) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-134"><a href="#cb14-134" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-135"><a href="#cb14-135" aria-hidden="true" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map</span>(\(x){</span>
-<span id="cb14-136"><a href="#cb14-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-137"><a href="#cb14-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-138"><a href="#cb14-138" aria-hidden="true" tabindex="-1"></a>tavg <span class="ot">&lt;-</span> (x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>)) <span class="sc">+</span> x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>)))<span class="sc">/</span><span class="dv">2</span></span>
-<span id="cb14-139"><a href="#cb14-139" aria-hidden="true" tabindex="-1"></a>tmx <span class="ot">&lt;-</span> x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>))</span>
-<span id="cb14-140"><a href="#cb14-140" aria-hidden="true" tabindex="-1"></a>tmn <span class="ot">&lt;-</span> x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>))</span>
-<span id="cb14-141"><a href="#cb14-141" aria-hidden="true" tabindex="-1"></a>prc <span class="ot">&lt;-</span> x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>))</span>
-<span id="cb14-142"><a href="#cb14-142" aria-hidden="true" tabindex="-1"></a>wet <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(prc, <span class="dv">1</span>, window))</span>
-<span id="cb14-143"><a href="#cb14-143" aria-hidden="true" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(tavg, <span class="dv">1</span>, window)) <span class="sc">/</span> <span class="dv">3</span></span>
-<span id="cb14-144"><a href="#cb14-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-145"><a href="#cb14-145" aria-hidden="true" tabindex="-1"></a>vars <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb14-146"><a href="#cb14-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-147"><a href="#cb14-147" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg,<span class="dv">1</span>,mean)</span>
-<span id="cb14-148"><a href="#cb14-148" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio2 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx<span class="sc">-</span>tmn , <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>mean)</span>
-<span id="cb14-149"><a href="#cb14-149" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio4 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> <span class="fu">apply</span>(tavg, <span class="dv">1</span>, sd)</span>
-<span id="cb14-150"><a href="#cb14-150" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio5 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx, <span class="dv">1</span>, max)</span>
-<span id="cb14-151"><a href="#cb14-151" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio6 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmn, <span class="dv">1</span>, min)</span>
-<span id="cb14-152"><a href="#cb14-152" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio7 <span class="ot">&lt;-</span> vars<span class="sc">$</span>bio5 <span class="sc">-</span> vars<span class="sc">$</span>bio6</span>
-<span id="cb14-153"><a href="#cb14-153" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio3 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> vars<span class="sc">$</span>bio2 <span class="sc">/</span> vars<span class="sc">$</span>bio7</span>
-<span id="cb14-154"><a href="#cb14-154" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio12 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc, <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span> sum)</span>
-<span id="cb14-155"><a href="#cb14-155" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio13 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,max)</span>
-<span id="cb14-156"><a href="#cb14-156" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio14 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,min)</span>
-<span id="cb14-157"><a href="#cb14-157" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio15 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc<span class="sc">+</span><span class="dv">1</span>, <span class="dv">1</span>, raster<span class="sc">::</span>cv) <span class="co"># the &quot;1 +&quot; is to avoid strange CVs for areas where mean rainfaill is &lt; 1)</span></span>
-<span id="cb14-158"><a href="#cb14-158" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio16 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,max)</span>
-<span id="cb14-159"><a href="#cb14-159" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio17 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,min)</span>
-<span id="cb14-160"><a href="#cb14-160" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-161"><a href="#cb14-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-162"><a href="#cb14-162" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb14-163"><a href="#cb14-163" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(wet))) {</span>
-<span id="cb14-164"><a href="#cb14-164" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> <span class="cn">NA</span>     </span>
-<span id="cb14-165"><a href="#cb14-165" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> <span class="cn">NA</span>     </span>
-<span id="cb14-166"><a href="#cb14-166" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb14-167"><a href="#cb14-167" aria-hidden="true" tabindex="-1"></a>            wetqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.max)))</span>
-<span id="cb14-168"><a href="#cb14-168" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> tmp[wetqrt]</span>
-<span id="cb14-169"><a href="#cb14-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-170"><a href="#cb14-170" aria-hidden="true" tabindex="-1"></a>            dryqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.min)))</span>
-<span id="cb14-171"><a href="#cb14-171" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> tmp[dryqrt]</span>
-<span id="cb14-172"><a href="#cb14-172" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb14-173"><a href="#cb14-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-174"><a href="#cb14-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-175"><a href="#cb14-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-176"><a href="#cb14-176" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio10 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, max)</span>
-<span id="cb14-177"><a href="#cb14-177" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>bio11 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, min) </span>
-<span id="cb14-178"><a href="#cb14-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-179"><a href="#cb14-179" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(tmp))) {</span>
-<span id="cb14-180"><a href="#cb14-180" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> <span class="cn">NA</span>        </span>
-<span id="cb14-181"><a href="#cb14-181" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb14-182"><a href="#cb14-182" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb14-183"><a href="#cb14-183" aria-hidden="true" tabindex="-1"></a>            hot <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.max)))</span>
-<span id="cb14-184"><a href="#cb14-184" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> wet[hot]</span>
-<span id="cb14-185"><a href="#cb14-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-186"><a href="#cb14-186" aria-hidden="true" tabindex="-1"></a>            cold <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.min)))</span>
-<span id="cb14-187"><a href="#cb14-187" aria-hidden="true" tabindex="-1"></a>            vars<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> wet[cold]</span>
-<span id="cb14-188"><a href="#cb14-188" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb14-189"><a href="#cb14-189" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-190"><a href="#cb14-190" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>AHM <span class="ot">&lt;-</span> (vars<span class="sc">$</span>bio1<span class="sc">+</span><span class="dv">10</span>)<span class="sc">/</span>(vars<span class="sc">$</span>bio12<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb14-191"><a href="#cb14-191" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>MWMT <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg,<span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>max)</span>
-<span id="cb14-192"><a href="#cb14-192" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>SP <span class="ot">&lt;-</span> <span class="fu">apply</span>(x <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(prc05,prc06,prc07,prc08,prc09),<span class="at">MARGIN=</span><span class="dv">1</span>,<span class="at">FUN=</span>sum)</span>
-<span id="cb14-193"><a href="#cb14-193" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>SHM <span class="ot">&lt;-</span> (vars<span class="sc">$</span>MWMT)<span class="sc">/</span>((vars<span class="sc">$</span>SP<span class="fl">+0.1</span>)<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb14-194"><a href="#cb14-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-195"><a href="#cb14-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-196"><a href="#cb14-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-197"><a href="#cb14-197" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-198"><a href="#cb14-198" aria-hidden="true" tabindex="-1"></a>vars<span class="sc">$</span>Eref <span class="ot">&lt;-</span>  <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="st">&quot;tmn&quot;</span>,<span class="st">&quot;tmx&quot;</span>,<span class="st">&quot;prc&quot;</span>), <span class="cf">function</span>(y) {</span>
-<span id="cb14-199"><a href="#cb14-199" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-200"><a href="#cb14-200" aria-hidden="true" tabindex="-1"></a>x <span class="sc">%&gt;%</span> </span>
-<span id="cb14-201"><a href="#cb14-201" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,<span class="fu">contains</span>(y),latitude) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-202"><a href="#cb14-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">year=</span>ref_period<span class="sc">$</span>range[[<span class="dv">1</span>]]<span class="sc">:</span>ref_period<span class="sc">$</span>range[[<span class="dv">2</span>]]) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-203"><a href="#cb14-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols=</span><span class="fu">contains</span>(y),<span class="at">names_to=</span><span class="st">&quot;variable&quot;</span>,<span class="at">values_to =</span> <span class="st">&quot;mean_ref&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-204"><a href="#cb14-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">month=</span><span class="fu">str_sub</span>(variable,<span class="dv">4</span>,<span class="sc">-</span><span class="dv">1</span>),</span>
-<span id="cb14-205"><a href="#cb14-205" aria-hidden="true" tabindex="-1"></a>         <span class="at">variable=</span><span class="fu">str_sub</span>(variable,<span class="dv">1</span>,<span class="dv">3</span>)) </span>
-<span id="cb14-206"><a href="#cb14-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-207"><a href="#cb14-207" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-208"><a href="#cb14-208" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-209"><a href="#cb14-209" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-210"><a href="#cb14-210" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb14-211"><a href="#cb14-211" aria-hidden="true" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map</span>(\(y){ </span>
-<span id="cb14-212"><a href="#cb14-212" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb14-213"><a href="#cb14-213" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> y <span class="sc">%&gt;%</span> <span class="fu">pivot_wider</span>(<span class="at">names_from=</span><span class="st">&quot;variable&quot;</span>, <span class="at">values_from=</span>mean_ref)</span>
-<span id="cb14-214"><a href="#cb14-214" aria-hidden="true" tabindex="-1"></a><span class="fu">hargreaves</span>(<span class="at">Tmin =</span> df<span class="sc">$</span>tmn, <span class="at">Tmax =</span> df<span class="sc">$</span>tmx, <span class="at">lat =</span> <span class="fu">unique</span>(df<span class="sc">$</span>latitude), <span class="at">Pre=</span>df<span class="sc">$</span>prc, <span class="at">verbose=</span>F) <span class="sc">%&gt;%</span> <span class="fu">sum</span>()</span>
-<span id="cb14-215"><a href="#cb14-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-216"><a href="#cb14-216" aria-hidden="true" tabindex="-1"></a>    }) <span class="sc">%&gt;%</span> <span class="fu">unlist</span>()</span>
-<span id="cb14-217"><a href="#cb14-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-218"><a href="#cb14-218" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-219"><a href="#cb14-219" aria-hidden="true" tabindex="-1"></a>tab <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">variable =</span> <span class="fu">names</span>(vars),</span>
-<span id="cb14-220"><a href="#cb14-220" aria-hidden="true" tabindex="-1"></a>              <span class="at">mean_ref =</span> <span class="fu">lapply</span>(vars, <span class="cf">function</span>(x) <span class="fu">mean</span>(x)) <span class="sc">%&gt;%</span> <span class="fu">unlist</span>(),</span>
-<span id="cb14-221"><a href="#cb14-221" aria-hidden="true" tabindex="-1"></a>              <span class="at">sd_ref =</span> <span class="fu">lapply</span>(vars, <span class="cf">function</span>(x) <span class="fu">sd</span>(x)) <span class="sc">%&gt;%</span>  <span class="fu">unlist</span>())</span>
-<span id="cb14-222"><a href="#cb14-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-223"><a href="#cb14-223" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-224"><a href="#cb14-224" aria-hidden="true" tabindex="-1"></a>})  <span class="sc">%&gt;%</span> </span>
-<span id="cb14-225"><a href="#cb14-225" aria-hidden="true" tabindex="-1"></a>    <span class="fu">set_names</span>(<span class="fu">unique</span>(clim_past<span class="sc">$</span>pop)) <span class="sc">%&gt;%</span> </span>
-<span id="cb14-226"><a href="#cb14-226" aria-hidden="true" tabindex="-1"></a>    <span class="fu">list_rbind</span>(<span class="at">names_to=</span><span class="st">&quot;pop&quot;</span>) </span>
-<span id="cb14-227"><a href="#cb14-227" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb14-228"><a href="#cb14-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-229"><a href="#cb14-229" aria-hidden="true" tabindex="-1"></a>ref_period<span class="sc">$</span>ref_sdmeans <span class="ot">&lt;-</span> tab_wide</span>
-<span id="cb14-230"><a href="#cb14-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-231"><a href="#cb14-231" aria-hidden="true" tabindex="-1"></a><span class="do">########</span></span>
-<span id="cb14-232"><a href="#cb14-232" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb14-233"><a href="#cb14-233" aria-hidden="true" tabindex="-1"></a><span class="co"># TO check whether the two datasets gives similar values:</span></span>
-<span id="cb14-234"><a href="#cb14-234" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb14-235"><a href="#cb14-235" aria-hidden="true" tabindex="-1"></a><span class="co"># lapply(unique(tab_wide$variable),function(x){</span></span>
-<span id="cb14-236"><a href="#cb14-236" aria-hidden="true" tabindex="-1"></a><span class="co">#   all.equal(tab[,x] %&gt;% pull() %&gt;% as.numeric(),tab_wide[tab_wide$variable==x,&quot;mean_ref&quot;] %&gt;% pull() %&gt;% as.numeric())}) %&gt;%</span></span>
-<span id="cb14-237"><a href="#cb14-237" aria-hidden="true" tabindex="-1"></a><span class="co">#   setNames(unique(tab_wide$variable))</span></span>
-<span id="cb14-238"><a href="#cb14-238" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
-<span id="cb14-239"><a href="#cb14-239" aria-hidden="true" tabindex="-1"></a><span class="do">########</span></span>
-<span id="cb14-240"><a href="#cb14-240" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-241"><a href="#cb14-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-242"><a href="#cb14-242" aria-hidden="true" tabindex="-1"></a><span class="fu">return</span>(ref_period)</span>
-<span id="cb14-243"><a href="#cb14-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-244"><a href="#cb14-244" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-245"><a href="#cb14-245" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>range <span class="ot">&lt;-</span> <span class="fu">c</span>(ref_period[[<span class="dv">1</span>]],ref_period[[<span class="dv">2</span>]])</span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a><span class="fu">return</span>(<span class="fu">list</span>(<span class="at">range =</span> range,</span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>            <span class="at">ref_means =</span> ref_means))</span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>})  <span class="sc">%&gt;%</span> </span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_&quot;</span>,adj,<span class="st">&quot;.rds&quot;</span>)))</span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-</div>
-<div class="cell">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># extracting CLONAPIN population names</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>clonapin_name_pops <span class="ot">&lt;-</span> pop_coord <span class="sc">%&gt;%</span> </span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(dataset<span class="sc">==</span><span class="st">&quot;CLONAPIN&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="sc">!</span>code <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;ROD&quot;</span>,<span class="st">&quot;SID&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co"># no genomic data for these two populations</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(code)</span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify the reference periods for whichc are will calculate the mean climates</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>list_ref_periods <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ref_1901_1950 =</span> <span class="fu">list</span>(<span class="at">range=</span><span class="fu">c</span>(<span class="dv">1901</span>,<span class="dv">1950</span>)),</span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                         <span class="at">ref_1961_1990 =</span> <span class="fu">list</span>(<span class="at">range=</span><span class="fu">c</span>(<span class="dv">1961</span>,<span class="dv">1990</span>)))</span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="co"># we generate two files with climatic data adjusted (or not) for elevation</span></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">list</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>), <span class="cf">function</span>(adj){</span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="co"># A first filtering: keeping only CLONAPIN populations, removing monthly climatic variables</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>clim <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_&quot;</span>,adj,<span class="st">&quot;.csv&quot;</span>)), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">longitude=</span>Longitude,</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>                <span class="at">latitude=</span>Latitude,</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>                <span class="at">elevation=</span>Elevation,</span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>                <span class="at">pop=</span>ID,</span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>                <span class="at">SP=</span>MSP) <span class="sc">%&gt;%</span> <span class="co"># replace mean summer precipitation by summer precipitation</span></span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(pop <span class="sc">%in%</span> clonapin_name_pops) <span class="sc">%&gt;%</span> <span class="co"># we keep only CLONAPIN pops</span></span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">pop=</span> <span class="fu">ifelse</span>(pop<span class="sc">==</span><span class="st">&quot;VAL-VMQ&quot;</span>, <span class="st">&quot;VAL&quot;</span>,pop)) <span class="co"># the VAL-VMQ population is referred as VAL in the present study</span></span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="co"># we create a list with each element corresponding to a reference period</span></span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(list_ref_periods, <span class="cf">function</span>(ref_period) <span class="fu">generate_past_climate_df</span>(<span class="at">ref_period =</span> ref_period, <span class="at">clim_df =</span> clim)) <span class="sc">%&gt;%</span> </span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/PastClimatePopulationLocations_&quot;</span>,adj,<span class="st">&quot;.rds&quot;</span>)))</span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Predictions of future climates for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co"># ------------------------------------------------------------------------------------</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">list</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>), <span class="cf">function</span>(adj){</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>tab <span class="ot">&lt;-</span>   <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_&quot;</span>,adj,<span class="st">&quot;.csv&quot;</span>)), </span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>           <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">longitude=</span>Longitude,</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                <span class="at">latitude=</span>Latitude,</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>                <span class="at">elevation=</span>Elevation,</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                <span class="at">pop=</span>ID,</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>                <span class="at">SP=</span>MSP) <span class="sc">%&gt;%</span> <span class="co"># replace mean summer precipitation by summer precipitation</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(pop <span class="sc">%in%</span> clonapin_name_pops) <span class="sc">%&gt;%</span> <span class="co"># we keep only CLONAPIN pops</span></span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">pop=</span> <span class="fu">ifelse</span>(pop<span class="sc">==</span><span class="st">&quot;VAL-VMQ&quot;</span>, <span class="st">&quot;VAL&quot;</span>,pop)) <span class="sc">%&gt;%</span> <span class="co"># the VAL-VMQ population is referred as VAL in the present study</span></span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(Year<span class="sc">==</span><span class="st">&quot;2041-2070&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,<span class="fu">contains</span>(<span class="st">&quot;ude&quot;</span>),<span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>), <span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>), <span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>))</span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>tavg <span class="ot">&lt;-</span> (tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>)) <span class="sc">+</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>)))  <span class="sc">/</span> <span class="dv">2</span></span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>tmx <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>))</span>
-<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>tmn <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>))</span>
-<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>prc <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>))</span>
-<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>wet <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(prc, <span class="dv">1</span>, window))</span>
-<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(tavg, <span class="dv">1</span>, window)) <span class="sc">/</span> <span class="dv">3</span></span>
-<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio1 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg ,<span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>mean)</span>
-<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio2 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx<span class="sc">-</span>tmn , <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>mean)</span>
-<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio4 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> <span class="fu">apply</span>(tavg, <span class="dv">1</span>, sd)</span>
-<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio5 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmx, <span class="dv">1</span>, max)</span>
-<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio6 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmn, <span class="dv">1</span>, min)</span>
-<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio7 <span class="ot">&lt;-</span> tab<span class="sc">$</span>bio5 <span class="sc">-</span> tab<span class="sc">$</span>bio6</span>
-<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio3 <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="sc">*</span> tab<span class="sc">$</span>bio2 <span class="sc">/</span> tab<span class="sc">$</span>bio7</span>
-<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio12 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc, <span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span> sum)</span>
-<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio13 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,max)</span>
-<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio14 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc,<span class="dv">1</span>,min)</span>
-<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio15 <span class="ot">&lt;-</span> <span class="fu">apply</span>(prc<span class="sc">+</span><span class="dv">1</span>, <span class="dv">1</span>, raster<span class="sc">::</span>cv) <span class="co"># the &quot;1 +&quot; is to avoid strange CVs for areas where mean rainfaill is &lt; 1)</span></span>
-<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio16 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,max)</span>
-<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio17 <span class="ot">&lt;-</span> <span class="fu">apply</span>(wet,<span class="dv">1</span>,min)</span>
-<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(wet))) {</span>
-<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> <span class="cn">NA</span>      </span>
-<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> <span class="cn">NA</span>      </span>
-<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a>            wetqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.max)))</span>
-<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio8 <span class="ot">&lt;-</span> tmp[wetqrt]</span>
-<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>            dryqrt <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(wet), <span class="fu">as.integer</span>(<span class="fu">apply</span>(wet, <span class="dv">1</span>, which.min)))</span>
-<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio9 <span class="ot">&lt;-</span> tmp[dryqrt]</span>
-<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio10 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, max)</span>
-<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>bio11 <span class="ot">&lt;-</span> <span class="fu">apply</span>(tmp, <span class="dv">1</span>, min) </span>
-<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(tmp))) {</span>
-<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> <span class="cn">NA</span>     </span>
-<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a>        } <span class="cf">else</span> {</span>
-<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a>            hot <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.max)))</span>
-<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio18 <span class="ot">&lt;-</span> wet[hot]</span>
-<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-68"><a href="#cb16-68" aria-hidden="true" tabindex="-1"></a>            cold <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(tmp), <span class="fu">as.integer</span>(<span class="fu">apply</span>(tmp, <span class="dv">1</span>, which.min)))</span>
-<span id="cb16-69"><a href="#cb16-69" aria-hidden="true" tabindex="-1"></a>            tab<span class="sc">$</span>bio19 <span class="ot">&lt;-</span> wet[cold]</span>
-<span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-72"><a href="#cb16-72" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>AHM <span class="ot">&lt;-</span> (tab<span class="sc">$</span>bio1<span class="sc">+</span><span class="dv">10</span>)<span class="sc">/</span>(tab<span class="sc">$</span>bio12<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>MWMT <span class="ot">&lt;-</span> <span class="fu">apply</span>(tavg,<span class="at">MARGIN=</span><span class="dv">1</span>, <span class="at">FUN=</span>max)</span>
-<span id="cb16-74"><a href="#cb16-74" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>SP <span class="ot">&lt;-</span> <span class="fu">apply</span>(tab <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">select</span>(prc05,prc06,prc07,prc08,prc09),<span class="at">MARGIN=</span><span class="dv">1</span>,<span class="at">FUN=</span>sum)</span>
-<span id="cb16-75"><a href="#cb16-75" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>SHM <span class="ot">&lt;-</span> (tab<span class="sc">$</span>MWMT)<span class="sc">/</span>((tab<span class="sc">$</span>SP<span class="fl">+0.1</span>)<span class="sc">*</span><span class="fl">1e-3</span>)</span>
-<span id="cb16-76"><a href="#cb16-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-77"><a href="#cb16-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-78"><a href="#cb16-78" aria-hidden="true" tabindex="-1"></a>tab <span class="ot">&lt;-</span> tab <span class="sc">%&gt;%</span> <span class="fu">bind_cols</span>(<span class="fu">dbmem</span>(.[,<span class="fu">c</span>(<span class="st">&quot;latitude&quot;</span>,<span class="st">&quot;longitude&quot;</span>)]))  <span class="co"># we add the distance-based Moran’s Eigenvector Maps (dbMEMs)</span></span>
-<span id="cb16-79"><a href="#cb16-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-80"><a href="#cb16-80" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-81"><a href="#cb16-81" aria-hidden="true" tabindex="-1"></a>tab<span class="sc">$</span>Eref <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="st">&quot;tmn&quot;</span>,<span class="st">&quot;tmx&quot;</span>,<span class="st">&quot;prc&quot;</span>), <span class="cf">function</span>(x) {</span>
-<span id="cb16-82"><a href="#cb16-82" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-83"><a href="#cb16-83" aria-hidden="true" tabindex="-1"></a>tab <span class="sc">%&gt;%</span> </span>
-<span id="cb16-84"><a href="#cb16-84" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,<span class="fu">contains</span>(x)) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-85"><a href="#cb16-85" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols=</span><span class="fu">contains</span>(x),<span class="at">names_to=</span><span class="st">&quot;variable&quot;</span>,<span class="at">values_to =</span> <span class="st">&quot;mean_ref&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-86"><a href="#cb16-86" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">month=</span><span class="fu">str_sub</span>(variable,<span class="dv">4</span>,<span class="sc">-</span><span class="dv">1</span>),</span>
-<span id="cb16-87"><a href="#cb16-87" aria-hidden="true" tabindex="-1"></a>         <span class="at">variable=</span><span class="fu">str_sub</span>(variable,<span class="dv">1</span>,<span class="dv">3</span>)) </span>
-<span id="cb16-88"><a href="#cb16-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-89"><a href="#cb16-89" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-90"><a href="#cb16-90" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb16-91"><a href="#cb16-91" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from=</span><span class="st">&quot;variable&quot;</span>, <span class="at">values_from=</span>mean_ref) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-92"><a href="#cb16-92" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(tab[,<span class="fu">c</span>(<span class="st">&quot;pop&quot;</span>,<span class="st">&quot;latitude&quot;</span>)],<span class="at">by=</span><span class="st">&quot;pop&quot;</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-93"><a href="#cb16-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(pop) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-94"><a href="#cb16-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb16-95"><a href="#cb16-95" aria-hidden="true" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map</span>(\(x){ </span>
-<span id="cb16-96"><a href="#cb16-96" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb16-97"><a href="#cb16-97" aria-hidden="true" tabindex="-1"></a><span class="fu">hargreaves</span>(<span class="at">Tmin =</span> x<span class="sc">$</span>tmn, <span class="at">Tmax =</span> x<span class="sc">$</span>tmx, <span class="at">lat =</span> <span class="fu">unique</span>(x<span class="sc">$</span>latitude), <span class="at">Pre=</span>x<span class="sc">$</span>prc, <span class="at">verbose=</span>F) <span class="sc">%&gt;%</span> <span class="fu">sum</span>() <span class="co">#mean()</span></span>
-<span id="cb16-98"><a href="#cb16-98" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb16-99"><a href="#cb16-99" aria-hidden="true" tabindex="-1"></a>    }) <span class="sc">%&gt;%</span> <span class="fu">unlist</span>()</span>
-<span id="cb16-100"><a href="#cb16-100" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-101"><a href="#cb16-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-102"><a href="#cb16-102" aria-hidden="true" tabindex="-1"></a><span class="fu">return</span>(tab)</span>
-<span id="cb16-103"><a href="#cb16-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-104"><a href="#cb16-104" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-105"><a href="#cb16-105" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(<span class="fu">c</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb16-106"><a href="#cb16-106" aria-hidden="true" tabindex="-1"></a>  <span class="fu">saveRDS</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/FutureClimatePopulationLocationsPointEstimates.rds&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell">
-
 </div>
 </section>
+<section id="future-climates" class="level4" data-number="3.2.1.2">
+<h4 data-number="3.2.1.2" class="anchored" data-anchor-id="future-climates"><span class="header-section-number">3.2.1.2</span> Future climates</h4>
+<blockquote class="blockquote">
+<p>for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and scenario SSP3.7-0</p>
+</blockquote>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Predictions of future climates for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and scenario  SSP3.7-0</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------------------------------------------------------------</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">list</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>), <span class="cf">function</span>(adj){</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>clim <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_&quot;</span>,adj,<span class="st">&quot;.csv&quot;</span>)), </span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>           <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">longitude=</span>Longitude,</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                <span class="at">latitude=</span>Latitude,</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                <span class="at">elevation=</span>Elevation,</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>                <span class="at">pop=</span>ID,</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>                <span class="at">year=</span>Year,</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>                <span class="at">SP=</span>MSP) <span class="sc">%&gt;%</span> <span class="co"># replace mean summer precipitation by summer precipitation</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(pop <span class="sc">%in%</span> clonapin_name_pops) <span class="sc">%&gt;%</span> <span class="co"># we keep only CLONAPIN pops</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">pop=</span> <span class="fu">ifelse</span>(pop<span class="sc">==</span><span class="st">&quot;VAL-VMQ&quot;</span>, <span class="st">&quot;VAL&quot;</span>,pop)) <span class="co"># the VAL-VMQ population is referred as VAL in the present study</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="fu">calc_avg_clim_var</span>(<span class="at">ref_period =</span> <span class="fu">c</span>(<span class="dv">2041</span>,<span class="dv">2070</span>), <span class="at">clim_df =</span> clim, <span class="at">id_spatial_points =</span> <span class="st">&quot;pop&quot;</span>)</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(<span class="fu">c</span>(<span class="st">&quot;ADJ&quot;</span>,<span class="st">&quot;noADJ&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">saveRDS</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationsPointEstimates_GFDL-ESM4_SSP370_2041-2070.rds&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+<section id="raster-extracted-values" class="level3" data-number="3.2.2">
+<h3 data-number="3.2.2" class="anchored" data-anchor-id="raster-extracted-values"><span class="header-section-number">3.2.2</span> Raster-extracted values</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># function to extract the climatic values from rasters</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">here</span>(<span class="st">&quot;scripts/functions/extract_clim_from_rasters.R&quot;</span>))</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># GCM names</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>gcm_names <span class="ot">&lt;-</span> <span class="fu">list.files</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/ClimateDTRasters/&quot;</span>)) <span class="sc">%&gt;%</span>  <span class="fu">str_sub</span>(<span class="dv">5</span>,<span class="sc">-</span><span class="dv">35</span>) <span class="sc">%&gt;%</span> <span class="fu">setdiff</span>(<span class="st">&quot;&quot;</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Climatic variables</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>clim_var <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_ADJ.rds&quot;</span>))[[<span class="dv">1</span>]]<span class="sc">$</span>ref_means <span class="sc">%&gt;%</span> </span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>pop,<span class="sc">-</span>elevation,<span class="sc">-</span><span class="fu">contains</span>(<span class="st">&quot;ude&quot;</span>),<span class="sc">-</span><span class="fu">contains</span>(<span class="st">&quot;tmn&quot;</span>),<span class="sc">-</span><span class="fu">contains</span>(<span class="st">&quot;tmx&quot;</span>),<span class="sc">-</span><span class="fu">contains</span>(<span class="st">&quot;prc&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>()</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Population coordinates</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>pop_coord <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_ADJ.rds&quot;</span>))[[<span class="dv">1</span>]]<span class="sc">$</span>ref_means <span class="sc">%&gt;%</span> </span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(longitude,latitude) <span class="sc">%&gt;%</span> </span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">SpatialPoints</span>(<span class="at">proj4string=</span><span class="fu">CRS</span>(<span class="st">&quot;+proj=longlat +datum=WGS84 +no_defs&quot;</span>))</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Population names</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>pop_names <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_ADJ.rds&quot;</span>))[[<span class="dv">1</span>]]<span class="sc">$</span>ref_means <span class="sc">%&gt;%</span> </span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(pop)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a><span class="co"># List of dataframes (one for each GCM) with the climatic variables in columns</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>clim_df <span class="ot">&lt;-</span> <span class="fu">lapply</span>(gcm_names, <span class="cf">function</span>(gcm){</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(clim_var, <span class="cf">function</span>(x) <span class="fu">extract_clim_from_rasters</span>(<span class="at">x=</span>x, <span class="at">gcm=</span>gcm, <span class="at">period=</span><span class="st">&quot;2041-2070&quot;</span>, <span class="at">ssp=</span><span class="st">&quot;ssp370&quot;</span>,<span class="at">pop_coord=</span>pop_coord)) <span class="sc">%&gt;%</span> </span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(clim_var) <span class="sc">%&gt;%</span> </span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pop=</span>pop_names,</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>         <span class="at">gcm=</span>gcm)</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">%&gt;%</span> <span class="fu">setNames</span>(gcm_names) </span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>clim_df <span class="sc">%&gt;%</span> <span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/MaritimePinePops/ClimatePopulationLocationValuesExtractedFromRasters_FiveGCMs_2041-2070_SSP370.rds&quot;</span>))</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Another option: one dataframe with the four columns: </span></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>  <span class="co"># variable = climatic variable#</span></span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># pop = population</span></span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>  <span class="co"># gcm = Global Clinatic Model (GCM)</span></span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mean_fut = value of the climatic variable</span></span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a><span class="co"># clim_df &lt;- lapply(clim_var, function(x){</span></span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a><span class="co">#   </span></span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a><span class="co"># lapply(gcm_names, function(gcm) extract_clim_from_rasters(x=x, gcm=gcm, period=&quot;2041-2070&quot;, ssp=&quot;ssp370&quot;,pop_coord=pop_coord)) %&gt;% </span></span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a><span class="co">#   setNames(gcm_names) %&gt;% </span></span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a><span class="co">#   as_tibble() %&gt;% </span></span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a><span class="co">#   mutate(pop=pop_names)</span></span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a><span class="co"># }) %&gt;% </span></span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a><span class="co">#   setNames(clim_var) %&gt;% </span></span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a><span class="co">#   bind_rows(.id = &quot;variable&quot;) %&gt;% </span></span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a><span class="co">#   pivot_longer(names_to = &quot;gcm&quot;,values_to=&quot;mean_fut&quot;,cols=all_of(gcm_names)) </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+</section>
+<section id="main-gene-pool-of-each-population" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Main gene pool of each population</h1>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Incorporating gene pool information</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>genotypes <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withmaf.csv&quot;</span>),<span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>snp_ID) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>() </span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="co"># we load the gene pool information with the ancestry coefficients for each clone</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>gps <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/PopulationStructureCorrea2015.csv&quot;</span>), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(clon <span class="sc">%in%</span> genotypes) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">main_gp_clon_code=</span>max.Q,</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>                <span class="at">main_gp_clon=</span>main_gp,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>                <span class="at">color_main_gp_clon=</span>color_main_gp)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>gps_list <span class="ot">&lt;-</span> gps <span class="sc">%&gt;%</span> </span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(pop) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(<span class="fu">unique</span>(gps<span class="sc">$</span>pop))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>We identify the populations for which the main gene pool is not the same for all genotypes:</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>gps_list <span class="sc">%&gt;%</span> </span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(\(x) {</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">data.frame</span>(<span class="at">Populations =</span> <span class="fu">unique</span>(x<span class="sc">$</span>pop),</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">MainGenePoolNumber =</span> x<span class="sc">$</span>main_gp_clon_code <span class="sc">%&gt;%</span> <span class="fu">unique</span>() <span class="sc">%&gt;%</span> <span class="fu">length</span>())</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(MainGenePoolNumber) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_split</span>()  <span class="sc">%&gt;%</span> </span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_dfr</span>(\(x) {</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">data.frame</span>(<span class="at">Populations =</span> <span class="fu">paste0</span>(x<span class="sc">$</span>Populations, <span class="at">collapse =</span><span class="st">&quot;, &quot;</span>),</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>               <span class="at">MainGenePoolNumber =</span> <span class="fu">unique</span>(x<span class="sc">$</span>MainGenePoolNumber))</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_mydf</span>(<span class="at">boldfirstcolumn =</span> F)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+
+<table class="table table-hover table-condensed table-responsive" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> Populations </th>
+   <th style="text-align:right;"> MainGenePoolNumber </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> ALT, ARM, ARN, BAY, BON, CAD, CAR, CAS, CEN, COC, COM, CUE, HOU, LAM, MAD, MIM, OLB, OLO, ORI, PET, PIA, PIE, PLE, PUE, SAC, SAL, SEG, SIE, STJ, TAM, VAL, VER </td>
+   <td style="text-align:right;"> 1 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI, QUA </td>
+   <td style="text-align:right;"> 2 </td>
+  </tr>
+</tbody>
+</table>
+
+</div>
+</div>
+<p>The LEI and QUA populations have some clones that belong to different gene pools:</p>
+<ul>
+<li><p>Most clones of the LEI population belong to the Central Spain gene pool, except four clones that mostly belong to the Iberian Atlantic gene pool.</p></li>
+<li><p>Most clones of the QUA population mostly belong to the Central Spain gene pool, except two clones that mostly belong to the south-eastern Spain gene pool.</p></li>
+</ul>
+<p>We have to account for these clones when we generate a dataset with the main gene pool of each population.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>gps_list[[<span class="st">&quot;LEI&quot;</span>]] <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>(<span class="at">boldfirstcolumn =</span> F)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+
+<table class="table table-hover table-condensed table-responsive" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> clon </th>
+   <th style="text-align:left;"> pop </th>
+   <th style="text-align:right;"> Q1 </th>
+   <th style="text-align:right;"> Q2 </th>
+   <th style="text-align:right;"> Q3 </th>
+   <th style="text-align:right;"> Q4 </th>
+   <th style="text-align:right;"> Q5 </th>
+   <th style="text-align:right;"> Q6 </th>
+   <th style="text-align:left;"> main_gp_clon_code </th>
+   <th style="text-align:left;"> main_gp_clon </th>
+   <th style="text-align:left;"> color_main_gp_clon </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> LEI1 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.51 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.48 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI24 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.56 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.43 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI29 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.43 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.56 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q5 </td>
+   <td style="text-align:left;"> Iberian Atlantic </td>
+   <td style="text-align:left;"> turquoise2 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI19 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.56 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.40 </td>
+   <td style="text-align:right;"> 0.02 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI2 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.53 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.46 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI26 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.30 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.69 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q5 </td>
+   <td style="text-align:left;"> Iberian Atlantic </td>
+   <td style="text-align:left;"> turquoise2 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI9 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.58 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.41 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI5 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.03 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.44 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.53 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q5 </td>
+   <td style="text-align:left;"> Iberian Atlantic </td>
+   <td style="text-align:left;"> turquoise2 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI14 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.57 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.43 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI8 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.52 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.47 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI3 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.51 </td>
+   <td style="text-align:right;"> 0.07 </td>
+   <td style="text-align:right;"> 0.42 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI15 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.41 </td>
+   <td style="text-align:right;"> 0.03 </td>
+   <td style="text-align:right;"> 0.54 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q5 </td>
+   <td style="text-align:left;"> Iberian Atlantic </td>
+   <td style="text-align:left;"> turquoise2 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI22 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.44 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI27 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.51 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.46 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI25 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.02 </td>
+   <td style="text-align:right;"> 0.50 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.48 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI16 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.44 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI6 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.59 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.40 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI30 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.51 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.49 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI39 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.44 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> LEI21 </td>
+   <td style="text-align:left;"> LEI </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.44 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+</tbody>
+</table>
+
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>gps_list[[<span class="st">&quot;QUA&quot;</span>]] <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>(<span class="at">boldfirstcolumn =</span> F)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+
+<table class="table table-hover table-condensed table-responsive" style="font-size: 10px; width: auto !important; margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> clon </th>
+   <th style="text-align:left;"> pop </th>
+   <th style="text-align:right;"> Q1 </th>
+   <th style="text-align:right;"> Q2 </th>
+   <th style="text-align:right;"> Q3 </th>
+   <th style="text-align:right;"> Q4 </th>
+   <th style="text-align:right;"> Q5 </th>
+   <th style="text-align:right;"> Q6 </th>
+   <th style="text-align:left;"> main_gp_clon_code </th>
+   <th style="text-align:left;"> main_gp_clon </th>
+   <th style="text-align:left;"> color_main_gp_clon </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> QUA65 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.11 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.41 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.47 </td>
+   <td style="text-align:left;"> Q6 </td>
+   <td style="text-align:left;"> South-eastern Spain </td>
+   <td style="text-align:left;"> green3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA5 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.09 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.49 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.06 </td>
+   <td style="text-align:right;"> 0.35 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA85 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.09 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.53 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.06 </td>
+   <td style="text-align:right;"> 0.32 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA63 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.10 </td>
+   <td style="text-align:right;"> 0.04 </td>
+   <td style="text-align:right;"> 0.49 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.36 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA33 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.14 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.36 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.05 </td>
+   <td style="text-align:right;"> 0.46 </td>
+   <td style="text-align:left;"> Q6 </td>
+   <td style="text-align:left;"> South-eastern Spain </td>
+   <td style="text-align:left;"> green3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA17 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.08 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.50 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.41 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA62 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.10 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.34 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA82 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.13 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.49 </td>
+   <td style="text-align:right;"> 0.06 </td>
+   <td style="text-align:right;"> 0.05 </td>
+   <td style="text-align:right;"> 0.27 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA95 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.08 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.50 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.40 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA56 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.12 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.50 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.38 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA61 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.09 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.36 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA58 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.06 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.52 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.41 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA88 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.08 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.54 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.36 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA76 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.06 </td>
+   <td style="text-align:right;"> 0.01 </td>
+   <td style="text-align:right;"> 0.54 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.39 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA86 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.08 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.52 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.39 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> QUA87 </td>
+   <td style="text-align:left;"> QUA </td>
+   <td style="text-align:right;"> 0.07 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.55 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.00 </td>
+   <td style="text-align:right;"> 0.38 </td>
+   <td style="text-align:left;"> Q3 </td>
+   <td style="text-align:left;"> Central Spain </td>
+   <td style="text-align:left;"> darkorchid3 </td>
+  </tr>
+</tbody>
+</table>
+
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extracting the main gene pool of each population</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>gp_poplevel <span class="ot">&lt;-</span> gps_list <span class="sc">%&gt;%</span> </span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">modify</span>(\(x) <span class="fu">mutate</span>(x, <span class="at">main_gp_pop=</span> x<span class="sc">$</span>main_gp_clon  <span class="sc">%&gt;%</span> <span class="fu">table</span>() <span class="sc">%&gt;%</span> <span class="fu">which.max</span>() <span class="sc">%&gt;%</span> <span class="fu">names</span>())) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list_rbind</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop, main_gp_pop) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Information of the main gene pool for each pop</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>gp_poplevel <span class="ot">&lt;-</span> gps <span class="sc">%&gt;%</span> </span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(main_gp_clon,color_main_gp_clon) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">main_gp_pop=</span>main_gp_clon,</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>                <span class="at">color_main_gp_pop=</span>color_main_gp_clon) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">right_join</span>(gp_poplevel,<span class="at">by=</span><span class="st">&quot;main_gp_pop&quot;</span>) </span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Information of the main gene pool for each clone</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>gps <span class="ot">&lt;-</span> gp_poplevel <span class="sc">%&gt;%</span> </span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">right_join</span>(gps, <span class="at">by=</span><span class="st">&quot;pop&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(clon) <span class="co"># The clone order has to be the same as in the genomic data</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a><span class="fu">list</span>(<span class="at">pop_level=</span>gp_poplevel,</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>     <span class="at">clon_level=</span>gps) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/GenomicData/MainGenePoolInformation.rds&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 </section>
 
 </main>
