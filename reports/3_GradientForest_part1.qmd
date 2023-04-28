@@ -127,12 +127,12 @@ Inputs:
 
   - `genodata`: the genomic dataset with SNPs in columns and populations in rows (with population names as row names)
   - `climdata`: table with the climatic variables with a row for each population
-  - `climvars`: vector with the names of the climatic variables to be used in the GF models
+  - `clim_var`: vector with the names of the climatic variables to be used in the GF models
   - `ntree`: number of trees to fit 
   - `cores`: number of processors to use
   
 ```{r FunctionRunGFInd}
-run_gf_ind <- function(genodata, climdata, climvars, ntree, cores){
+run_gf_ind <- function(genodata, climdata, clim_var, ntree, cores){
 
   # create custom object to hold output 
   gf_output_obj <- setClass("gf_output_obj", slots = c(gf_data="data.frame", gf_impts="list"))
@@ -159,8 +159,8 @@ run_gf_ind <- function(genodata, climdata, climvars, ntree, cores){
     gf_impts <- foreach(k=1:ncol(genodata), .verbose=F, .packages=c("gradientForest")) %dopar%{
       locus <- data.frame(genodata[,k])
       names(locus) <- colnames(genodata)[k]
-      gf_mod <- gradientForest(data.frame(climdata[, climvars], locus), 
-                               predictor.vars=climvars, response.vars=colnames(genodata)[k], 
+      gf_mod <- gradientForest(data.frame(climdata[, clim_var], locus), 
+                               predictor.vars=clim_var, response.vars=colnames(genodata)[k], 
                                corr.threshold=0.5, ntree=ntree, trace=F)
 
       if(!is.null(gf_mod)){data.frame(variable=names(importance(gf_mod)),
@@ -190,7 +190,7 @@ Inputs:
 
  
 
-```{r FUnctionExtractPvals}
+```{r FunctionExtractPvals}
 extract_pvals <- function(gf_outputs, neutral_snps){
 
 # extract the R2 importance values from the GF outputs and arrange them in a
@@ -242,7 +242,7 @@ Function to identify the GF outliers
 Inputs:
 
 
-  - `list_climvars`: list of vectors with the names of the climatic variables to be used in the GF models
+  - `list_clim_var`: list of vectors with the names of the climatic variables to be used in the GF models
   - `nb_neutral_snps`: number of random SNPs to sample from the genomic data to develop the empirical null model
 
 
@@ -250,7 +250,7 @@ Inputs:
 ```{r FunctionToIdentifyGFoutliers}
 identify_GFoutliers <- function(genodata,
                                 climdata,
-                                list_climvars, 
+                                clim_var, 
                                 ntree, 
                                 rm_rare_alleles, 
                                 selected_snps, 
@@ -267,9 +267,7 @@ genodata <- format_geno(genodata,
 neutral_snps <- sample(colnames(genodata),nb_neutral_snps,replace = F)
 
 
-gf_out <- lapply(list_climvars, function(x){
-  
-gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, climvars = x$variables, ntree = ntree, cores)
+gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, clim_var = clim_var, ntree = ntree, cores)
 
 gf_pvals <- extract_pvals(gf_outputs=gf_outputs,neutral_snps=neutral_snps)
 
@@ -278,16 +276,12 @@ outliers005 <- gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp)
 outliers001 <- gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
 outliers_bonf <- gf_pvals %>% filter(pval_totalR2<0.01/length(gf_pvals$snp)) %>% pull(snp) # bonferroni correction
   
-return(list(genodata = genodata,
-            climvars= x,
-            gf_pvals = gf_pvals, 
-            outliers = list(outliers005 = outliers005,
-                            outliers001 = outliers001, 
-                            outliers_bonf = outliers_bonf)))
-
-})
-
-names(gf_out) <- lapply(gf_out, function(x) x$climvars$code) %>% unlist()
+gf_out <- list(genodata = genodata,
+               clim_var= clim_var,
+               gf_pvals = gf_pvals, 
+               outliers = list(outliers005 = outliers005,
+                               outliers001 = outliers001, 
+                               outliers_bonf = outliers_bonf))
 
 return(gf_out)
 }
@@ -319,7 +313,6 @@ list_geno$mat_X <- list_geno$mat_X %>%
   group_by(pop) %>% 
   summarise_all(~sum(., na.rm = TRUE)/((n()-sum(is.na(.)))*2)) %>% 
   column_to_rownames("pop")
-  
 ```
 
 
@@ -342,21 +335,19 @@ For the corrected matrix, `r length(high_freqs$mat_X$snp)` have average populati
 We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report `2_RedundancyAnalysis_part1.Rmd`):
 
 ```{r LoadClimaticData}
-# Which set of climatic variables are we going to use?
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+# Selected climatic variables
+# ===========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
-# we load the population-specific data of the climatic variables of interest
-clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-               show_col_types = FALSE) %>% 
-  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
-
-
-
-extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+extract_climatedt_metadata(var_clim = clim_var) %>% 
   dplyr::select(label,description,unit) %>% 
   set_colnames(str_to_title(colnames(.))) %>% 
   kable_mydf()
+
+# Past and future climatic data
+# =============================
+source(here("scripts/functions/generate_clim_datasets.R"))
+clim_dfs <- generate_clim_datasets(clim_var)
 ```
 
 
@@ -369,8 +360,8 @@ set.seed(55)
 gf_out <- lapply(list_geno, function(geno)
 
 identify_GFoutliers(genodata = geno,
-                    climdata = clim_past,
-                    list_climvars=list(clim_var),
+                    climdata = clim_dfs$clim_past,
+                    clim_var = clim_var,
                     rm_rare_alleles = T, 
                     selected_snps = "all", 
                     ntree=500,
@@ -391,10 +382,10 @@ rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
 
 
-list_outliers <- list("RDA" = rda_outliers[[5]]$outliers$snp,
-                      "RDA + PS" = rda_outliers[[6]]$outliers$snp,
-                      "GF-raw" = gf_out$gf_raw$set3_var$outliers$outliers001,
-                      "GF-X" = gf_out$gf_X$set3_var$outliers$outliers001)
+list_outliers <- list("RDA" = rda_outliers[[3]]$outliers$snp,
+                      "RDA + PS" = rda_outliers[[4]]$outliers$snp,
+                      "GF-raw" = gf_out$gf_raw$outliers$outliers001,
+                      "GF-X" = gf_out$gf_X$outliers$outliers001)
 
 ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
   scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 

@@ -147,8 +147,7 @@ The past and future climatic data have been scaled with the parameters (mean and
 ```{r LoadClimaticData}
 # Selected climatic variables
 # ===========================
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
 
 # Past and future climatic data
@@ -346,10 +345,18 @@ We load the predicted values of the climatic variables for the years 2041-2070 t
 
 ```{r LoadFutureClimate}
 # Attribute climatic values for each genotype
-clim_fut <- genotypes %>% 
+list_g_gap <- lapply(clim_dfs[[2]], function(clim_fut){
+
+
+df <- genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
-  left_join(clim_dfs$clim_fut, by="pop") %>% 
-  dplyr::select(-pop,-clon)
+  left_join(clim_fut, by="pop") %>% 
+  dplyr::select(-pop,-clon,-gcm)
+  
+list(gcm = unique(clim_fut$gcm),
+     clim_fut = df)
+  
+})
 ```
 
 
@@ -358,11 +365,18 @@ clim_fut <- genotypes %>%
 We run the `genetic.gap` function.
 
 ```{r EstimateGeneticGap}
-g_gap <- genetic.gap(input = geno,
-                     env = clim_past,
-                     pred.env = clim_fut,
-                     K = 5)
-g_gap
+list_g_gap <- lapply(list_g_gap, function(x){
+
+x$g_gap_allsnps <- genetic.gap(input = geno,
+                               env = clim_past,
+                               pred.env = x$clim_fut,
+                               K = 5)
+
+return(x)
+  
+})
+
+list_g_gap[[1]]$g_gap_allsnp
 ```
 
 The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` manual):
@@ -391,8 +405,14 @@ with $N$ the number of selected climatic variables, $X_{past,i}$ the mean value 
 
 ```{r CalculateEucliDistance}
 # Calculate the Euclidean climatic distance
-Delta = clim_past - clim_fut
-dist_env = sqrt( rowSums(Delta^2) ) 
+list_g_gap <- lapply(list_g_gap, function(x){
+  
+Delta = clim_past - x$clim_fut  
+
+x$dist_env = sqrt( rowSums(Delta^2) )
+
+return(x)
+})
 ```
 
 ```{r GenePoolColors}
@@ -401,55 +421,29 @@ dist_env = sqrt( rowSums(Delta^2) )
 
 # In the graphs below, we want to color the populations according to the main gene pool they belong to
 
-# we load the gene pool information with the ancestry coefficients for each clone
-gps <- read_csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv"), show_col_types = FALSE) %>% 
-  right_join(genotypes, by="clon") %>% 
-  dplyr::rename(main_gp_clon_code=max.Q,
-                main_gp_clon=main_gp,
-                color_main_gp_clon=color_main_gp)
-
-# we extract the main gene pool of each population
-# LEI and QUA populations have somes clones that belong to different gene pools, we have to account for that
-gp_poplevel <- gps %>% 
-  group_by(pop) %>% 
-  group_split() %>% 
-  modify(\(x) mutate(x, main_gp_pop= x$main_gp_clon  %>% table() %>% which.max() %>% names())) %>% 
-  list_rbind() %>% 
-  dplyr::select(pop, main_gp_pop) %>% 
-  distinct()
-  
-# Information of the main gene pool for each pop
-gp_poplevel <- gps %>% 
-  dplyr::select(main_gp_clon,color_main_gp_clon) %>% 
-  distinct() %>% 
-  dplyr::rename(main_gp_pop=main_gp_clon,
-                color_main_gp_pop=color_main_gp_clon) %>% 
-  right_join(gp_poplevel,by="main_gp_pop") 
-
-saveRDS(gp_poplevel, here("data/GenomicData/MainGenePoolPopulations.rds"))
-
-# Information of the main gene pool for each clone
-gps <- gp_poplevel %>% 
-  right_join(gps, by="pop") %>% 
-  arrange(clon) # The clone order has to be the same as in the genomic data used to fit the LFMM models!
-
-# Create a dataset without the outlier pops (from Northern Africa and south-eastern Spain)
-# to calculate the correlation between the genetic gap and the squared Eucli clim distance 
-# without these populations
-dfcor <- gps %>% 
-  mutate(genetic_gap = g_gap$offset,
-         squared_eucli_dist = dist_env^2) %>% 
-  dplyr::filter(!main_gp_pop %in% c("Northern Africa", "South-eastern Spain"))
+# we load the main gene pool information for each clone
+gps <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))[[2]]
 ```
 
-The squared Euclidean climatic distance and the genetic gap (`offset` in the outputs) have a correlation coefficient of $\rho$ = `r cor(g_gap$offset,dist_env^2) %>%  round(3)`. **Note that if we remove the populations from Northern Africa and south-eastern Spain, $\rho$ = `r cor(dfcor$genetic_gap, dfcor$squared_eucli_dist) %>%  round(3)`.**
+Correlation between the squared Euclidean climatic distance and the genetic gap (`offset` in the outputs):
+
+```{r CorrelationEuclideanDistanceGeneticGapAllSNPs}
+lapply(list_g_gap, function(y){
+
+cor(unique(y$g_gap_allsnps$offset),unique(y$dist_env^2))
+    
+}) %>% 
+  bind_rows(.id="GCM") %>% 
+  kable_mydf()
+```
 
 Comment: The squared Euclidean climatic distance and the genetic gap are somewhat correlated (the strength of the correlation depending on whether we include or not the outlier pops), so it means that the genetic gap $GO$ can be expressed as follows: $GO = a \times dist^2 + b + e$ with $dist$ being the Euclidean climatic distance and the $e$ the residuals (ie the noise). **Note that $GO$ and $dist^2$ are correlated but not proportional to!**
 
 We can plot the `eigenvalues` with a barplot to evaluate the relative importance of the climatic variables.
 
 ```{r BarplotEigenValues}
-barplot(g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues")
+# the relative importance is the same for all genomic offset predictions at it is only influenced by past climates, and not future climates
+barplot(list_g_gap[[1]]$g_gap_allsnp$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues") 
 ```
 
 We see that only two dimensions of the climatic space influence the genetic gap. We can also see it with the loadings for the first two combinations of variables (`vectors` in the outputs of the `genetic.gap` function), which indicate the relative contribution of the variables to local adaptation. We see that the first two variables had increased importance compared to the last ones (the variables are sorted by importance in the `vectors` outputs, so we do not know which variables they are).
@@ -462,44 +456,19 @@ source(here("scripts/functions/make_eucli_plot.R"))
 
 
 
-```{r PlotAllSNPsEucliDistance}
-# par(mfrow=c(1,2))
-# plot the climatic distance vs Euclidean environmental distance
-# make_eucli_plot(X = dist_env,
-#           Y = g_gap$distance,
-#           ylab = "sqrt(distance)",
-#           colors = gps$color_main_gp_pop, 
-#           color_names = gps$main_gp_pop,
-#           plot_title = "Climatic distance ~ Euclidean climatic distance")
+```{r PlotAllSNPsEucliDistance, fig.width=12, results="hide"}
+ par(mfrow=c(1,2))
 
 # plot the squared root of the genetic gap vs Euclidean environmental distance
-make_eucli_plot(X = dist_env,
-          Y = sqrt(g_gap$offset),
+lapply(list_g_gap, function(x){
+
+  make_eucli_plot(X = x$dist_env,
+          Y = sqrt(x$g_gap_allsnp$offset),
           colors = gps$color_main_gp_pop, 
           color_names = gps$main_gp_pop,
           ylab = "sqrt(genetic gap)",
-          plot_title = "All SNPs")
-```
-
-The plot below is exactly the same as the previous one except that the x and y axes have been cut to better visualize the populations with lower genetic gap and Euclidean climatic distance.
-
-```{r PlotAllSNPsEucliDistanceAxisLimits}
-# par(mfrow=c(1,2))
-# make_eucli_plot(X = dist_env,
-#           Y = g_gap$distance,
-#           ylab = "sqrt(distance)",
-#           colors = gps$color_main_gp_pop, 
-#           color_names = gps$main_gp_pop,
-#           plot_title = "Climatic distance ~ Euclidean climatic distance",
-#           xlim=c(0,22),ylim=c(0,1.1))
-
-make_eucli_plot(X = dist_env,
-          Y = sqrt(g_gap$offset),
-          colors = gps$color_main_gp_pop, 
-          color_names = gps$main_gp_pop,
-          ylab = "sqrt(genetic gap)",
-          plot_title = "All SNPs",
-          xlim=c(0,22),ylim=c(0,1.9))
+          plot_title = paste0("All SNPs - ",x$gcm))  
+})
 ```
 
 
@@ -521,55 +490,46 @@ set.seed(44)
 rand_snps <- names(geno)[!names(geno) %in% candidates] %>% 
   sample(length(candidates), replace=FALSE)
   
-list_ggap <- list(candidates = list(set_name = "Candidate SNPs",
-                                    snp_names = candidates,
-                                    snp_numbers =  which(names(geno) %in% candidates)),
-                  control = list(set_name = "Random SNPs",
-                                 snp_names = rand_snps,
-                                 snp_numbers = which(names(geno) %in% rand_snps)))
+list_snpsets <- list(candidates = list(set_name = "Candidate SNPs",
+                                       snp_names = candidates,
+                                       snp_numbers =  which(names(geno) %in% candidates)),
+                     control = list(set_name = "Random SNPs",
+                                    snp_names = rand_snps,
+                                    snp_numbers = which(names(geno) %in% rand_snps)))
 ```
 
 
 ```{r RunGeneticGapSetsSNPs}
-list_ggap <- lapply(list_ggap, function(x) {
+list_g_gap <- lapply(list_g_gap, function(y){
+  
+y$g_gap_snpsets <- lapply(list_snpsets, function(x) {
   
 x$g_gap <- genetic.gap(input = geno,
                        env = clim_past,
-                       pred.env = clim_fut,
+                       pred.env = y$clim_fut,
                        candidate.loci = x$snp_numbers,
                        K = 5)
 return(x)
+})
+
+return(y)
 })
 ```
 
 ```{r PlotSetSNPsEucliDistance, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
+lapply(list_g_gap, function(y){
 
-lapply(list_ggap, function(x) make_eucli_plot(
-  X = dist_env,
+lapply(y$g_gap_snpsets, function(x) make_eucli_plot(
+  X = y$dist_env,
   Y = sqrt(x$g_gap$offset),
   colors = gps$color_main_gp_pop,
   color_names = gps$main_gp_pop,
   ylab = "sqrt(genetic gap)",
-  plot_title = x$set_name,
-  xlim=c(0,200),ylim=c(0,22)))
+  plot_title = paste0(x$set_name," - ",y$gcm)))
+  
+})
 ```
-
-Same plots as above but with the x and y axes cut off to help visualization.
-
-```{r PlotSetSNPsEucliDistanceAxisLimits, fig.width=12, results="hide"}
-par(mfrow=c(1,2))
-
-lapply(list_ggap, function(x) make_eucli_plot(
-  X = dist_env,
-  Y = sqrt(x$g_gap$offset),
-  colors = gps$color_main_gp_pop,
-  color_names = gps$main_gp_pop,
-  ylab = "sqrt(genetic gap)",
-  plot_title = x$set_name,
-  xlim=c(0,22),ylim=c(0,3)))
-```
-
 
 
 Let's look the the barplots of the eigenvalues.
@@ -577,26 +537,25 @@ Let's look the the barplots of the eigenvalues.
 ```{r BarplotsEigenValuesSetSNPs, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-lapply(list_ggap, function(x) 
+lapply(list_g_gap[[1]]$g_gap_snpset, function(x) 
 barplot(x$g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues",main=x$set_name))
 ```
 
 
-```{r CorrSetsOfSNPsWithoutOutlierPops}
-list_dfcor <- lapply(list_ggap, function(x){
+Correlations between the squared Euclidean climatic distance and the genetic gap:
 
-  gps %>% 
-  mutate(genetic_gap = x$g_gap$offset,
-         squared_eucli_dist = dist_env^2) %>% 
-  dplyr::filter(!main_gp_pop %in% c("Northern Africa", "South-eastern Spain"))
-})
-```
-
-Correlation between the squared Euclidean climatic distance and the genetic gap for:
-
-  - candidate SNPs: $\rho$ = `r cor(unique(list_ggap$candidate$g_gap$offset),unique(dist_env^2)) %>%  round(3)`. Note that if we remove populations from Northern Africa and south-eastern Spain: $\rho$ = `r cor(list_dfcor$candidates$genetic_gap, list_dfcor$candidates$squared_eucli_dist) %>%  round(3)`.
+```{r CorrelationEuclideanDistanceGeneticGapSNPsets}
+lapply(list_g_gap, function(y){
+  lapply(y$g_gap_snpsets, function(x){
+    
+cor(unique(x$g_gap$offset),unique(y$dist_env^2))
+    
+  }) %>% bind_rows()
   
-  - control SNPs: $\rho$ = `r cor(unique(list_ggap$control$g_gap$offset),unique(dist_env^2)) %>%  round(3)`. If we remove the populations from North Africa and south-eastern Spain: $\rho$ = `r cor(list_dfcor$control$genetic_gap, list_dfcor$control$squared_eucli_dist) %>%  round(3)`.
+}) %>% 
+  bind_rows(.id="GCM") %>% 
+  kable_mydf()
+```
 
 
 # Corrected allele frequencies
