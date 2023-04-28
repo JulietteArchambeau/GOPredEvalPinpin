@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Juliette Archambeau">
-<meta name="dcterms.date" content="2023-03-22">
+<meta name="dcterms.date" content="2023-04-28">
 
 <title>Baypass analysis</title>
 <style>
@@ -2891,7 +2891,7 @@ border: 0;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 22, 2023</p>
+      <p class="date">April 28, 2023</p>
     </div>
   </div>
     
@@ -2932,7 +2932,7 @@ font-size: 10px
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>count_2nd_allele <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {<span class="dv">2</span><span class="sc">*</span><span class="fu">length</span>(x)<span class="sc">-</span><span class="fu">sum</span>(x)}</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># We generate the genomic data in BayPass format</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>list_geno <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="st">&quot;withoutmaf&quot;</span>,<span class="st">&quot;withmaf&quot;</span>), <span class="cf">function</span>(x){</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">lapply</span>(<span class="fu">c</span>(<span class="st">&quot;withoutmaf&quot;</span>,<span class="st">&quot;withmaf&quot;</span>), <span class="cf">function</span>(x){</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>geno <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="fu">here</span>(<span class="fu">paste0</span>(<span class="st">&quot;data/DryadRepo/ImputedGenomicData_AlleleCounts_&quot;</span>,x,<span class="st">&quot;.csv&quot;</span>)),</span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>                          <span class="at">row.names =</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
@@ -2980,25 +2980,21 @@ font-size: 10px
 </section>
 <section id="environmental-data" class="level2">
 <h2 class="anchored" data-anchor-id="environmental-data">Environmental data</h2>
-<p>We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report <code>2_RedundancyAnalysis_part1.Rmd</code>):</p>
+<p>We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 2 in the report <code>2_RedundancyAnalysis_part1.Rmd</code>):</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Which set of climatic variables are we going to use?</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>clim_var <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/NamesSelectedVariables.rds&quot;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">[[</span><span class="st">`</span>(<span class="dv">3</span>) <span class="co"># We keep the set 3 of climatic variables (the third list element)</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># we load the population-specific data of the climatic variables of interest</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>clim_past <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv&quot;</span>),</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(pop,clim_var<span class="sc">$</span>variables) <span class="co"># we keep only the climatic variables of interest</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_climatedt_metadata</span>(<span class="at">var_clim =</span> clim_var<span class="sc">$</span>variables) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(label,description,unit) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_colnames</span>(<span class="fu">str_to_title</span>(<span class="fu">colnames</span>(.))) <span class="sc">%&gt;%</span> </span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>clim_var <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="fu">here</span>(<span class="st">&quot;data/ClimaticData/NamesSelectedVariables.rds&quot;</span>))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># we load the population-specific climatic data of the climatic variables of interest</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">here</span>(<span class="st">&quot;scripts/functions/generate_clim_datasets.R&quot;</span>))</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>clim_past <span class="ot">&lt;-</span> <span class="fu">generate_clim_datasets</span>(clim_var)[[<span class="st">&quot;clim_past&quot;</span>]]</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">extract_climatedt_metadata</span>(<span class="at">var_clim =</span> clim_var) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(label,description,unit) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_colnames</span>(<span class="fu">str_to_title</span>(<span class="fu">colnames</span>(.))) <span class="sc">%&gt;%</span> </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 
@@ -3022,19 +3018,19 @@ font-size: 10px
    <td style="text-align:left;"> index </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> bio9 </td>
-   <td style="text-align:left;"> Mean temperature of driest quarter </td>
+   <td style="text-align:left;"> bio4 </td>
+   <td style="text-align:left;"> Temperature seasonality (standard deviation ×100) </td>
    <td style="text-align:left;"> Celsius degrees (°C) </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> Eref </td>
-   <td style="text-align:left;"> Hargreaves reference evaporation </td>
-   <td style="text-align:left;"> mm / day </td>
+   <td style="text-align:left;"> bio12 </td>
+   <td style="text-align:left;"> Annual precipitation </td>
+   <td style="text-align:left;"> Millimeters (mm) </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> AHM </td>
-   <td style="text-align:left;"> Annual heat moisture index </td>
-   <td style="text-align:left;"> °C / mm </td>
+   <td style="text-align:left;"> bio15 </td>
+   <td style="text-align:left;"> Precipitation seasonality (coefficient of variation) </td>
+   <td style="text-align:left;"> index </td>
   </tr>
   <tr>
    <td style="text-align:left;"> SHM </td>
@@ -3050,7 +3046,7 @@ font-size: 10px
 <details>
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># We save one table per covariate</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">c</span>(clim_var<span class="sc">$</span>variables)){</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">c</span>(clim_var)){</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  clim_past <span class="sc">%&gt;%</span> </span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">all_of</span>(i)) <span class="sc">%&gt;%</span> </span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>() <span class="sc">%&gt;%</span> </span>
@@ -3096,7 +3092,7 @@ font-size: 10px
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Upload the estimated Omega matrix</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>omega<span class="ot">=</span><span class="fu">as.matrix</span>(<span class="fu">read.table</span>(<span class="st">&quot;data/BayPassAnalysis/outputs/anacore_mat_omega.out&quot;</span>))</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>pop.names <span class="ot">&lt;-</span> <span class="fu">colnames</span>(dfsum1) <span class="sc">%&gt;%</span> <span class="fu">str_sub</span>(<span class="dv">1</span>,<span class="sc">-</span><span class="dv">2</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>pop_names <span class="ot">&lt;-</span> clim_past<span class="sc">$</span>pop</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">dimnames</span>(omega)<span class="ot">=</span><span class="fu">list</span>(pop.names,pop.names)</span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualization of the matrix</span></span>
@@ -3143,7 +3139,7 @@ font-size: 10px
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Working directory before running the loop: data/BayPassAnalysis/outputs</span></span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> var <span class="kw">in</span> AHM bio1 bio3 bio9 Eref SHM</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> var <span class="kw">in</span> bio1 bio3 bio4 bio12 bio15 SHM</span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span></span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ISruns_<span class="va">${var}</span></span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> seed <span class="kw">in</span> <span class="dt">{</span><span class="dv">1</span><span class="dt">..</span><span class="dv">5</span><span class="dt">}</span></span>
@@ -3157,51 +3153,6 @@ font-size: 10px
 <span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ..</span>
 <span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<p>Bash code without the loops:</p>
-<div class="cell">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ** Bash script **</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># =================</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Working directory: data/BayPassAnalysis/outputs/ISruns_bio3</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="ex">~/Bureau/baypass_2.2/sources/g_baypass</span> <span class="dt">\</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">-gfile</span> ../../GenomicInputBayPass.txt <span class="dt">\</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">-efile</span> ../../EnvironmentalVariables/bio3.txt<span class="dt">\</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-omegafile</span> ../anacore_mat_omega.out <span class="dt">\</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">-outprefix</span> anacovis1 <span class="dt">\</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">-seed</span> 1</span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="ex">~/Bureau/baypass_2.2/sources/g_baypass</span> <span class="dt">\</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">-gfile</span> ../../GenomicInputBayPass.txt <span class="dt">\</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">-efile</span> ../../EnvironmentalVariables/bio3.txt<span class="dt">\</span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">-omegafile</span> ../anacore_mat_omega.out <span class="dt">\</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">-outprefix</span> anacovis2 <span class="dt">\</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">-seed</span> 2</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="ex">~/Bureau/baypass_2.2/sources/g_baypass</span> <span class="dt">\</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">-gfile</span> ../../GenomicInputBayPass.txt <span class="dt">\</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">-efile</span> ../../EnvironmentalVariables/bio3.txt<span class="dt">\</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">-omegafile</span> ../anacore_mat_omega.out <span class="dt">\</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">-outprefix</span> anacovis3 <span class="dt">\</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">-seed</span> 3</span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="ex">~/Bureau/baypass_2.2/sources/g_baypass</span> <span class="dt">\</span></span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">-gfile</span> ../../GenomicInputBayPass.txt <span class="dt">\</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">-efile</span> ../../EnvironmentalVariables/bio3.txt<span class="dt">\</span></span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">-omegafile</span> ../anacore_mat_omega.out <span class="dt">\</span></span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">-outprefix</span> anacovis4 <span class="dt">\</span></span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">-seed</span> 4</span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="ex">~/Bureau/baypass_2.2/sources/g_baypass</span> <span class="dt">\</span></span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">-gfile</span> ../../GenomicInputBayPass.txt <span class="dt">\</span></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">-efile</span> ../../EnvironmentalVariables/bio3.txt<span class="dt">\</span></span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">-omegafile</span> ../anacore_mat_omega.out <span class="dt">\</span></span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">-outprefix</span> anacovis5 <span class="dt">\</span></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">-seed</span> 5</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 
