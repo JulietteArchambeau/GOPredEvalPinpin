@@ -33,6 +33,7 @@ table {
 </style>
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
 options(width = 300)
 library(knitr)      # CRAN v1.26
@@ -45,10 +46,11 @@ library(magrittr)
 library(hierfstat)
 library(cowplot)
 library(gdm)
-
+library(adespatial) # to calculate the Moran eigen vectors
 library(sp)
 library(raster)
 library(terra)
+library(colorRamps)
 
 library(sf)
 library(rgdal)
@@ -149,7 +151,7 @@ We standardize the $F_{ST}$ values in the following way:
 
 $$x_{new} = \frac{x- x_{min}}{x_{max}-x_{min}} $$
 
-This was proposed here: https://www.statisticshowto.com/probability-and-statistics/normal-distributions/normalized-data-normalization/
+This was proposed here: <https://www.statisticshowto.com/probability-and-statistics/normal-distributions/normalized-data-normalization/>
 
 
 ```{r ScalingFSTmatrixStandardization}
@@ -212,6 +214,11 @@ x <- x %>%
 saveRDS(fst_matrices,file=here("data/GDManalysis/ScaledFstMatrices.rds"))
 ```
 
+```{r}
+fst_matrices <- readRDS(here("data/GDManalysis/ScaledFstMatrices.rds"))
+```
+
+
 ## Climatic data
 
 We do not have to scale the climatic data before the GDM analysis, as **scaling of predictors is part of model fitting in GDM**, as said in @mokany2022working: 'As different predictors are measured on different scales (e.g., temperature in degrees, precipitation in mm), they are transformed as part of model fitting, such that the transformed distance between a pair of sites for different predictors can be meaningfully compared and combined.'
@@ -219,28 +226,23 @@ We do not have to scale the climatic data before the GDM analysis, as **scaling 
 ```{r LoadClimaticData}
 # Selected climatic variables
 # ===========================
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
-
-# Past and future climatic data with dbMEMs
-# =========================================
-clim_past <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-                        show_col_types = FALSE) %>%
-  dplyr::select(pop,clim_var$variables) # we keep only the climatic variables of interest
-
-clim_fut <- read_csv(here("data/DryadRepo/PopulationCoordinatesFutureClimateInformation.csv"),
-                       show_col_types = FALSE) %>% 
-  dplyr::select(pop,clim_var$variables)
-```
-
-Selected climatic variables:
-
-```{r MetaDataClimaticVariables}
-extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+extract_climatedt_metadata(var_clim = clim_var) %>% 
   dplyr::select(label,description,unit) %>% 
   set_colnames(str_to_title(colnames(.))) %>% 
   kable_mydf(font_size = 12)
+
+# Loading point estimate climatic data
+adj <- "noADJ"  # not adjusted for elevation
+ref_period <- "ref_1901_1950" # reference period 1901-1950
+
+clim_past <- readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))[[ref_period]]$ref_means %>%
+  dplyr::select(pop,longitude,latitude,any_of(clim_var))
+
+# Loading future climatic data extracted from the rasters for each GCM
+list_clim_fut <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationValuesExtractedFromRasters_FiveGCMs_2041-2070_SSP370.rds")) %>% 
+  lapply(function(clim_fut){clim_fut %>% dplyr::select(pop,gcm,any_of(clim_var))})
 ```
 
 
@@ -257,19 +259,18 @@ Therefore, we reproject the *geographic* (spheroid) CRS of the population coordi
   # reproject with terra package in CRS EPSG:3035
   # extract population coordinates from the SpatVector with terra package
 
-pop_coord_proj <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-                        show_col_types = FALSE) %>%
+pop_coord_proj <- clim_past %>%
   dplyr::select(contains("ude")) %>% 
   sp::SpatialPoints(proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")) %>% 
   terra::vect() %>% 
   terra::project("EPSG:3035") %>% 
   terra::crds() %>% 
   as_tibble() %>% 
-  dplyr::rename(longitude=x, latitude=y)
+  dplyr::rename(long_EPSG_3035=x, lat_EPSG_3035=y)
 
 # merge the population coordinates with the climatic variables
-clim_past <- bind_cols(clim_past,pop_coord_proj)
-clim_fut <- bind_cols(clim_fut,pop_coord_proj)
+clim_past <- bind_cols(clim_past,pop_coord_proj) %>% dplyr::select(-contains("ude"))
+list_clim_fut <- lapply(list_clim_fut, function(clim_fut) bind_cols(clim_fut,pop_coord_proj) %>% dplyr::select(-contains("ude")))
 ```
 
 
@@ -277,7 +278,7 @@ clim_fut <- bind_cols(clim_fut,pop_coord_proj)
 
 > Combining genomic and climatic data with `formatsitepair`
 
-We use the `formatsitepair` function to combine the genomic and climatic data into 'population-pair' table format. In our case, we use a **pairwise biological dissimilarity matrix** (i.e. pairwise $F_{ST}$) as response variable, and therefore we have to set `bioFormat=3` in the `formatsitepair` function.
+We use the `formatsitepair` function to combine the genomic and climatic data into *population-pair* table format. In our case, we use a **pairwise biological dissimilarity matrix** (i.e. pairwise $F_{ST}$) as response variable, and therefore we have to set `bioFormat=3` in the `formatsitepair` function.
 
 
 <span style="color: orange;">**Warning!**</span> The rows and columns of the distance matrix have to be in the same order as the rows of the climatic variables. And the distance matrix and the climatic data must not include NAs. 
@@ -304,8 +305,8 @@ snp_sets <- lapply(snp_sets, function(x){
   
 x$gdm_tab <- gdm_tab <- formatsitepair(bioData=fst_matrices[[x$set_code]], 
                                        bioFormat=3,
-                                       XColumn="longitude", 
-                                       YColumn="latitude", 
+                                       XColumn="long_EPSG_3035", 
+                                       YColumn="lat_EPSG_3035", 
                                        predData=clim_past, 
                                        siteColumn="pop")  
 
@@ -381,7 +382,7 @@ I-splines are shown for predictors with non-zero coefficients, i.e. predictors w
 
 **I-spline interpretation:** (from the GDM website) 'The **maximum height of each spline** indicates the **magnitude of total genetic change** along that gradient and thereby corresponds to the **relative importance** of that predictor in contributing to allelic turnover while holding all other variables constant (i.e., is a partial climatic distance). The **spline’s shape** indicates how the **rate of genetic change** varies with position along that gradient. Thus, the splines provide insight into the total magnitude of genetic change as a function of each gradient and where along each gradient those changes are most pronounced.
 
-```{r MakePlotsIsplines, fig.width=8,fig.height=8, results="hide"}
+```{r MakePlotsIsplines, fig.width=12, fig.height=10, results="hide"}
 lapply(snp_sets, function(x){
   
 spline_data <- isplineExtract(x$gdm_mod)
@@ -395,7 +396,7 @@ if(predictor=="Geographic"){
   predictor_name <- "Geography (km)"
   spline_data$x[,predictor] <- spline_data$x[,predictor] / 1000
 }  else {
-predictor_name <- extract_climatedt_metadata(var_clim = clim_var$variables) %>% 
+predictor_name <- extract_climatedt_metadata(var_clim = clim_var) %>% 
   filter(label %in% predictor) %>% 
   mutate(predictor_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
   pull(predictor_legend)
@@ -454,22 +455,33 @@ For that, we create a dataset with:
 
 
 ```{r PredictGOForPopulations}
-pop_tab_pred <- clim_fut %>% 
+# dataframe with past climatic data
+pop_tab_pred_clim_past <- clim_past %>% 
   dplyr::select(-pop) %>% 
-  dplyr::rename(xCoord=longitude,yCoord=latitude) %>% 
+  dplyr::rename(xCoord=long_EPSG_3035,yCoord=lat_EPSG_3035) %>% 
+  set_colnames(paste0("s1.",colnames(.)))
+
+# list of dataframe with future climatic data for each GCM
+list_pop_tab_pred <- list_clim_fut %>% 
+  lapply(function(clim_fut){
+  
+clim_fut <-  clim_fut %>% 
+  dplyr::select(-pop,-gcm) %>% 
+  dplyr::rename(xCoord=long_EPSG_3035,yCoord=lat_EPSG_3035) %>% 
   set_colnames(paste0("s2.",colnames(.)))
 
-pop_tab_pred <- clim_past %>% 
-  dplyr::select(-pop) %>% 
-  dplyr::rename(xCoord=longitude,yCoord=latitude) %>% 
-  set_colnames(paste0("s1.",colnames(.))) %>% 
-  bind_cols(pop_tab_pred) %>% 
+bind_cols(pop_tab_pred_clim_past, clim_fut) %>% 
   mutate(distance=0,weights=0) %>% 
-  dplyr::select(distance,weights,contains("Coord"), everything())
+  dplyr::select(distance,weights,contains("Coord"), everything())})
   
-
+# calculate the genomic offset for each GCM and each snp set
 snp_sets <- lapply(snp_sets, function(x){
-x$go_pops <- predict(x$gdm_mod,pop_tab_pred)
+
+x$go <- lapply(list_pop_tab_pred, function(pop_tab_pred){
+  
+predict(x$gdm_mod,pop_tab_pred)
+
+})
 return(x)
 })
 ```
@@ -479,8 +491,12 @@ return(x)
 source(here("scripts/functions/make_eucli_plot.R"))
 
 # Calculate the Euclidean climatic distance
-Delta = clim_past %>% dplyr::select(-pop,-contains("ude")) - clim_fut %>% dplyr::select(-pop,-contains("ude")) 
-dist_env = sqrt( rowSums(Delta^2) ) 
+list_dist_env <- list_clim_fut %>% lapply(function(clim_fut){
+  
+Delta = clim_past %>% dplyr::select(-pop,-contains("EPSG")) - clim_fut %>% dplyr::select(-pop,-gcm,-contains("EPSG")) 
+dist_env = sqrt( rowSums(Delta^2) )
+
+})
 
 # Main gene pools (for the figures)
 gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% 
@@ -490,36 +506,161 @@ gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%
 ```{r MakeEucliPlots, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-lapply(snp_sets, function(x) make_eucli_plot(
-  X = dist_env,
-  Y = x$go_pops,
+
+lapply(snp_sets, function(x) {
+
+lapply(names(list_dist_env), function(gcm){
+  
+make_eucli_plot(
+  X = list_dist_env[[gcm]],
+  Y = x$go[[gcm]],
   colors = gps$color_main_gp_pop,
   color_names = gps$main_gp_pop,
   ylab = "GDM genomic offset",
   legend_position="topright",
-  plot_title = x$set_name))
+  plot_title = paste0(x$set_name," - ", gcm))
+
+})
+}) 
 ```
+
+
+
+```{r MakeGomaps, fig.width=12, fig.height=8, results="hide", warning=F}
+# Function to make the genomic offset maps
+source(here("scripts/functions/make_go_map.R"))
+
+# Population coordinates
+pop_coord <-  readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))[[ref_period]]$ref_means %>%
+  dplyr::select(pop,longitude,latitude)
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(x) {
+lapply(names(list_dist_env), function(gcm){
+x$go[[gcm]]
+}) %>%  unlist()
+}) %>%  unlist() %>% range()
+
+
+# Generate the maps for each set of SNPs and each GCM
+lapply(snp_sets, function(x) {
+
+go_maps <- lapply(names(list_clim_fut), function(gcm){
+  
+make_go_map(dfcoord=pop_coord,
+            snp_set = x,
+            gcm=gcm,
+            ggtitle=gcm,
+            go_limits = go_limits,
+            point_size = 3)
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    x$set_name,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(
+  title, go_maps,
+  ncol = 1,
+  rel_heights = c(0.1, 1))
+
+  })
+```
+
 
 ### Using rasters
 
 ```{r PredictGOpopWithRasters, eval=F}
 # Past rasters
-path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-Juliette/")
-tif_paths <- lapply(clim_var$variables, function(x) paste0(path,"/",x,".tif"))
+path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
+tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
 past_rasts <- raster::stack(tif_paths) %>% projectRaster(crs = "EPSG:3035")
 
 
-# Future rasters
-path <- here("data/ClimaticData/ClimateDTRasters/1km_GFDL-ESM4_2041-2070_ssp370_Extent-Juliette/")
-tif_paths <- lapply(clim_var$variables, function(x) paste0(path,"/",x,".tif"))
+list_pred_rasts <- lapply(snp_sets, function(x){ # for each snp set
+lapply(names(list_clim_fut), function(gcm){ # for each GCM
+  
+# Future rasters  
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-JulietteA/"))
+tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
 fut_rasts <- raster::stack(tif_paths)
 fut_rasts <- projectRaster(fut_rasts, crs = "EPSG:3035")
+  
+
+predict(x$gdm_mod,
+        past_rasts, # raster with current climate at 2.5 minutes resolution
+        time=TRUE,
+        fut_rasts)  # Rasters with future climates at 2.5 minutes resolution
+
+}) %>% setNames(names(list_clim_fut))
+})
 
 
-pred_rast <- predict(x$gdm_mod,
-                     past_rasts, # raster with current climate at 2.5 minutes resolution
-                     time=TRUE,
-                     fut_rasts)  # Rasters with future climates at 2.5 minutes resolution
+list_pred_rasts %>% saveRDS(here("outputs/GDM/go_pred_rasters.rds"))
 ```
+
+```{r LoadGOrasters}
+list_pred_rasts <- readRDS(here("outputs/GDM/go_pred_rasters.rds"))
+```
+
+
+```{r PlotGorasters, fig.width=12,fig.height=6, message=F, results="hide"}
+par(mfrow=c(1,2))
+
+names(snp_sets) %>% lapply(function(x){
+  
+lapply(names(list_clim_fut), function(gcm){
+
+raster::plot(list_pred_rasts[[x]][[gcm]], 
+             col=rgb.tables(1000),
+             axes=FALSE, box=FALSE,
+             main=paste0(snp_sets[[x]]$set_name," - ", gcm))
+})
+  
+})
+```
+
+
+### Corr btw predictions with rasters or spatial points 
+
+We check that the genomic offset predictions we obtained with the spatial points are highly correlated (also similar) to those obtained with the rasters. 
+
+```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters}
+# checking correlations
+names(snp_sets) %>% lapply(function(x){
+  
+cor_go <- lapply(names(list_clim_fut), function(gcm){
+  
+go_rast <- raster::extract(list_pred_rasts[[x]][[gcm]], clim_past[,c("long_EPSG_3035","lat_EPSG_3035")])
+
+cor(snp_sets[[x]]$go[[gcm]],go_rast) 
+  
+}) %>% unlist() 
+  
+tibble(gcm=names(list_clim_fut),
+            cor_go=cor_go)
+  
+}) %>% 
+  setNames(names(snp_sets)) %>% 
+  bind_rows(.id="snp_set") %>% 
+  kable_mydf()
+```
+
+This is ok!
 
 
