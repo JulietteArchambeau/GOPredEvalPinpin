@@ -4,6 +4,8 @@
 
 # Function to calculate the average of the climatic variables at the location of some spatial points (e.g. populations, NFI plots)
 
+library(magrittr)
+library(SPEI)
 
 # ===========================================================
 # Window function (needed for the calc_avg_clim_var function) 
@@ -36,7 +38,7 @@ window <- function(x)  {
 calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop"){
   
   # Selecting the years of interest
-  if(ref_period[[1]]==2041&ref_period[[2]]==2070){
+  if(ref_period[[1]]==2041){
     
     clim_df <- clim_df %>%
       dplyr::filter(year=="2041-2070") %>% # we remove future climatic data (which are not noted as a unique year)
@@ -48,7 +50,8 @@ calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop"){
     clim_df <- clim_df %>%
       dplyr::filter(!year %in% c("2041-2070","baseline")) %>% # we remove future climatic data (which are not noted as a unique year)
       dplyr::mutate(year=as.numeric(year)) %>% # year column as numeric so that we can remove years after a given date
-      dplyr::filter(ref_period[[1]]<=year& year<=ref_period[[2]]) %>%  # we keep the years of the period of interest
+      { if(length(ref_period)==1) dplyr::filter(.,year %in% ref_period[[1]]) else # we keep the years of the period of interest
+        dplyr::filter(.,ref_period[[1]]<=year& year<=ref_period[[2]]) } %>% 
       dplyr::select(-year) %>%
       dplyr::rename(id=all_of(id_spatial_points)) # rename the column with ID of the spatial points to 'id'
   }
@@ -148,3 +151,4 @@ calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop"){
   
   
 }
+

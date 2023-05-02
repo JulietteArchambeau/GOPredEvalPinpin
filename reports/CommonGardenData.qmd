@@ -45,7 +45,7 @@ source(here("scripts/functions/kable_mydf.R"))
 
 # Preparation file for ClimateDT
 
-```{r}
+```{r GeneratePreExtractionFile}
 coord <- read_csv(here("data/CommonGardenData/CommonGardenCoordinates.csv"), show_col_types = FALSE)
   
 # As we do not have elevation data for the CG, we use the ClimateDT elevation data 
@@ -77,41 +77,40 @@ Time period in each common garden:
 
 ```{r DefineCGmeasurementPeriods}
 cg_periods <- list(asturias = 2011:2012,
-     portugal = 2011:2012,
-     bordeaux = 2012:2018,
-     caceres = 2011,
-     madrid = 2011)
+                   portugal = 2011:2012,
+                   bordeaux = 2012:2018,
+                   caceres = 2011,
+                   madrid = 2011)
 ```
 
 ```{r SetSelectedClimaticVariables}
 # Set of climatic variables
 # =========================
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 ```
 
 
-```{r CalculateMeanClimateForEachCG}
+```{r CalculateMeanClimateForEachCG, warning=F, message=F}
+# Function to calculate the average of the climatic variables at the location of the NFI plots
+source(here("scripts/functions/calc_avg_clim_var.R"))
+
 clim <- read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 
-  dplyr::rename(cg=ID,year=Year,SP=MSP) %>% 
-  dplyr::select(cg,year,all_of(clim_var$variables)) %>% 
-  #group_by(cg) %>% 
+  dplyr::rename(cg=ID,
+                longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                year=Year,
+                SP=MSP) %>% 
   group_split(cg) %>% 
   purrr::map(\(x){
     
 cg <- unique(x$cg)
 cg_period <- cg_periods[[cg]]     
     
-x %>% 
-  dplyr::filter(year %in% cg_period) %>% 
-  dplyr::select(-year) %>% 
-  summarise_if(is.numeric, mean, na.rm = TRUE) %>% 
-  mutate(cg=cg) %>% 
-  select(cg,everything())
+x %>% calc_avg_clim_var(ref_period = cg_period, id_spatial_points = "cg")
+
   }) %>% list_rbind() 
 
-
-clim %>% kable_mydf(boldfirstcolumn = T, font_size = 13)
 
 clim %>% saveRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
 ```
