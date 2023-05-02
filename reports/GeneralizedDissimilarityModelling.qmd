@@ -214,7 +214,7 @@ x <- x %>%
 saveRDS(fst_matrices,file=here("data/GDManalysis/ScaledFstMatrices.rds"))
 ```
 
-```{r}
+```{r LoadScaledFstMatrices}
 fst_matrices <- readRDS(here("data/GDManalysis/ScaledFstMatrices.rds"))
 ```
 
@@ -663,4 +663,128 @@ tibble(gcm=names(list_clim_fut),
 
 This is ok!
 
+# Validation NFI plots
+
+> Climatic data and coordinates
+
+```{r ClimaticDataNFIplots}
+# Load the climatic data of the NFI plots.
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds")) 
+
+# Reproject the plotcode coordinates in the projection system `EPSG:3035`.
+plotcoord_EPSG_3035 <- nfi_clim[[1]] %>%
+  dplyr::select(contains("ude")) %>% 
+  sp::SpatialPoints(proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")) %>% 
+  terra::vect() %>% 
+  terra::project("EPSG:3035") %>% 
+  terra::crds() %>% 
+  as_tibble() %>% 
+  dplyr::rename(xCoord=x, yCoord=y)
+
+# Keep only the climatic variables of interest and the plotcode coordinates
+nfi_clim <- nfi_clim %>% 
+  lapply(function(x){
+    
+x %>% bind_cols(plotcoord_EPSG_3035) %>% 
+      dplyr::select(contains("Coord"),any_of(clim_var))})
+
+# Format as GDM inputs
+nfi_clim[[1]] <- nfi_clim[[1]] %>% set_colnames(paste0("s1.",colnames(.)))
+nfi_clim[[2]] <- nfi_clim[[2]] %>% set_colnames(paste0("s2.",colnames(.)))
+
+nfi_clim <- bind_cols(nfi_clim) %>% 
+  mutate(distance=0,weights=0) %>% 
+  dplyr::select(distance,weights,contains("Coord"), everything())
+```
+
+> Calculate the genomic offset for each snp set
+
+```{r CalcGenomiOffsetNFIplots}
+snp_sets <- lapply(snp_sets, function(x){
+
+x$go_nfi <- predict(x$gdm_mod,nfi_clim)
+
+return(x)
+})
+```
+
+> Map genomic offset predictions in the NFI plots 
+
+```{r MakeGOmapsNFIplots, fig.width=8,fig.height=8, results="hide"}
+source(here("scripts/functions/make_go_map.R"))
+
+lapply(snp_sets, function(x) make_go_map(
+  dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
+  snp_set = x,
+  type="NFI",
+  point_size = 0.5,
+  y_limits = c(35, 51)))
+```
+
+
+# Validation in the common gardens
+
+> Climatic data and coordinates
+
+
+```{r ClimaticDataCG}
+# format climatic data
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  
+  dplyr::select(any_of(clim_var)) %>% 
+  set_colnames(paste0("s2.",colnames(.))) %>%  
+  replicate(nrow(pop_tab_pred_clim_past),.,simplify=F) %>% 
+  bind_rows() %>% 
+  bind_cols(slice(pop_tab_pred_clim_past, rep(1:n(), each = 5))) %>% 
+  mutate(s2.xCoord=s1.xCoord, # same coordinates, so that only climatic differences are considered
+         s2.yCoord=s1.yCoord,
+         distance=0,
+         weights=0) %>% 
+  dplyr::select(distance, weights, s1.xCoord, s1.yCoord, s2.xCoord, s2.yCoord,contains("s1"), contains("s2"))
+```
+
+> Calculate the genomic offset for each snp set
+
+```{r CalcGenomiOffsetCG}
+go_df <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% 
+  dplyr::select(cg) %>% 
+  replicate(nrow(pop_tab_pred_clim_past),.,simplify=F) %>% 
+  bind_rows() %>% 
+  bind_cols(slice(clim_past[,"pop"],rep(1:n(), each = 5)))
+
+snp_sets <- lapply(snp_sets, function(x){
+
+x$go_cg <- go_df %>% 
+  mutate(go=predict(x$gdm_mod,cg_clim)) %>% 
+  pivot_wider(names_from = cg, values_from = go)
+
+return(x)
+})
+```
+
+> Map genomic offset predictions at the locations of the populations
+
+```{r MakeGOmapsCGplots, fig.width=15, fig.height=6, results="hide"}
+cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
+cg_names <- unique(cg_coord$cg)
+
+go_maps_cg <- lapply(cg_names, function(cg_name){
+  
+p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
+                                              snp_set = x,
+                                              point_size = 3,
+                                              type="CG",
+                                              cg_name=cg_name,
+                                              cg_coord=cg_coord))
+
+plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
+  
+}) %>% setNames(cg_names)
+
+pdf(here("figs/GDM/GOmaps_CGs.pdf"), width=15,height=6)
+lapply(go_maps_cg, function(x) x)
+dev.off()
+
+# show maps
+lapply(go_maps_cg, function(x) x)
+```
 
