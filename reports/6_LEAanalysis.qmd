@@ -152,8 +152,8 @@ clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
 # Past and future climatic data
 # =============================
-source(here("scripts/functions/generate_clim_datasets.R"))
-clim_dfs <- generate_clim_datasets(clim_var)
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_dfs <- generate_scaled_clim_datasets(clim_var)
 ```
 
 We attribute climatic values to each genotype, i.e. genotypes from the same populations will have the same climatic values.
@@ -164,9 +164,9 @@ genotypes <- geno %>%
   dplyr::select(clon) %>% 
   as_tibble()
 
-clim_past <- genotypes %>% 
+clim_ref <- genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
-  left_join(clim_dfs$clim_past, by="pop") %>% 
+  left_join(clim_dfs$clim_ref, by="pop") %>% 
   dplyr::select(-pop,-clon)
 ```
 
@@ -211,7 +211,7 @@ As there are 6 gene pools in maritime pine (all represented in our population sa
 
 ```{r RunLFMMmodel}
 mod_lfmm2 <- lfmm2(input = geno,
-                   env = clim_past, 
+                   env = clim_ref, 
                    K = 5)
 ```
 
@@ -242,14 +242,14 @@ par(mfrow=c(1,2))
 
 # Histogram of non-calibrated p-values
 # ------------------------------------
-lfmm2.test(object = mod_lfmm2, input = geno, env = clim_past, full = TRUE, genomic.control = FALSE)$pvalues %>% 
+lfmm2.test(object = mod_lfmm2, input = geno, env = clim_ref, full = TRUE, genomic.control = FALSE)$pvalues %>% 
 hist(col = "orange", 
      main="Histogram of non-calibrated p-values",
      xlab="p-values")
 
 # Histogram of calibrated p-values
 # --------------------------------
-lfmm2.test(object = mod_lfmm2, input = geno, env = clim_past, full = TRUE, genomic.control = TRUE)$pvalues %>% 
+lfmm2.test(object = mod_lfmm2, input = geno, env = clim_ref, full = TRUE, genomic.control = TRUE)$pvalues %>% 
 hist(col = "orange", 
      main="Histogram of calibrated p-values",
      xlab="p-values")
@@ -260,7 +260,7 @@ In the following analyses, we use the default `genomic.control=TRUE` and `full=T
 ```{r ComputingPValues}
 test_lfmm2 <- lfmm2.test(object = mod_lfmm2,
                        input = geno,
-                       env = clim_past, 
+                       env = clim_ref, 
                        full = TRUE,
                        genomic.control = TRUE)
 
@@ -345,16 +345,16 @@ We load the predicted values of the climatic variables for the years 2041-2070 t
 
 ```{r LoadFutureClimate}
 # Attribute climatic values for each genotype
-list_g_gap <- lapply(clim_dfs[[2]], function(clim_fut){
+list_g_gap <- lapply(clim_dfs[[2]], function(clim_pred){
 
 
 df <- genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
-  left_join(clim_fut, by="pop") %>% 
+  left_join(clim_pred, by="pop") %>% 
   dplyr::select(-pop,-clon,-gcm)
   
-list(gcm = unique(clim_fut$gcm),
-     clim_fut = df)
+list(gcm = unique(clim_pred$gcm),
+     clim_pred = df)
   
 })
 ```
@@ -368,8 +368,8 @@ We run the `genetic.gap` function.
 list_g_gap <- lapply(list_g_gap, function(x){
 
 x$g_gap_allsnps <- genetic.gap(input = geno,
-                               env = clim_past,
-                               pred.env = x$clim_fut,
+                               env = clim_ref,
+                               pred.env = x$clim_pred,
                                K = 5)
 
 return(x)
@@ -407,7 +407,7 @@ with $N$ the number of selected climatic variables, $X_{past,i}$ the mean value 
 # Calculate the Euclidean climatic distance
 list_g_gap <- lapply(list_g_gap, function(x){
   
-Delta = clim_past - x$clim_fut  
+Delta = clim_ref - x$clim_pred  
 
 x$dist_env = sqrt( rowSums(Delta^2) )
 
@@ -505,8 +505,8 @@ list_g_gap <- lapply(list_g_gap, function(y){
 y$g_gap_snpsets <- lapply(list_snpsets, function(x) {
   
 x$g_gap <- genetic.gap(input = geno,
-                       env = clim_past,
-                       pred.env = y$clim_fut,
+                       env = clim_ref,
+                       pred.env = y$clim_pred,
                        candidate.loci = x$snp_numbers,
                        K = 5)
 return(x)
@@ -581,12 +581,12 @@ geno_withmaf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_w
 
 # We run LFMM 
 mod_withmaf <- lfmm2(input = geno_withmaf,
-                     env = as.matrix(clim_past),
+                     env = as.matrix(clim_ref),
                      K = 5,
                      effect.sizes = T) # to return the matrix B (the matrix of effect sizes)
 
 # Matrix multiplication of matrix X and the transpose of matrix B
-geno_corrected <- as.matrix(clim_past) %*% t(mod_withmaf@B) %>% 
+geno_corrected <- as.matrix(clim_ref) %*% t(mod_withmaf@B) %>% 
   set_rownames(rownames(geno_withmaf)) %>% 
   as.data.frame() %>% 
   rownames_to_column(var="clon")
