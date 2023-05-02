@@ -1,0 +1,382 @@
+---
+title: "Validation with mortality rates in NFI"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(parallel)
+library(geodist)
+library(janitor)
+library(magrittr)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+
+
+# Introduction
+
+
+In this report, we aim to estimate the association between the genomic offset predictions and a proxy of the absolute fitness in natural populations, i.e. mortality rates. A positive association between the genomic offset predictions and the mortality rates would suggest that the genomic offset approach captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
+
+For that, we use mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French data relies on temporary plots sampled between 2005 and 2014 while the Spanish data relies on permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
+
+In order to account for the different census intervals between inventories, we modeled the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot i, as follows:
+
+<!-- Write the final model equation here -->
+
+\begin{align*}
+m_{i} &\sim \text{Binomial}(N_{i},p_{i})\\
+\text{log}(-\text{log}(1-p_{i})) &=   \beta_{0,c} +  \beta_{C,c}C_{i} + \beta_{GO,c}GO_{i} + \text{log}(\Delta_{i}) \\
+\end{align*}
+
+with $N_{i}$ the total number of maritime pines in the plot $i$, $m_{i}$ the number of maritime pines that died during the census interval $\Delta_{i}$ in the plot $i$, $C_{i}$ the basal area of all tree species confounded in the plot $i$ (to account for the competition between trees) and $GO_{i}$ the estimated genomic offset in the plot $i$. As the French and Spanish inventories present noticeable methodological differences that may bias the estimations, we estimated country-specific coefficients: the country-specific intercepts $\beta_{0,c}$ and the country-specific slopes $\beta_{C,c}$ and $\beta_{GO,c}$.
+
+The building, evaluation of the model convergence and fit was done in the report `XXXX.qmd`.
+
+<!-- This model will be performed for the genomic offset estimated with both the GDM and GF methods, for each set of SNPs (four sets) and each scenario of future climate (two scenarios), therefore leading to 16 models runs. -->
+
+
+# National Forest Inventory data
+
+## Downloading
+
+This dataset was harmonized in @changenet2021occurrence.
+
+```{r LoadDataNFI}
+nfi_data <- readRDS(here::here("data/NFIdata/NFIrawdata_Changenet2021.rds")) %>% 
+  droplevels() %>% 
+  as_tibble() %>% 
+  dplyr::select(plotcode,
+                longitude,
+                latitude,
+                country,
+                yearsbetweensurveys, # number of years between surveys
+                surveydate1, # date first survey Spanish NFI
+                surveydate, # year of the second survey in the Spanish NFI and the unique survey in the French NFI
+                treeNbrJ.M, # number of dead trees in the plot
+                treeNbrJ.IMall, # total number of trees in the plot
+                BA.ha.plot.1 # basal area of all tree species in the plot
+                ) %>% 
+  dplyr::rename(nb_years = yearsbetweensurveys,
+                nb_dead = treeNbrJ.M,
+                nb_tot = treeNbrJ.IMall,
+                basal_area = BA.ha.plot.1,
+                first_survey = surveydate1,
+                second_survey = surveydate) %>% 
+  dplyr::mutate(first_survey = case_when(!is.na(first_survey) ~ str_sub(first_survey,1,4) %>% as.numeric()), # keep only the year of the 1st survey
+                prop_dead = nb_dead/nb_tot,  # proportion of dead trees
+                annual_prop_dead = (nb_dead/nb_tot)/nb_years) # annual proportion of dead trees
+```
+
+Variables in the dataset
+
+  - Plot code: `plotcode`
+  - Longitude and latitude of the plot: `longitude` and `latitude`.
+  - Country in which the plot is: `country` (ES = Spain, FR = France).
+  - The number of years between surveys in the Spanish inventory (which is equal to 5 in the French inventory as mortality is estimated in the five years before the survey date): `nb_years`.
+  - The dates of the first and second survey in the Spanish inventory: `surveydate1` and `surveydate2`.
+  - The year of the second survey in the Spanish inventory and of the unique survey in the French inventory: `surveydate`.
+  - The number of dead trees in the plot: `nb_dead`.
+  - The total number of trees in the plot: `nb_tot`.
+  - The basal area of all tree species in the plot (proxy of the competition among trees): `basal_area`.
+
+
+`r nrow(nfi_data)` plots in this dataset: `r nfi_data %>% dplyr::filter(country=='FR') %>% nrow()` from the French NFI and `r nfi_data %>% dplyr::filter(country=='ES') %>% nrow()` from the Spanish inventory.
+
+
+## Filtering
+ 
+How many NAs in each column? 
+
+```{r NumberNANFIrawdata}
+nfi_data %>% 
+  summarise(across(everything(), ~ sum(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "Variable", values_to = "Number of NAs") %>% 
+  kable_mydf(boldfirstcolumn = T)
+```
+
+We extract the plots with missing data for the proportion of dead trees and we look at the first eight plots.
+
+```{r PlotsWithNaForPropDeadTrees}
+df_na_prop_dead <- nfi_data %>% 
+  dplyr::filter(is.na(prop_dead))
+df_na_prop_dead[1:8,]  %>% kable_mydf(boldfirstcolumn = F)
+```
+
+No maritime pine was recorded in these eight plots (`nb_dead` = 0 and `nb_tot` = 0). We check that this is the case for the `r nrow(df_na_prop_dead)` plots by looking at the unique values in the columns `nb_dead` and `nb_tot` in the subset of plots with missing data for the proportion of dead trees (the `df_na_prop_dead` dataset).
+
+```{r UniqueValuesPlotsWithNaForPropDeadTrees}
+df_na_prop_dead %>% 
+  summarise(across(nb_dead:nb_tot, ~ unique(.))) %>% 
+  pivot_longer(everything(), names_to = "Variable", values_to = "Unique values") %>% 
+  kable_mydf(boldfirstcolumn = T)
+```
+
+We remove these `r nrow(df_na_prop_dead)` plots.
+
+```{r RemovePlotsWithNoMaritimePine}
+nfi_data <- nfi_data %>% 
+  dplyr::filter(!is.na(prop_dead))
+```
+
+
+We check that there are no more plots without maritime pine.
+
+```{r CheckingPlotsWithoutMaritimePine}
+nfi_data %>% dplyr::filter(nb_tot==0) %>% nrow()
+```
+
+Missing data for basal area:
+
+```{r CheckingMissingDataBasalArea}
+nfi_data %>% 
+  summarise('Number of NAs for basal area' = sum(is.na(basal_area))) %>% 
+  kable_mydf(boldfirstcolumn = F)
+```
+
+Since there are not many plots with missing basal area data, we delete them.
+
+```{r RemovingMissingDataBasalArea}
+nfi_data <- nfi_data %>% 
+  dplyr::filter(!is.na(basal_area))
+```
+
+After these filtering steps, there are `r nrow(nfi_data)` plots left.
+
+
+We save the file for model comparison.
+
+```{r ExportNFIdataForModelComparison}
+nfi_data %>% saveRDS(file=here("data/NFIdata/NFIdata_cleaned.rds"))
+```
+
+## Distance matrix
+
+To consider the spatial autocorrelation in our dataset, we have to account for the geographical distance across NFI plots. For that, we calculate the *geodesic distances* across plots with the R package `geodist`.
+
+```{r CalculateGeodesicDistances, eval=F}
+# matrix of geodesic distances:
+distmat <- nfi_data %>% 
+  dplyr::select(latitude,longitude) %>% 
+  geodist(measure="geodesic")
+
+distmat[1:10,1:10] %>% as.data.frame() %>% kable_mydf()
+
+# we save the matrix of geodesic distances
+distmat %>% saveRDS(file=here("data/NFIdata/geodesic_distance_matrix.rds"))
+```
+
+
+
+
+# Climatic data
+
+## Generating file for ClimateDT
+
+```{r ExportNFIplotsCoordinatesForClimateDT, eval=F}
+# NFI plots coordinates
+# ---------------------
+nfi_climateDT <- nfi_data %>% 
+  dplyr::select(plotcode, longitude, latitude) %>% 
+  write_csv(here::here("data/nfi_coordinates.csv"))
+```
+
+We are going to extract the climatic data between 10 years before the first survey until the date of the second survey. For the French NFI, as there is only one survey, we will extract climatic data for the 15 years before the survey.
+
+
+```{r RangeExtractionYears}
+nfi_data %>%
+  group_by(country) %>%
+  mutate(min_year = case_when(country=="FR" ~ second_survey-15,
+                              country=="ES" ~ first_survey-10)) %>% 
+  summarise(min_year=min(min_year),
+            max_year=max(second_survey)) %>% 
+  kable_mydf()
+```
+
+So, we need annual climatic data at the location of the NFI plots for the period 1972-2014.
+
+### Calculate climate for each plot
+
+
+Once we have the annual climatic data at the location of the NFI plots, we generate two datasets:
+
+  - one with the past climate data of the NFI plots, across the period 1901-1950.
+  
+  - one with the climatic data across a period specific to each plot, corresponding to:
+  
+    - The period from **5 years before the first inventory date** to the **second inventory date** for the Spanish NFI.
+      
+    - The period from **10 years before the inventory date** and the **inventory date** for the French NFI. A tree is considered dead in the French NFI if its death is estimated as less than 5 years before the inventory date. 
+        
+We included the **5 years preceding the estimated date of tree death**, as the climate of the previous years may have **lag effects** on tree death.
+
+
+We load the annual climatic data, which corresponds to point estimate at the location of the NFI plots:
+
+```{r LoadClimaticData}
+clim <- read_csv(here("data/ClimaticData/NFIplots/ClimateDT_cmip6_GFDL-ESM4_NFIcoordinates_ADJ.csv"), show_col_types = FALSE) %>% 
+  dplyr::rename(plotcode=ID,
+                longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                year=Year)
+```
+
+We calculate the average climatic conditions across the period 1901-1950:
+
+```{r CalcClimRef, warning=F, message=F}
+# Function to calculate the average of the climatic variables at the location of the NFI plots
+source(here("scripts/functions/calc_avg_clim_var.R"))
+
+clim_ref <- clim %>% calc_avg_clim_var(ref_period = c(1901,1950), id_spatial_points = "plotcode")
+```
+
+
+```{r ComparingWithCoordinatesClimateDT, eval=F}
+
+# !!Coding warning!! 
+######################
+
+# The coordinates from ClimateDT are not exactly the same as the original ones. 
+# Therefore, merging the climatic data with the original data has to be done with the `plotcode` column 
+# and not the latitude and longitude of the populations.
+
+# Comparing original coordinates with the ones from ClimateDT
+comp_coord <- clim_ref %>% 
+  dplyr::select(plotcode,latitude,longitude) %>% 
+  dplyr::rename(latitude_climDT=latitude, longitude_climDT=longitude)
+comp_coord <- nfi_data %>% 
+  dplyr::select(plotcode,latitude,longitude) %>% 
+  inner_join(comp_coord, by="plotcode") %>% 
+  mutate(diff_latitude=latitude_climDT - latitude,
+         diff_longitude=longitude_climDT - longitude) %>% 
+  dplyr::filter(diff_latitude != 0 | diff_longitude != 0)
+
+# There are very very small differences
+range(comp_coord$diff_latitude)
+range(comp_coord$diff_longitude)
+```
+
+```{r TimePeriodsForRasterExtraction, eval=F}
+
+# checking time periods for Maurizio
+# ==================================
+
+time_periods <- clim_survey %>% 
+  dplyr::select(min_year_clim,second_survey) %>% 
+  group_by(min_year_clim,second_survey) %>% 
+  summarise(count=n()) 
+
+time_periods %>% 
+  print(n=nrow(.)) %>% 
+  kable_mydf()
+
+time_periods %>% filter(count <10)
+
+time_periods %>% 
+  write_csv(here("data/ClimaticData/NFIplots/NFIplots_TimePeriods.csv"))
+```
+
+We then calculate the average climatic conditions across the survey periods specific to each NFI plot:
+
+```{r CalculateMeanClimateDuringSurveyPeriod}
+# We calculate the mean climatic values between:
+  # - five years before the first inventory date
+  # - the second inventory date
+clim_survey <- nfi_data %>% 
+  mutate(min_year_clim = case_when(country=="FR" ~ second_survey-10,
+                                   country=="ES" ~ first_survey-5))
+
+# we calculate the average climatic conditions for each specific period
+clim_survey <- clim_survey %>% 
+  group_by(min_year_clim,second_survey) %>% 
+  group_split() %>% 
+  purrr::map(\(x){
+  
+min_year <- unique(x$min_year_clim)
+max_year <- unique(x$second_survey)
+
+clim %>% 
+  right_join(x[,"plotcode"],by=c("plotcode")) %>%
+  calc_avg_clim_var(ref_period = c(min_year,max_year), id_spatial_points = "plotcode")
+  
+}) %>% list_rbind() 
+
+
+# we save in a list the average climatic conditions across the two periods (reference period and period of the NFI surveys)
+list(clim_ref = clim_ref,
+     clim_survey = clim_survey) %>% 
+  saveRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+```
+
+
+
+## Exploring
+
+### Inventory dates
+
+```{r InventoryDates, results="hide", message=F, warning=F}
+country_names <- c(`ES` = "SPAIN",`FR` = "FRANCE")
+
+ggplot(nfi_data, aes(x=second_survey, fill=as.factor(country))) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  theme_bw()  +
+  facet_wrap(~as.factor(country), labeller = as_labeller(country_names)) + 
+  labs(y="Count of plots",x="Inventory date") +
+  theme(legend.position = "none")
+
+ggplot(nfi_data, aes(x=first_survey)) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  theme_bw()
+
+nfi_data %>% 
+  ggplot(aes(x=nb_years, fill=country)) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  labs(y="Count of plots",x="Number of years between surveys") +
+  theme_bw()
+```
+
+### Variable distributions and correlations
+
+
+
