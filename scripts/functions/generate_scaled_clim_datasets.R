@@ -1,4 +1,6 @@
-
+##########################################
+# function generate_scaled_clim_datasets 
+##########################################
 
 # Function to scale the climatic datasets to be used for the genomic offset predictions
 
@@ -62,7 +64,7 @@ return(x)
 
 })} else{ # If those climatic data are not a list (eg climatic data of the NFI plots for the survey periods specific to each plot)
  
-clim_pred <- clim_pred %>% dplyr::select(plotcode,any_of(clim_var)) 
+clim_pred <- clim_pred %>% dplyr::select(any_of(c(colnames(clim_pred)[1],clim_var))) 
 
 for(i in clim_var){
   clim_pred[,i] <- (clim_pred[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd
@@ -75,3 +77,5 @@ clim_df <- list(clim_ref = clim_ref,
                 clim_pred = clim_pred)
   
 }
+
+
