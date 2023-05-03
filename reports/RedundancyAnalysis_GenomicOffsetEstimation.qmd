@@ -45,6 +45,8 @@ library(magrittr)
 library(rnaturalearthdata)
 library(rnaturalearth)
 library(sf)
+library(here)
+library(raster)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -79,16 +81,15 @@ snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 ```{r}
 # Set of climatic variables
 # =========================
-clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
-  `[[`(3) # We keep the set 3 of climatic variables (the third list element)
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
 
 # Climatic data
 # =============
-
-source(here("scripts/functions/generate_clim_datasets.R"))
-
-clim_dfs <- generate_clim_datasets(clim_var)
+# we scale the past and future climatic data at the location of the populations
+# with the parameters (mean and variance) of the past climatic data.
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_dfs <- generate_scaled_clim_datasets(clim_var,clim_ref_adj = FALSE)
 ```
 
 
@@ -108,7 +109,7 @@ runRDA <- function(snp_set, clim_var, clim_df, geno){
 geno <- geno[,snp_set]
   
 # RDA formula  
-form_rda <- paste("geno ~ ", paste(clim_var$variables,collapse= " + "))
+form_rda <- paste("geno ~ ", paste(clim_var,collapse= " + "))
   
 # run RDA with only the selected SNPs
 rda_outliers <- rda(as.formula(form_rda), clim_df)
@@ -121,7 +122,7 @@ snp_sets <- lapply(snp_sets, function(x) {
   
 x$rda_model <- runRDA(snp_set = x$set_snps,
                       clim_var = clim_var,
-                      clim_df = clim_dfs$clim_past,
+                      clim_df = clim_dfs$clim_ref,
                       geno = geno)
 return(x)
 
@@ -161,7 +162,7 @@ ggplot() +
 ```
 
 
-```{r MakeRDAbiplots, fig.width=14, fig.height=6}
+```{r MakeRDAbiplots, fig.width=10, fig.height=5}
 rda_biplots <- lapply(snp_sets, make_RDAbiplot)
 
 grid_RDAbiplots <- plot_grid(rda_biplots[[1]],rda_biplots[[2]],rda_biplots[[3]], 
@@ -179,18 +180,83 @@ $$\sum_{i=1}^{n}a_ib_i$$
 where $a$ is the climatic variable score (loading) along the RDA axis, $b$ is the standardized value for this particular variable at the focal pixel, and $i$ refers to one of the $n$ different variables used in the RDA model.
 
 
-# Genomic offset
+```{r ProjectingAdaptiveIndex}
+source(here("scripts/functions/project_adaptive_index.R"))
+
+ai_proj <- lapply(snp_sets, function(snp_set){
+  
+project_adaptive_index(clim_var=clim_var,K=2,snp_set=snp_set)
+  
+})
+```
+
+The **adaptive index** thus provides an estimate of **adaptive genetic similarity** or difference of all pixels on the landscape as a function of the values of the climatic predictors at that location. 
+
+We project the adaptive index on maps to visualize the different adaptive gradients across the maritime pine range. 
+
+```{r MappingAdaptiveIndex, fig.width=12, fig.height=8, results="hide",warning=F}
+# countries borders for the map
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+ai_maps <- lapply(snp_sets, function(snp_set){
+  
+RDA_proj <- ai_proj[[snp_set$set_code]]
+
+RDA_proj <- lapply(RDA_proj, function(x) rasterToPoints(x))
+
+# The adaptive index is scaled between 0 and 1
+for(i in 1:length(RDA_proj)){
+  RDA_proj[[i]][,3] <- (RDA_proj[[i]][,3]-min(RDA_proj[[i]][,3]))/(max(RDA_proj[[i]][,3])-min(RDA_proj[[i]][,3]))
+}
+
+# formatting the dataframes for ggplot
+TAB_RDA <- as.data.frame(do.call(rbind, RDA_proj[1:2]))
+colnames(TAB_RDA)[3] <- "value"
+TAB_RDA$variable <- factor(c(rep("RDA1", nrow(RDA_proj[[1]])), rep("RDA2", nrow(RDA_proj[[2]]))), levels = c("RDA1","RDA2"))
+
+# map options
+point_size=2
+x_limits = c(-10, 15)
+y_limits = c(31, 52)
+ggtitle <- snp_set$set_name
 
 
-## Estimation
+ggplot(data = TAB_RDA) + 
+  geom_sf(data = world, fill="gray98") + 
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) + 
+  geom_raster(aes(x = x, y = y, fill = cut(value, breaks=seq(0, 1, length.out=10), include.lowest = T))) + 
+  scale_fill_viridis_d(alpha = 0.8, direction = -1, option = "A", labels = c("Negative scores","","","","Intermediate scores","","","","Positive scores")) +
+  xlab("Longitude") + ylab("Latitude") +
+  guides(fill=guide_legend(title="Adaptive index")) +
+  facet_grid(~ variable) +
+  ggtitle(ggtitle) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), plot.background = element_blank(), panel.background = element_blank(), strip.text = element_text(size=11))
+})
 
-Below, the past and future climatic data are scaled with the parameters (mean and variance) of the past climatic data.
+pdf(here("figs/RDA/AdaptiveIndex_maps.pdf"), width=10,height=6)
+lapply(ai_maps, function(x) x)
+dev.off()
+
+# show maps
+lapply(ai_maps, function(x) x)
+```
+
+
+# Genomic offset predictions
+
+
+## Using spatial points
+
+> Predicting the genomic offset of the studied populations under future climates.
+
 
 ```{r FunctionCalculateGOSpatialPoints}
-# Function to calculate the RDA genetic offset
-# ============================================
+# Function to calculate the RDA genetic offset for spatial points
+# ===============================================================
 
-# clim_fit = climatic data used to fit the RDA model (the climate-of-origin of the populations)
+# clim_ref = climatic data used to fit the RDA model (the climate-of-origin of the populations)
 
 # clim_pred = climatic data used for predictions (so either the future climate of the populations, 
             # or climate of the common gardens or the NFI plots)
@@ -205,8 +271,9 @@ Below, the past and future climatic data are scaled with the parameters (mean an
 
 pred_GO_spatial_points <- function(snp_set, 
                                    K, 
-                                   clim_fit, 
+                                   clim_ref, 
                                    clim_pred, 
+                                   clim_var,
                                    weights = NULL, 
                                    CG=F){
   
@@ -214,14 +281,16 @@ pred_GO_spatial_points <- function(snp_set,
 weights <- (snp_set$rda_model$CCA$eig/sum(snp_set$rda_model$CCA$eig))[1:K]
 
 
-list_AI <- lapply(list(clim_fit,clim_pred), function(df){
+list_AI <- lapply(list(clim_ref,clim_pred), function(df){
   
   lapply(1:K, function(i){
   
 # Below we calculate the adaptive index for the axis i
 # For that, we multiply the value of the variables at the location of the population
     # by the loadings of the variables along the axis i
-ai <- apply(df[,-1], 1, function(x) sum(x * snp_set$rda_model$CCA$biplot[,i]))
+ai <- df %>%
+  dplyr::select(any_of(clim_var)) %>% 
+  apply(1, function(x) sum(x * snp_set$rda_model$CCA$biplot[,i]))
 
 if(!is.null(weights)){ai <- ai * weights[i]}
     
@@ -240,7 +309,7 @@ eucloffset <- unlist(lapply(1:nrow(list_AI[[1]]), function(x) dist(rbind(list_AI
 eucloffset <- lapply(1:nrow(list_AI[[2]]), function(x) as.matrix(dist(rbind(list_AI[[2]][x,],list_AI[[1]]), method = "euclidean"))[2:(nrow(list_AI[[1]])+1),1]) %>% 
   setNames(clim_pred[,1] %>% pull()) %>% 
   as.data.frame() %>% 
-  cbind(clim_fit[,1])
+  cbind(clim_ref[,1])
   
   
   }
@@ -249,125 +318,121 @@ return(eucloffset)
 }
 ```
 
-```{r PredictGO}
-snp_sets <- lapply(snp_sets, function(x) {
+```{r PredictGOpops}
+snp_sets <- lapply(snp_sets, function(x){
   
-x$go <- pred_GO_spatial_points(snp_set = x,
-                               K = 2, # why K=2??
-                               clim_fit = clim_dfs$clim_past,
-                               clim_pred = clim_dfs$clim_fut,
-                               weights = T)
+x$go <- lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+pred_GO_spatial_points(snp_set = x,
+                       clim_var=clim_var,
+                       K = 2, # why K=2??
+                       clim_ref = clim_dfs$clim_ref,
+                       clim_pred = clim_dfs$clim_pred[[gcm]],
+                       weights = T)
+
+}) %>% setNames(names(clim_dfs$clim_pred))
+
 return(x)
 })
 ```
 
-## Relationship with Euclidean distance
+### Relationship with Euclidean distance
 
-```{r FunctionEuclideanDistancePlots}
+```{r MakeEuclideanDistancePlots}
 source(here("scripts/functions/make_eucli_plot.R"))
-```
 
-```{r CalculateEucliDistance}
-# Euclidean distance
-Delta = clim_dfs$clim_past[,-1] - clim_dfs$clim_fut[,-1]
-dist_env = sqrt( rowSums(Delta^2) ) 
-```
+# Calculate the Euclidean climatic distance
+list_dist_env <- clim_dfs$clim_pred %>% lapply(function(clim_pred){
+  
+Delta = clim_dfs$clim_ref %>% dplyr::select(any_of(clim_var)) - clim_pred %>% dplyr::select(any_of(clim_var)) 
+dist_env = sqrt( rowSums(Delta^2) )
 
-```{r LoadInfoMainGenePoolPerPop}
+})
+
 # Main gene pools (for the figures)
-gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>% 
-  arrange(pop)
+gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrange(pop)
 ```
 
 ```{r MakeEucliPlots, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-lapply(snp_sets, function(x) make_eucli_plot(
-  X = dist_env,
-  Y = x$go,
-  colors = gps$color_main_gp_pop,
-  color_names = gps$main_gp_pop,
-  ylab = "RDA genomic offset",
-  plot_title = x$set_name))
-```
 
+lapply(snp_sets, function(x) {
 
-Same plots as above but with the x and y axes cut off to help visualization.
-
-```{r PlotSetSNPsEucliDistanceAxisLimits, fig.width=12, results="hide"}
-par(mfrow=c(1,2))
-
-lapply(snp_sets, function(x) make_eucli_plot(
-  X = dist_env,
-  Y = x$go,
-  colors = gps$color_main_gp_pop,
-  color_names = gps$main_gp_pop,
-  ylab = "RDA genomic offset",
-  plot_title = x$set_name,
-  xlim=c(0,22),ylim=c(0,15)))
-```
-
-## Maps
-
-```{r FunctionToMakeGomaps}
-make_go_map <- function(dfcoord, 
-                        snp_set, 
-                        point_size=2, 
-                        x_limits = c(-10, 12),
-                        y_limits = c(33, 50),
-                        CG=F,
-                        cg_name=NULL,
-                        cg_coord=NULL){
-
-  if(CG==FALSE){
-  point_go <- dfcoord %>% mutate(GO=snp_set$go)  
-  plot_title <- snp_set$set_name
-  } else if(CG==TRUE){
-  point_go <- dfcoord %>% 
-    left_join(snp_set$go[,c("pop",cg_name)], by="pop") %>% 
-    dplyr::rename(GO=all_of(cg_name))
-  plot_title <- paste0(str_to_title(cg_name), " - ",snp_set$set_name)
-  }
+lapply(names(list_dist_env), function(gcm){
   
-p <-  ggplot() + 
-  geom_sf(data = world, fill="gray98") + 
-  theme_bw() +
-  scale_x_continuous(limits = x_limits) +
-  scale_y_continuous(limits = y_limits) + 
-  geom_point(data=point_go, aes(x=longitude,y=latitude,color=GO), size=point_size) + 
-  xlab("") + ylab("") +
-  ggtitle(plot_title) +
-  scale_color_gradientn(name = "GO", colours = rev(rainbow(5)))
+make_eucli_plot(
+  X = list_dist_env[[gcm]],
+  Y = x$go[[gcm]],
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
+  ylab = "GDM genomic offset",
+  legend_position="topleft",
+  plot_title = paste0(x$set_name," - ", gcm))
 
-if(CG==T){
-p <- p + geom_point(data=cg_coord[cg_coord$site==cg_name,],
-               aes(x=longitude,y=latitude), 
-               size=5, color="black", shape=8)}
+})
+}) 
+```
 
-return(p)
-}
+### Maps
+
+```{r MakeGomaps, fig.width=12, fig.height=8, results="hide", warning=F}
+# Function to make the genomic offset maps
+source(here("scripts/functions/make_go_map.R"))
+
+# Population coordinates
+pop_coord <-  readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")))[[1]]$ref_means %>% dplyr::select(pop,longitude,latitude)
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(x) {
+lapply(names(list_dist_env), function(gcm){
+x$go[[gcm]]
+}) %>%  unlist()
+}) %>%  unlist() %>% range()
+
+
+# Generate the maps for each set of SNPs and each GCM
+lapply(snp_sets, function(x) {
+
+go_maps <- lapply(names(list_dist_env), function(gcm){
+  
+make_go_map(dfcoord=pop_coord,
+            snp_set = x,
+            gcm=gcm,
+            ggtitle=gcm,
+            go_limits = go_limits,
+            point_size = 3)
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    x$set_name,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(
+  title, go_maps,
+  ncol = 1,
+  rel_heights = c(0.1, 1))
+
+  })
 ```
 
 
-I show only one map here because they are almost the same.
-
-```{r GOmaps, fig.width=8,fig.height=8, results="hide"}
-world <- ne_countries(scale = "medium", returnclass = "sf")
-
-pop_coord <- read_csv(here("data/DryadRepo/PopulationCoordinatesPastClimateInformation.csv"),
-                        show_col_types = FALSE) %>%
-  dplyr::select(pop,longitude,latitude)
-
-
-go_maps <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
-                                                    snp_set = x,
-                                                    point_size = 3))
-go_maps[[1]]
-```
-
-
-
-```{r OtherMaps, eval=F}
+```{r OtherMaps, eval=F, echo=F}
 # another way to make maps with ggplot2
 library(maps)
 
@@ -389,76 +454,189 @@ ggplot() +
         legend.background = element_rect(linewidth=0.3, color = "gray90"))
 ```
 
-# NFI
+## Using rasters
 
-I show only one set of SNPs because the maps for the three sets of SNPs are very similar.
+
+```{r FunctionCalculateGORasters}
+
+# Function to calculate the RDA genetic offset using rasters
+# ==========================================================
+
+# Arguments
+# =========
+# snp_set = list with at least the RDA models 
+# clim_var = selected climatic variables
+# K = number of RDA axes used to calculate the genomic offset
+# gcm = Global Climate Model of the raster with future climatic data
+# clim_ref_adj: TRUE or FALSE, specify whether the point estimate climatic data used to scale the rasters should be adjusted or not for elevation
+# ref_period: the reference period used to calculate the adaptive index, can be 1901-1950 or 1960-1991
+# method = `loadings` or `predict` 
+
+
+
+pred_GO_spatial_points <- function(snp_set, 
+                                   clim_var,
+                                   K, 
+                                   gcm,
+                                   range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp')),
+                                   method = "loadings",
+                                   clim_ref_adj = FALSE,
+                                   ref_period = "ref_1901_1950"){
+  
+# Load point estimate climatic data of the reference period
+if(clim_ref_adj==TRUE){adj <- "ADJ"} else {adj <- "noADJ"}  
+clim_ref_pe <- readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))[[ref_period]]
+  
+# Extract scaling parameters, i.e. mean and variance  
+scale_params <- lapply(clim_var, function(x){
+    
+    vec_var <- clim_ref_pe$ref_means[,x] %>% pull()
+    
+    list(mean = mean(vec_var), sd = sd(vec_var))
+    
+}) %>% setNames(clim_var)
+  
+  
+# Rasters with climatic data for the reference period
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",clim_ref_pe$range[[1]],"-",clim_ref_pe$range[[2]],"_Extent-JulietteA/"))
+tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
+ref_rasts <- raster::stack(tif_paths)
+  
+# Raster with future climatic data
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-JulietteA/"))
+tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
+fut_rasts <- raster::stack(tif_paths)
+
+# checking that the CRS is the same for the buffer and the rasters
+if(identical(crs(range_buffer),crs(ref_rasts))==FALSE){
+  stop(paste0("CRS of the range buffer is not the same as the CRS of the reference period raster."))} 
+if(identical(crs(range_buffer),crs(fut_rasts))==FALSE){
+  stop(paste0("CRS of the range buffer is not the same as the CRS of future climate rasters."))} 
+
+# Mask with the range if supplied
+if(!is.null(range_buffer)){
+  ref_rasts <- mask(ref_rasts, range_buffer)
+  fut_rasts <- mask(fut_rasts, range_buffer)}
+
+
+# extract coordinates and climatic values, and mean-center the climatic data
+ref_vals <- as.data.frame(rasterToPoints(ref_rasts))
+for(i in clim_var){ref_vals[,i] <- (ref_vals[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+fut_vals <- as.data.frame(rasterToPoints(fut_rasts))
+for(i in clim_var){fut_vals[,i] <- (fut_vals[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+
+
+# Predict genomic offset for each pixel based on the loadings of the climatic variables
+if(method == "loadings"){
+  
+    ref_proj <- list()
+    fut_proj <- list()
+    go_proj <- list()
+  
+    # Projection for each RDA axis
+    for(i in 1:K){
+      
+      # Calculate adaptive index for the reference period
+      ref_rast <- ref_rasts[[1]]
+      ref_rast[!is.na(ref_rast)] <- as.vector(apply(ref_vals[,clim_var], 1, function(x) sum( x * snp_set$rda_model$CCA$biplot[,i])))
+      names(ref_rast) <- paste0("RDA_ref_", as.character(i))
+      ref_proj[[i]] <- ref_rast
+      names(ref_proj)[i] <- paste0("RDA", as.character(i))
+      
+      # Calculate adaptive index under future climates
+      fut_rast <- fut_rasts[[1]]
+      fut_rast[!is.na(fut_rast)] <- as.vector(apply(fut_vals[,clim_var], 1, function(x) sum( x * snp_set$rda_model$CCA$biplot[,i])))
+      names(fut_rast) <- paste0("RDA_fut_", as.character(i))
+      fut_proj[[i]] <- fut_rast
+      names(fut_proj)[i] <- paste0("RDA", as.character(i))
+      
+      # Calculate genetic offset based on a single RDA axis
+      go_proj[[i]] <- abs(ref_proj[[i]] - fut_proj[[i]])
+      names(go_proj)[i] <- paste0("RDA", as.character(i))
+    }
+  }
+
+### STOP HERE
+
+}
+```
+
+```{r}
+gcms <- names(clim_dfs$clim_pred)
+```
+
+
+# Validation - NFI plots
 
 ```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
+# Load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
   
-nfi_dfs <- generate_clim_datasets(clim_var, clim_past = nfi_clim$clim_past, clim_fut = nfi_clim$clim_survey)
+# Keep only the climatic variables of interest and scale the climatic data
+nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
 
-
-snp_sets_nfi <- lapply(snp_sets, function(x) {
+# calculate the genomic offset for the NFI plots
+snp_sets <- lapply(snp_sets, function(x){
   
-x$go <- pred_GO_spatial_points(snp_set = x,
-                               K = 2, # why K=2??
-                               clim_fit = nfi_dfs$clim_past,
-                               clim_pred = nfi_dfs$clim_fut,
-                               weights = T)
+x$go_nfi <- pred_GO_spatial_points(snp_set = x,
+                                   K = 2, # why K=2??
+                                   clim_var=clim_var,
+                                   clim_ref = nfi_dfs$clim_ref,
+                                   clim_pred = nfi_dfs$clim_pred,
+                                   weights = T)
 return(x)
 })
 
 # checking missing data
-# lapply(snp_sets_nfi, function(x) sum(is.na(x$go)))
+# lapply(snp_sets, function(x) sum(is.na(x$go_nfi)))
 
-go_maps_nfi <- lapply(snp_sets_nfi, function(x) make_go_map(dfcoord=nfi_clim$plot_coord, 
-                                                            snp_set = x,
-                                                            point_size = 0.5,
-                                                            y_limits = c(35, 51)))
 
-go_maps_nfi[[1]]
+# map genomic offset predictions in the NFI plots 
+lapply(snp_sets, function(x) make_go_map(
+  dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
+  snp_set = x,
+  type="NFI",
+  point_size = 0.5,
+  y_limits = c(35, 51)))
 ```
 
 
-# Common gardens
+# Validation - Common gardens
 
+```{r MakeGOmapsCGplots, fig.width=15, fig.height=6, results="hide"}
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  dplyr::select(cg,any_of(clim_var))
+cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
+cg_names <- unique(cg_coord$cg)
 
-```{r CalcGOCGs}
-cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
-cg_coord <- read_csv(here("data/ClimaticData/CommonGardens/CommonGardensPreExtraction.csv"), 
-                     show_col_types = FALSE)
-cg_dfs <- generate_clim_datasets(clim_var, clim_fut = cg_clim)
+# Generate scaled climatic datasets with climatic data at the location of the populations and at the location of the common gardens
+cg_dfs <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)
   
-
-
-
-snp_sets_cg <- lapply(snp_sets, function(x) {
+# Predict genomic offset of each population when transplanted in the climate of the common gardens
+snp_sets <- lapply(snp_sets, function(x){
   
-x$go <- pred_GO_spatial_points(snp_set = x,
-                               K = 2, # why K=2??
-                               clim_fit = cg_dfs$clim_past,
-                               clim_pred = cg_dfs$clim_fut,
-                               weights = T,
-                               CG=T)
+x$go_cg <- pred_GO_spatial_points(snp_set = x,
+                                  K = 2, # why K=2??
+                                  clim_var = clim_var,
+                                  clim_ref = cg_dfs$clim_ref,
+                                  clim_pred = cg_dfs$clim_pred,
+                                  weights = T,
+                                  CG=T)
 return(x)
 })
-```
 
-```{r MakeGoMapsCG, fig.width=15, fig.height=6, results="hide"}
-go_maps_cg <- lapply(cg_dfs$clim_fut$cg, function(cg_name){
+# Map genomic offset predictions at the locations of the populations
+go_maps_cg <- lapply(cg_names, function(cg_name){
   
-p <- lapply(snp_sets_cg, function(x) make_go_map(dfcoord=pop_coord, 
-                                           snp_set = x,
-                                           point_size = 3,
-                                           CG=T,
-                                           cg_name=cg_name,
-                                           cg_coord=cg_coord))
+p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
+                                              snp_set = x,
+                                              point_size = 3,
+                                              type="CG",
+                                              cg_name=cg_name,
+                                              cg_coord=cg_coord))
 
 plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
   
-}) %>% setNames(cg_dfs$clim_fut$cg)
-
+}) %>% setNames(cg_names)
 
 pdf(here("figs/RDA/GOmaps_CGs.pdf"), width=15,height=6)
 lapply(go_maps_cg, function(x) x)
@@ -467,4 +645,3 @@ dev.off()
 # show maps
 lapply(go_maps_cg, function(x) x)
 ```
-
