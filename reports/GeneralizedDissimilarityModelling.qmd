@@ -663,7 +663,7 @@ tibble(gcm=names(list_clim_fut),
 
 This is ok!
 
-# Validation NFI plots
+# Validation - NFI plots
 
 > Climatic data and coordinates
 
@@ -722,7 +722,7 @@ lapply(snp_sets, function(x) make_go_map(
 ```
 
 
-# Validation in the common gardens
+# Validation - Common gardens
 
 > Climatic data and coordinates
 
