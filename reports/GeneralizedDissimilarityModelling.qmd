@@ -713,11 +713,19 @@ return(x)
 ```{r MakeGOmapsNFIplots, fig.width=8,fig.height=8, results="hide"}
 source(here("scripts/functions/make_go_map.R"))
 
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_nfi) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
 lapply(snp_sets, function(x) make_go_map(
   dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
   snp_set = x,
   type="NFI",
   point_size = 0.5,
+  go_limits = go_limits,
+  legend_position = c(0.85,0.15),
+  legend_box_background = "gray80",
   y_limits = c(35, 51)))
 ```
 
@@ -768,11 +776,16 @@ cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% d
 cg_names <- unique(cg_coord$cg)
 
 go_maps_cg <- lapply(cg_names, function(cg_name){
-  
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[,cg_name] %>% pull()) %>%  unlist() %>% range()
+go_limits[[1]] <- 0
+
 p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
                                               snp_set = x,
                                               point_size = 3,
                                               type="CG",
+                                              go_limits = go_limits,
                                               cg_name=cg_name,
                                               cg_coord=cg_coord))
 
