@@ -47,6 +47,7 @@ library(rnaturalearth)
 library(sf)
 library(here)
 library(raster)
+library(RColorBrewer)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -162,7 +163,7 @@ ggplot() +
 ```
 
 
-```{r MakeRDAbiplots, fig.width=10, fig.height=5}
+```{r MakeRDAbiplots, fig.width=12, fig.height=7}
 rda_biplots <- lapply(snp_sets, make_RDAbiplot)
 
 grid_RDAbiplots <- plot_grid(rda_biplots[[1]],rda_biplots[[2]],rda_biplots[[3]], 
@@ -253,6 +254,7 @@ lapply(ai_maps, function(x) x)
 
 
 ```{r FunctionCalculateGOSpatialPoints}
+
 # Function to calculate the RDA genetic offset for spatial points
 # ===============================================================
 
@@ -376,7 +378,7 @@ make_eucli_plot(
 
 ### Maps
 
-```{r MakeGomaps, fig.width=12, fig.height=8, results="hide", warning=F}
+```{r MakeGomaps, fig.width=12, fig.height=7, results="hide", warning=F}
 # Function to make the genomic offset maps
 source(here("scripts/functions/make_go_map.R"))
 
@@ -389,6 +391,8 @@ lapply(names(list_dist_env), function(gcm){
 x$go[[gcm]]
 }) %>%  unlist()
 }) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
 
 
 # Generate the maps for each set of SNPs and each GCM
@@ -468,13 +472,13 @@ ggplot() +
 # clim_var = selected climatic variables
 # K = number of RDA axes used to calculate the genomic offset
 # gcm = Global Climate Model of the raster with future climatic data
-# clim_ref_adj: TRUE or FALSE, specify whether the point estimate climatic data used to scale the rasters should be adjusted or not for elevation
-# ref_period: the reference period used to calculate the adaptive index, can be 1901-1950 or 1960-1991
+# clim_ref_adj = TRUE or FALSE, specify whether the point estimate climatic data used to scale the rasters should be adjusted or not for elevation
+# ref_period = the reference period used to calculate the adaptive index, can be 1901-1950 or 1960-1991
 # method = `loadings` or `predict` 
 
 
 
-pred_GO_spatial_points <- function(snp_set, 
+pred_GO_rasters <- function(snp_set, 
                                    clim_var,
                                    K, 
                                    gcm,
@@ -554,16 +558,195 @@ if(method == "loadings"){
       go_proj[[i]] <- abs(ref_proj[[i]] - fut_proj[[i]])
       names(go_proj)[i] <- paste0("RDA", as.character(i))
     }
+}
+
+
+  
+# Predict genomic offset for each pixel based on predict.RDA
+  if(method == "predict"){
+    
+    # Prediction with the RDA model under reference-period climates and future climates
+    ref_pred <- predict(snp_set$rda_model, ref_vals[,-c(1,2)], type = "lc")
+    fut_pred <- predict(snp_set$rda_model, fut_vals[,-c(1,2)], type = "lc")
+    
+    ref_proj <- list()
+    fut_proj <- list()
+    go_proj <- list()
+    
+    for(i in 1:K){
+      
+      # Calculate adaptive index for the reference period
+      ref_rast <- rasterFromXYZ(data.frame(ref_vals[,c(1,2)], Z = as.vector(ref_pred[,i])), crs = crs(ref_rasts))
+      names(ref_rast) <- paste0("RDA_ref_", as.character(i))
+      ref_proj[[i]] <- ref_rast
+      names(ref_proj)[i] <- paste0("RDA", as.character(i))
+      
+      # Calculate adaptive index under future climates
+      fut_rast <- rasterFromXYZ(data.frame(ref_vals[,c(1,2)], Z = as.vector(fut_pred[,i])), crs = crs(ref_rasts))
+      names(fut_rast) <- paste0("RDA_fut_", as.character(i))
+      fut_proj[[i]] <- fut_rast
+      names(fut_proj)[i] <- paste0("RDA", as.character(i))
+      
+      # Calculate genetic offset based on a single RDA axis
+      go_proj[[i]] <- abs(ref_proj[[i]] - fut_proj[[i]])
+      names(go_proj)[i] <- paste0("RDA", as.character(i))
+    }
   }
 
-### STOP HERE
-
+  # Weights based on axis eigen values
+  weights <- snp_set$rda_model$CCA$eig/sum(snp_set$rda_model$CCA$eig)
+  
+  # Weight the current and future adaptive indices based on the eigen values of the associated axes
+  ref_proj_weighted <- do.call(cbind, lapply(1:K, function(x) rasterToPoints(ref_proj[[x]])[,-c(1,2)]))
+  ref_proj_weighted <- as.data.frame(do.call(cbind, lapply(1:K, function(x) ref_proj_weighted[,x]*weights[x])))
+  fut_proj_weighted <- do.call(cbind, lapply(1:K, function(x) rasterToPoints(fut_proj[[x]])[,-c(1,2)]))
+  fut_proj_weighted <- as.data.frame(do.call(cbind, lapply(1:K, function(x) fut_proj_weighted[,x]*weights[x])))
+  
+  # Predict a global genetic offset, incorporating the K first axes weighted by their eigen values
+  go_global_proj <- go_proj[[1]]
+  go_global_proj[!is.na(go_global_proj)] <- unlist(lapply(1:nrow(ref_proj_weighted), function(x) dist(rbind(ref_proj_weighted[x,], fut_proj_weighted[x,]), method = "euclidean")))
+  names(go_global_proj) <- "global_offset"
+  
+  # Return projections for current and future climates for each RDA axis, prediction of genetic offset for each RDA axis and a global genetic offset 
+  return(list(ref_proj = ref_proj, fut_proj = fut_proj, go_proj = go_proj, go_global_proj = go_global_proj, weights = weights[1:K]))
 }
 ```
 
-```{r}
-gcms <- names(clim_dfs$clim_pred)
+```{r GenerateGORasters, eval=F}
+# For each snp set and each GCM, we generate a list of rasters with:
+  # the projection of AI for reference_period and future climates
+  # genomic offset predictions for each RDA axis 
+  # genomic offset predictions incorporating the K first axes weighted by their eigen values
+go_rasters <- snp_sets %>% lapply(function(snp_set){
+  lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+  pred_GO_rasters(snp_set,clim_var,K,gcm)}) %>% 
+    setNames(names(clim_dfs$clim_pred))
+  
+  })
+
+go_rasters %>% saveRDS(file=here("outputs/RDA/go_rasters.rds"))
 ```
+
+
+
+```{r VizGORasters, fig.width=14, fig.height=9.5, message=F, results="hide", warning=F}
+go_rasters <- readRDS(file=here("outputs/RDA/go_rasters.rds"))
+
+# Map options
+# ===========
+point_size=2
+x_limits = c(-10, 15)
+y_limits = c(31, 52)
+
+# get maximum and minimum genomic offset values across the different GO predictions (for each snp set and each GCM)
+# so that comparing the maps will be easier
+go_limits <- names(snp_sets) %>% lapply(function(x){
+  
+lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+rasterToPoints(go_rasters[[x]][[gcm]]$go_global_proj) %>% as_tibble() %>% pull(global_offset)
+
+}) %>% 
+    unlist()
+  
+}) %>% 
+  unlist() %>% 
+  range()
+
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+# Mapping
+# =======
+go_maps <- names(snp_sets) %>% lapply(function(x){
+  
+go_maps <- lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+# extract genomic offset values 
+go_dfs <- rasterToPoints(go_rasters[[x]][[gcm]]$go_global_proj) %>% as_tibble()
+
+
+ggplot(data = go_dfs) + 
+  geom_sf(data = world, fill="gray98") + 
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) + 
+  geom_raster(aes(x = x, y = y, fill = global_offset), alpha = 1) + 
+  scale_fill_gradient2(low="blue", mid= "yellow", high="red", 
+                       midpoint=(max(go_limits[[2]])-min(go_limits[[1]]))/2,
+                       limits=go_limits,
+                       name = "Genomic offset") +
+  xlab("Longitude") + ylab("Latitude") +
+  ggtitle(gcm) +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), 
+        plot.background = element_blank(), 
+        panel.background = element_blank(), 
+        #legend.position = c(0.85,0.15),
+        legend.box.background = element_rect(colour = "gray80"),
+        strip.text = element_text(size=11))
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    snp_sets[[x]]$set_name,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(title, go_maps, ncol = 1,rel_heights = c(0.1, 1))
+  
+})
+
+# export maps pdf
+pdf(here("figs/RDA/GOmaps.pdf"), width=14,height=9.5)
+lapply(go_maps, function(x) x)
+dev.off()
+
+# show maps
+lapply(go_maps, function(x) x)
+```
+
+
+### Corr btw predictions with rasters or spatial points 
+
+We check that the genomic offset predictions we obtained with the spatial points are highly correlated (ie similar) to those obtained with the rasters. 
+
+<span style="color: orange;">**Comment**</span> When we extract the genomic offset values from the rasters at the location of the populations, we have missing values for some populations. Indeed, some populations are not included in the buffer of the species range that I used, based on the EUFORGEN distribution and 10km around the NFI plots. <span style="color: orange;">**We may want to modify the buffer of the species range to include those populations!**</span>
+
+```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters}
+# checking correlations
+names(snp_sets) %>% lapply(function(x){
+  
+cor_go <- lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+go_rast <- raster::extract(go_rasters[[x]][[gcm]]$go_global_proj, pop_coord[,c("longitude","latitude")])
+
+cor(snp_sets[[x]]$go[[gcm]],go_rast,use= "complete.obs")
+  
+}) %>% unlist() 
+  
+tibble(gcm=names(clim_dfs$clim_pred),
+       cor_go=cor_go)
+  
+}) %>% 
+  setNames(names(snp_sets)) %>% 
+  bind_rows(.id="snp_set") %>% 
+  kable_mydf()
+```
+
+This is ok!
 
 
 # Validation - NFI plots
@@ -590,6 +773,11 @@ return(x)
 # checking missing data
 # lapply(snp_sets, function(x) sum(is.na(x$go_nfi)))
 
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_nfi) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
 
 # map genomic offset predictions in the NFI plots 
 lapply(snp_sets, function(x) make_go_map(
@@ -597,6 +785,9 @@ lapply(snp_sets, function(x) make_go_map(
   snp_set = x,
   type="NFI",
   point_size = 0.5,
+  go_limits = go_limits,
+  legend_position = c(0.85,0.15),
+  legend_box_background = "gray80",
   y_limits = c(35, 51)))
 ```
 
@@ -620,17 +811,22 @@ x$go_cg <- pred_GO_spatial_points(snp_set = x,
                                   clim_ref = cg_dfs$clim_ref,
                                   clim_pred = cg_dfs$clim_pred,
                                   weights = T,
-                                  CG=T)
+                                  CG=T) %>% as_tibble()
 return(x)
 })
 
 # Map genomic offset predictions at the locations of the populations
 go_maps_cg <- lapply(cg_names, function(cg_name){
-  
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[,cg_name] %>% pull()) %>%  unlist() %>% range()
+go_limits[[1]] <- 0
+
 p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
                                               snp_set = x,
                                               point_size = 3,
                                               type="CG",
+                                              go_limits = go_limits,
                                               cg_name=cg_name,
                                               cg_coord=cg_coord))
 
