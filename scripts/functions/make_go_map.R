@@ -18,6 +18,8 @@ make_go_map <- function(dfcoord,
                         point_size=2, 
                         x_limits = c(-10, 12),
                         y_limits = c(33, 50),
+                        legend_position = "right",
+                        legend_box_background = "white",# "gray80"
                         go_limits=NULL,
                         ggtitle=NULL,
                         type="pop", # either "NFI", "CG" or "pop"
@@ -48,7 +50,9 @@ make_go_map <- function(dfcoord,
     geom_point(data=point_go, aes(x=longitude,y=latitude,color=GO), size=point_size) + 
     xlab("") + ylab("") +
     ggtitle(ggtitle) +
-    scale_color_gradientn(name = "GO", colours = rev(rainbow(5)), limits=go_limits)
+    theme(legend.position = legend_position,
+          legend.box.background = element_rect(colour = legend_box_background))  +
+    scale_color_gradientn(name = "Genomic offset", colours = rev(rainbow(5)), limits=go_limits)
   
   if(type=="CG"){
     p <- p + geom_point(data=filter(cg_coord, cg == cg_name),
