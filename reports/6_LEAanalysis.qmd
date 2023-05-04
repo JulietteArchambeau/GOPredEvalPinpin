@@ -33,6 +33,7 @@ table {
 </style>
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
 options(width = 300)
 library(knitr)      # CRAN v1.26
@@ -44,6 +45,10 @@ library(kableExtra)
 library(here)
 library(magrittr)
 library(LEA)
+library(cowplot)
+library(rnaturalearth)
+library(raster)
+library(RColorBrewer)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -323,7 +328,7 @@ saveRDS(candidates, here("outputs/LFMM/candidates.rds"))
 
 <span style="color: red;">We obtain `r length(candidates)` candidate SNPs.</span>
 
-# Estimating the genetic gap
+# Genomic offset predictions
 
 This part is entirely based on the [LEA tutorial](https://github.com/bcm-uga/SSMPG2022/tree/master/Program%20tutorials/Tutorial%20LEA%203) provided during [SSMPG 2022](https://ssmpg.sciencesconf.org/).
 
@@ -339,44 +344,44 @@ Below, we will estimate the genetic gap for:
   
   - all SNPs (as advised by the developers of the `genetic.gap` function) 
 
-## Future climatic data
+## Loading future climatic data
 
 We load the predicted values of the climatic variables for the years 2041-2070 that have been scaled (i.e. mean-center) with the same scaling parameters as the one used to mean-center the annual climatic values across the period 1901-1950.
 
 ```{r LoadFutureClimate}
 # Attribute climatic values for each genotype
-list_g_gap <- lapply(clim_dfs[[2]], function(clim_pred){
+list_clim_pred <- lapply(clim_dfs[[2]], function(clim_pred){
 
-
-df <- genotypes %>% 
+genotypes %>% 
   mutate(pop = str_sub(clon,1,3)) %>% 
   left_join(clim_pred, by="pop") %>% 
   dplyr::select(-pop,-clon,-gcm)
-  
-list(gcm = unique(clim_pred$gcm),
-     clim_pred = df)
   
 })
 ```
 
 
-## Genetic gap estimation with all SNPs
+## GO predictions using all SNPs
 
 We run the `genetic.gap` function.
 
-```{r EstimateGeneticGap}
-list_g_gap <- lapply(list_g_gap, function(x){
+```{r EstimateGeneticGapAllSNPs}
+ggap_all_snps <- lapply(list_clim_pred, function(clim_pred){
 
-x$g_gap_allsnps <- genetic.gap(input = geno,
-                               env = clim_ref,
-                               pred.env = x$clim_pred,
-                               K = 5)
+ggap <- genetic.gap(input = geno,
+                    env = clim_ref,
+                    pred.env = clim_pred,
+                    K = 5)
 
-return(x)
-  
+# we keep one value per population
+ggap[[1]] <- unique(ggap[[1]])
+ggap[[2]] <- unique(ggap[[2]])
+
+names(ggap)[[1]] <- "go"
+
+return(ggap)
+
 })
-
-list_g_gap[[1]]$g_gap_allsnp
 ```
 
 The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` manual):
@@ -389,7 +394,7 @@ The outputs of the `genetic.gap` function are (copy-and-pasted from the `LEA` ma
   
   - `vectors`: eigenvectors of the covariance matrix of LFMM effect sizes representing combinations of environmental variables sorted by importance (eigenvalues).
 
-### Relationship with Euclidean climatic distance
+#### Relationship with Euclidean climatic distance
 
 In the supplementary information of @gain2023quantitative, the authors say that 'If (and only if) the eigenvalues of the covariance matrix are equal, the geometric GO is proportional to the squared Euclidean distance between environmental predictors.' Note that a variable $y$ *is proportional to* a variable $x$ if there is a non-zero constant $k$ such as $y = kx$. 
 
@@ -405,13 +410,12 @@ with $N$ the number of selected climatic variables, $X_{past,i}$ the mean value 
 
 ```{r CalculateEucliDistance}
 # Calculate the Euclidean climatic distance
-list_g_gap <- lapply(list_g_gap, function(x){
+list_dist_env <- lapply(list_clim_pred, function(clim_pred){
   
-Delta = clim_ref - x$clim_pred  
+Delta = clim_ref - clim_pred  
 
-x$dist_env = sqrt( rowSums(Delta^2) )
+dist_env = unique(sqrt(rowSums(Delta^2)))
 
-return(x)
 })
 ```
 
@@ -422,17 +426,18 @@ return(x)
 # In the graphs below, we want to color the populations according to the main gene pool they belong to
 
 # we load the main gene pool information for each clone
-gps <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))[[2]]
+gps <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))[[1]] %>% arrange(pop)
 ```
 
 Correlation between the squared Euclidean climatic distance and the genetic gap (`offset` in the outputs):
 
 ```{r CorrelationEuclideanDistanceGeneticGapAllSNPs}
-lapply(list_g_gap, function(y){
+lapply(names(ggap_all_snps), function(gcm){
 
-cor(unique(y$g_gap_allsnps$offset),unique(y$dist_env^2))
+cor(ggap_all_snps[[gcm]]$go,list_dist_env[[gcm]]^2)
     
 }) %>% 
+  setNames(names(ggap_all_snps)) %>%  
   bind_rows(.id="GCM") %>% 
   kable_mydf()
 ```
@@ -443,7 +448,7 @@ We can plot the `eigenvalues` with a barplot to evaluate the relative importance
 
 ```{r BarplotEigenValues}
 # the relative importance is the same for all genomic offset predictions at it is only influenced by past climates, and not future climates
-barplot(list_g_gap[[1]]$g_gap_allsnp$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues") 
+barplot(ggap_all_snps[[1]]$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues") 
 ```
 
 We see that only two dimensions of the climatic space influence the genetic gap. We can also see it with the loadings for the first two combinations of variables (`vectors` in the outputs of the `genetic.gap` function), which indicate the relative contribution of the variables to local adaptation. We see that the first two variables had increased importance compared to the last ones (the variables are sorted by importance in the `vectors` outputs, so we do not know which variables they are).
@@ -457,106 +462,347 @@ source(here("scripts/functions/make_eucli_plot.R"))
 
 
 ```{r PlotAllSNPsEucliDistance, fig.width=12, results="hide"}
- par(mfrow=c(1,2))
+par(mfrow=c(1,2))
 
 # plot the squared root of the genetic gap vs Euclidean environmental distance
-lapply(list_g_gap, function(x){
+lapply(names(ggap_all_snps), function(gcm){
 
-  make_eucli_plot(X = x$dist_env,
-          Y = sqrt(x$g_gap_allsnp$offset),
+  make_eucli_plot(X = list_dist_env[[gcm]],
+          Y = sqrt(ggap_all_snps[[gcm]]$go),
           colors = gps$color_main_gp_pop, 
           color_names = gps$main_gp_pop,
           ylab = "sqrt(genetic gap)",
-          plot_title = paste0("All SNPs - ",x$gcm))  
+          plot_title = paste0("All SNPs - ",gcm))  
 })
+```
+
+#### Maps
+
+```{r MakeGomaps, fig.width=12, fig.height=7, results="hide", warning=F}
+# Function to make the genomic offset maps
+source(here("scripts/functions/make_go_map.R"))
+
+# Population coordinates
+pop_coord <-  readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")))[[1]]$ref_means %>% dplyr::select(pop,longitude,latitude)
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(names(ggap_all_snps), function(gcm){
+  ggap_all_snps[[gcm]]$go
+}) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+list_go_all_snps <- list(go = lapply(names(ggap_all_snps), function(gcm){ggap_all_snps[[gcm]]$go}) %>% setNames(names(ggap_all_snps)))
+
+# Generate the maps for each set of SNPs and each GCM
+go_maps <- lapply(names(ggap_all_snps), function(gcm){
+  
+make_go_map(dfcoord=pop_coord,
+            snp_set = list_go_all_snps,
+            gcm=gcm,
+            ggtitle=gcm,
+            go_limits = go_limits,
+            point_size = 3)
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    "All SNPs",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(
+  title, go_maps,
+  ncol = 1,
+  rel_heights = c(0.1, 1))
 ```
 
 
 
 
-## Genetic gap estimation with sets of SNPs
+## GO predictions using sets of SNPs
 
-We estimate the genetic gap for two sets of SNPs:
 
-  - the `r length(candidates)` candidate SNPs
+We estimate the genetic gap for three sets of SNPs:
+
+  - two sets of candidates SNPs.
   
-  - `r length(candidates)` randomly selected SNPs, which were sampled from the list of SNP names that does not include the candidate SNP names. 
+  - One set of randomly selected SNPs.
   
-  
-```{r ListSnps}
-# we sample random SNPs (same number of random SNPs as the number of candidate SNPs)
-# and the random SNPs cannot be among the candidate SNPs (they are sampled from the list of SNP names after having removed the candidate SNP names)
-set.seed(44)
-rand_snps <- names(geno)[!names(geno) %in% candidates] %>% 
-  sample(length(candidates), replace=FALSE)
-  
-list_snpsets <- list(candidates = list(set_name = "Candidate SNPs",
-                                       snp_names = candidates,
-                                       snp_numbers =  which(names(geno) %in% candidates)),
-                     control = list(set_name = "Random SNPs",
-                                    snp_names = rand_snps,
-                                    snp_numbers = which(names(geno) %in% rand_snps)))
+
+```{r LoadSnpsSets}
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 ```
 
 
 ```{r RunGeneticGapSetsSNPs}
-list_g_gap <- lapply(list_g_gap, function(y){
+snp_sets <- lapply(snp_sets, function(snp_set){
   
-y$g_gap_snpsets <- lapply(list_snpsets, function(x) {
+snp_set$go <- lapply(list_clim_pred, function(clim_pred){
   
-x$g_gap <- genetic.gap(input = geno,
-                       env = clim_ref,
-                       pred.env = y$clim_pred,
-                       candidate.loci = x$snp_numbers,
-                       K = 5)
-return(x)
-})
+ggap <- genetic.gap(input = geno,
+                    env = clim_ref,
+                    pred.env = clim_pred,
+                    candidate.loci = which(names(geno) %in% snp_set$set_snps),
+                    K = 5)
 
-return(y)
+return(unique(ggap$offset))
+
+}) 
+return(snp_set)
 })
 ```
+
+### Relatioship with Euclidean distance
 
 ```{r PlotSetSNPsEucliDistance, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
-lapply(list_g_gap, function(y){
 
-lapply(y$g_gap_snpsets, function(x) make_eucli_plot(
-  X = y$dist_env,
-  Y = sqrt(x$g_gap$offset),
+lapply(snp_sets, function(snp_set) {
+
+lapply(names(list_clim_pred), function(gcm){
+  
+make_eucli_plot(
+  X = list_dist_env[[gcm]],
+  Y = sqrt(snp_set$go[[gcm]]),
   colors = gps$color_main_gp_pop,
   color_names = gps$main_gp_pop,
-  ylab = "sqrt(genetic gap)",
-  plot_title = paste0(x$set_name," - ",y$gcm)))
-  
+  ylab = "sqrt(genomic offset)",
+  legend_position="topleft",
+  plot_title = paste0(snp_set$set_name," - ", gcm))
+
 })
+}) 
 ```
 
+### Eigenvalues
 
 Let's look the the barplots of the eigenvalues.
 
-```{r BarplotsEigenValuesSetSNPs, fig.width=12, results="hide"}
-par(mfrow=c(1,2))
+**Comment:** The eigenvalues are properties of the model fit, and so only depends on the genomic data and the climate across the reference period. In other words, they do not vary across the different GCMs (ie different future climatic data). That's why we generate only three barplots, one for each set of SNPs.
 
-lapply(list_g_gap[[1]]$g_gap_snpset, function(x) 
-barplot(x$g_gap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues",main=x$set_name))
+```{r BarplotsEigenValuesSetSNPs, fig.width=14, results="hide"}
+par(mfrow=c(1,3))
+
+lapply(snp_sets, function(snp_set){
+  
+ggap <- genetic.gap(input = geno,
+                    env = clim_ref,
+                    pred.env = list_clim_pred[[1]], # can be any element of the list, it does not matter
+                    candidate.loci = which(names(geno) %in% snp_set$set_snps),
+                    K = 5)
+
+barplot(ggap$eigenvalues, col = "orange", xlab = "Axes", ylab = "Eigenvalues",main=snp_set$set_name)
+}) 
 ```
 
 
 Correlations between the squared Euclidean climatic distance and the genetic gap:
 
 ```{r CorrelationEuclideanDistanceGeneticGapSNPsets}
-lapply(list_g_gap, function(y){
-  lapply(y$g_gap_snpsets, function(x){
+lapply(snp_sets, function(snp_set) {
+
+lapply(names(list_clim_pred), function(gcm){
+  
+cor(sqrt(snp_set$go[[gcm]]),list_dist_env[[gcm]]^2)
     
-cor(unique(x$g_gap$offset),unique(y$dist_env^2))
-    
-  }) %>% bind_rows()
+  }) %>% 
+    setNames(names(list_clim_pred)) %>% 
+    bind_rows()
   
 }) %>% 
-  bind_rows(.id="GCM") %>% 
+  bind_rows(.id="SNP set") %>% 
   kable_mydf()
 ```
 
+### Maps
+
+```{r MakeGomapsSNPsets, fig.width=12, fig.height=7, results="hide", warning=F}
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(x) {
+lapply(names(list_clim_pred), function(gcm){
+x$go[[gcm]]
+}) %>%  unlist()
+}) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+
+# Generate the maps for each set of SNPs and each GCM
+lapply(snp_sets, function(x) {
+
+go_maps <- lapply(names(list_clim_pred), function(gcm){
+  
+make_go_map(dfcoord=pop_coord,
+            snp_set = x,
+            gcm=gcm,
+            ggtitle=gcm,
+            go_limits = go_limits,
+            point_size = 3)
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    x$set_name,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(
+  title, go_maps,
+  ncol = 1,
+  rel_heights = c(0.1, 1))
+
+  })
+```
+
+# Validation - NFI plots
+
+```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
+# Load the climatic data of the NFI plots.
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+
+# Keep only the climatic variables of interest and scale the climatic data
+nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+
+# Calculate the genomic offset for the NFI plots
+snp_sets <- lapply(snp_sets, function(snp_set){
+  
+ggap <- genetic.gap(input = geno,
+                    env = clim_ref,
+                    new.env = nfi_dfs$clim_ref[,-1],
+                    pred.env = nfi_dfs$clim_pred[,-1],
+                    candidate.loci = which(names(geno) %in% snp_set$set_snps),
+                    K = 5)
+
+snp_set$go_nfi <- ggap$offset
+
+return(snp_set)
+
+})
+
+# checking missing data
+# lapply(snp_sets, function(x) sum(is.na(x$go_nfi)))
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_nfi) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+
+# map genomic offset predictions in the NFI plots 
+lapply(snp_sets, function(x) make_go_map(
+  dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
+  snp_set = x,
+  type="NFI",
+  point_size = 0.5,
+  go_limits = go_limits,
+  legend_position = c(0.85,0.15),
+  legend_box_background = "gray80",
+  y_limits = c(35, 51)))
+```
+
+
+# Validation - Common gardens
+
+
+```{r  MakeGOmapsCGplots, fig.width=15, fig.height=6, results="hide"}
+# Common garden information
+# =========================
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  dplyr::select(cg,any_of(clim_var))
+cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
+cg_names <- unique(cg_coord$cg)
+
+
+# Climatic datasets for the predictions
+# =====================================
+
+# In these datasets, one row per prediction
+# We want GO predictions for each combination pop * CG, so 34 * 5 = 160 rows
+
+# climatic data of the populations
+# each row (ie each population climatic data) is repeated 5 times
+clim_pop <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[1]] %>% 
+  slice(rep(1:n(), each = nrow(cg_clim)))
+
+# Climatic data in the common gardens scaled with the mean and variance of the ref-period climatic data
+# each climatic dataset is repeated 34 times and then rows are combined
+clim_cg <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[2]] %>% 
+  replicate(nrow(pop_coord),.,simplify=F) %>% 
+  bind_rows()
+
+
+# Predict genomic offset of each population when transplanted in the climate of the common gardens
+snp_sets <- lapply(snp_sets, function(snp_set){
+
+ggap <- genetic.gap(input = geno,
+                    env = clim_ref,
+                    new.env = clim_pop[,-1],
+                    pred.env = clim_cg[,-1],
+                    candidate.loci = which(names(geno) %in% snp_set$set_snps),
+                    K = 5)
+
+snp_set$go_cg <- bind_cols(pop=clim_pop[,1],cg=clim_cg[,1]) %>% 
+  mutate(go=ggap$offset) %>% 
+  pivot_wider(names_from = cg, values_from = go)
+
+return(snp_set)
+})
+
+
+
+# Mapping
+# ========
+go_maps_cg <- lapply(cg_names, function(cg_name){
+  
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[,cg_name] %>% pull()) %>%  unlist() %>% range()
+go_limits[[1]] <- 0
+  
+p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
+                                              snp_set = x,
+                                              point_size = 3,
+                                              type="CG",
+                                              go_limits = go_limits,
+                                              cg_name=cg_name,
+                                              cg_coord=cg_coord))
+
+plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
+  
+}) %>% setNames(cg_names)
+
+pdf(here("figs/LEA/GOmaps_CGs.pdf"), width=15,height=6)
+lapply(go_maps_cg, function(x) x)
+dev.off()
+
+# show maps
+lapply(go_maps_cg, function(x) x)
+```
 
 # Corrected allele frequencies
 
