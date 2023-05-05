@@ -1,5 +1,6 @@
 ---
-title: "LFMM analysis"
+title: "LFMM analyses"
+subtitle: "Candidate SNP identification & Genomic offset predictions"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 number-sections: true
@@ -781,7 +782,7 @@ return(snp_set)
 go_maps_cg <- lapply(cg_names, function(cg_name){
   
 # Find minimum and maximum values of genomic offset for the maps
-go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[,cg_name] %>% pull()) %>%  unlist() %>% range()
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[[cg_name]]) %>%  unlist() %>% range()
 go_limits[[1]] <- 0
   
 p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
@@ -803,6 +804,15 @@ dev.off()
 # show maps
 lapply(go_maps_cg, function(x) x)
 ```
+
+
+Let's save the genomic offset predictions for comparison with the other methods.
+
+```{r SaveGOpredictions}
+snp_sets %>% saveRDS(file=here("outputs/LFMM/go_predictions.rds"))
+```
+
+
 
 # Corrected allele frequencies
 

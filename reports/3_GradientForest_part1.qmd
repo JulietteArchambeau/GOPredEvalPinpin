@@ -55,7 +55,7 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 # Introduction
 
 
-Most analyses conducted in the present report were conducted following @fitzpatrick2021experimental and @capblancq2023common, and the R code arebased on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
+Most analyses conducted in the present report were conducted following @fitzpatrick2021experimental and @capblancq2023common, and the R code are based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
 
 
 **Goal:** Identify candidate SNPs for local adaptation to climate using the **Gradient Forest (GF) algorithm**. 
@@ -332,7 +332,7 @@ For the corrected matrix, `r length(high_freqs$mat_X$snp)` have average populati
 
 ## Climatic data
 
-We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 3 in the report `2_RedundancyAnalysis_part1.Rmd`):
+We load the population-specific climatic information for the climatic variables of interest. 
 
 ```{r LoadClimaticData}
 # Selected climatic variables
@@ -346,8 +346,8 @@ extract_climatedt_metadata(var_clim = clim_var) %>%
 
 # Past and future climatic data
 # =============================
-source(here("scripts/functions/generate_clim_datasets.R"))
-clim_dfs <- generate_clim_datasets(clim_var)
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_ref <- generate_scaled_clim_datasets(clim_var)[[1]]
 ```
 
 
@@ -360,7 +360,7 @@ set.seed(55)
 gf_out <- lapply(list_geno, function(geno)
 
 identify_GFoutliers(genodata = geno,
-                    climdata = clim_dfs$clim_past,
+                    climdata = clim_ref,
                     clim_var = clim_var,
                     rm_rare_alleles = T, 
                     selected_snps = "all", 
