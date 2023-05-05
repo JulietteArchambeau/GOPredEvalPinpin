@@ -1,0 +1,109 @@
+---
+title: "Comparing genomic offset predictions"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=F}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
+knitr::opts_chunk$set(cache=F, size="tiny")
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)
+library(here)
+library(cowplot)
+library(magrittr)
+library(corrplot)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+We compare the genomic offset predictions from the four following methods:
+
+  - Generalized dissimilarity modelling (GDM). See report `to fill`.
+  
+  - Latent factor mixed model (LFMM) . See report `to fill`.
+  
+  - Gradient Forest (GF). See report `to fill`.
+  
+  - Redundancy analysis (RDA). See report `to fill`.
+  
+
+```{r BuildDataframeGOpredictions}
+# Method names
+meth_names <- c("GDM","LFMM","GF","RDA")
+
+# population names
+pop_names <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrange(pop) %>% pull(pop)
+
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+
+# Load GO predictions
+go_df <- lapply(meth_names, function(meth_name) {
+  
+readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds"))) %>% 
+  lapply(function(snp_set) {
+
+    as_tibble(snp_set$go) %>%
+      mutate(pop=pop_names) %>% 
+      pivot_longer(cols=-c(pop), names_to = "gcm", values_to = "go")
+    }) %>% 
+    bind_rows(.id="snp_set") %>% 
+    mutate(go_scaled = (go - mean(go))/sd(go))
+
+
+}) %>% 
+  setNames(meth_names) %>% 
+  bind_rows(.id="method")
+```
+
+
+```{r Corrplots, fig.height=5,fig.width=14, results="hide"}
+par(mfrow=c(1,3))
+
+
+lapply(unique(go_df$snp_set), function(x){
+  
+  lapply(unique(go_df$gcm), function(y){
+    
+go_df %>% 
+      dplyr::filter(snp_set == x & gcm == y) %>% 
+      pivot_wider(id_cols=pop, values_from = go, names_from = method) %>% 
+      dplyr::select(-pop) %>% 
+      cor() %>% 
+      corrplot(method = 'number',type = 'lower', diag = FALSE,
+               title=paste0(snp_sets[[x]]$set_name," - ",y),mar=c(0,0,2,0),
+               number.cex=2,tl.cex=1.5)
+  })
+})
+```
+
+
