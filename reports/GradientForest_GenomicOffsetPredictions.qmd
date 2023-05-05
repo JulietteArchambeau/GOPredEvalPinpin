@@ -1,0 +1,396 @@
+---
+title: "Gradient Forest - Genomic offset predictions"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=F}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
+knitr::opts_chunk$set(cache=F, size="tiny")
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(kableExtra) # CRAN v1.1.0
+library(tidyverse)
+library(gradientForest)
+library(here)
+library(cowplot)
+library(magrittr)
+library(rnaturalearthdata)
+library(rnaturalearth)
+library(sf)
+library(here)
+library(raster)
+library(RColorBrewer)
+library(pdist)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+
+
+
+# Introduction
+
+R code based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
+
+
+# Data
+
+> Genomic data
+
+```{r LoadData}
+# Population-based allele frequencies
+# ===================================
+geno <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"),
+                     row.names = 1)
+
+# SNP sets
+# ========
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+```
+
+> Climatic data
+
+```{r LoadClimaticData}
+# Set of climatic variables
+# =========================
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
+
+
+# Climatic data
+# =============
+# we scale the past and future climatic data at the location of the populations
+# with the parameters (mean and variance) of the past climatic data.
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_dfs <- generate_scaled_clim_datasets(clim_var,clim_ref_adj = FALSE)
+```
+
+# Running GF models
+
+```{r RunGF, message=F, results="hide"}
+snp_sets <- lapply(snp_sets, function(snp_set) {
+
+geno_sub <- geno %>% dplyr::select(all_of(snp_set$set_snps))
+
+snp_set$gf_mod <- gradientForest(data.frame(clim_dfs$clim_ref[,-1], geno_sub), 
+                                 predictor.vars=clim_var, 
+                                 response.vars=colnames(geno_sub), 
+                                 corr.threshold=0.5, 
+                                 ntree=500, 
+                                 trace=T)
+
+return(snp_set)
+
+})
+```
+
+
+We generate some plots to evaluate the GF models (stored in the files `GFplots_[SNP set code].pdf`):
+
+  - **Predictor overall importance plots**. They show the mean accuracy importance and the mean importance weighted by SNPs $\mathcal{R}^2$.
+  
+  - **Splits density plots**. They show the binned split importance and location on each gradient (spikes), kernel density of splits (blacklines), of observations (red lines) and of splits standardised by observations density (bluelines). Each distribution integrates to predictor importance. These show where important changes in the abundance of multiple alleles are occurring along the gradient; they indicate a composition change rate.
+
+  - **Species** (in our case alleles) **cumulative plots**. They show, for each SNPs, the cumulative importance distributions of splits improvement scaled by $\mathcal{R}^2$ weighted importance, and standardised by density of observations. These show cumulative change in the presence of individual allele, where changes occur on the gradient, and the alleles changing most on each gradient.
+
+  - **Predictor cumulative plots**. They show, for each predictor, the cumulative importance distributions of splits improvement scaled by $\mathcal{R}^2$ weighted importance, and standardised by density of observations, averaged over all SNPs. These show cumulative change in overall allelic composition, and where changes occur on the gradient.
+  
+  - **$\mathcal{R}^2$ measure of the fit** of the random forest model for each SNPs.
+  
+The code to generate those plots comes from 'Example analysis of biodiversity survey data with R package `gradientForest`' by C. Roland Pitcher, Nick Ellis and Stephen J. Smith ([pdf available here](https://gradientforest.r-forge.r-project.org/biodiversity-survey.pdf)).
+
+```{r GenerateGFplots, results="hide"}
+lapply(snp_sets, function(snp_set){
+
+pdf(here(paste0("figs/GF/GFplots_",snp_set$set_code,".pdf")), width=10,height=8)
+
+# Overall importance plot
+plot(snp_set$gf_mod, plot.type="Overall.Importance")
+
+# splits density plot
+plot(snp_set$gf_mod,plot.type="S",
+     imp.vars=names(importance(snp_set$gf_mod)),
+     leg.posn="topright",
+     cex.legend=0.6,cex.axis=0.6, 
+     cex.lab=0.7,line.ylab=0.9,par.args=list(mgp=c(1.5, 0.5,0),mar=c(3.1,1.5,0.1,1)))
+
+# species cumulative plot
+plot(snp_set$gf_mod,
+     plot.type="C",imp.vars=names(importance(snp_set$gf_mod)), 
+     show.overall=F,legend=T,leg.posn="topleft", 
+     leg.nspecies=14,cex.lab=0.7,cex.legend=0.6, 
+     cex.axis=0.6,line.ylab=0.9,
+     par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))
+
+# predictor cumulative plot
+plot(snp_set$gf_mod,
+     plot.type="C",
+     imp.vars=names(importance(snp_set$gf_mod)),
+     show.species=F,common.scale=T,cex.axis=0.6, 
+     cex.lab=0.7,line.ylab=0.9,
+     par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))
+
+# R2 measure of the fit of the random forest model for each species
+plot(snp_set$gf_mod,
+     plot.type="P",show.names=T,horizontal=F, 
+     cex.axis=1,cex.labels=0.7,line=2.5)
+
+dev.off()
+
+})
+```
+
+
+# GO predictions
+
+```{r PredictGOpops}
+snp_sets <- lapply(snp_sets, function(snp_set){
+  
+snp_set$go <- lapply(clim_dfs$clim_pred, function(clim_pred){
+
+ref_pred <- predict(snp_set$gf_mod) # predictions under current climates
+fut_pred <- predict(snp_set$gf_mod, as.data.frame(clim_pred[,clim_var])) # predictions under future climates
+
+
+lapply(1:nrow(ref_pred), function(x, ref_pred, fut_pred){
+    as.numeric(pdist(ref_pred[x,],  fut_pred[x,])@dist)}, fut_pred=fut_pred, ref_pred=ref_pred) %>% 
+  unlist()
+
+})
+return(snp_set)
+})
+```
+
+
+## Relationship with Euclidean distance
+
+```{r MakeEuclideanDistancePlots}
+source(here("scripts/functions/make_eucli_plot.R"))
+
+# Calculate the Euclidean climatic distance
+list_dist_env <- clim_dfs$clim_pred %>% lapply(function(clim_pred){
+  
+Delta = clim_dfs$clim_ref %>% dplyr::select(any_of(clim_var)) - clim_pred %>% dplyr::select(any_of(clim_var)) 
+dist_env = sqrt( rowSums(Delta^2) )
+
+})
+
+# Main gene pools (for the figures)
+gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrange(pop)
+```
+
+```{r MakeEucliPlots, fig.width=12, results="hide"}
+par(mfrow=c(1,2))
+
+lapply(snp_sets, function(x) {
+
+lapply(names(list_dist_env), function(gcm){
+  
+make_eucli_plot(
+  X = list_dist_env[[gcm]],
+  Y = x$go[[gcm]],
+  colors = gps$color_main_gp_pop,
+  color_names = gps$main_gp_pop,
+  ylab = "GDM genomic offset",
+  legend_position="topleft",
+  plot_title = paste0(x$set_name," - ", gcm))
+
+})
+}) 
+```
+
+### Maps
+
+```{r MakeGomaps, fig.width=12, fig.height=7, results="hide", warning=F}
+# Function to make the genomic offset maps
+source(here("scripts/functions/make_go_map.R"))
+
+# Population coordinates
+pop_coord <-  readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")))[[1]]$ref_means %>% dplyr::select(pop,longitude,latitude)
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(x) {
+lapply(names(list_dist_env), function(gcm){
+x$go[[gcm]]
+}) %>%  unlist()
+}) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+
+# Generate the maps for each set of SNPs and each GCM
+lapply(snp_sets, function(x) {
+
+go_maps <- lapply(names(list_dist_env), function(gcm){
+  
+make_go_map(dfcoord=pop_coord,
+            snp_set = x,
+            gcm=gcm,
+            ggtitle=gcm,
+            go_limits = go_limits,
+            point_size = 3)
+
+})
+
+legend_maps  <- get_legend(go_maps[[1]])
+
+go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
+
+go_maps$legend_maps <- legend_maps
+
+go_maps <-plot_grid(plotlist=go_maps)
+
+title <- ggdraw() + 
+  draw_label(
+    x$set_name,
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+plot_grid(
+  title, go_maps,
+  ncol = 1,
+  rel_heights = c(0.1, 1))
+})
+```
+
+# Validation - NFI plots
+
+```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
+# Load the climatic data of the NFI plots.
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+  
+# Keep only the climatic variables of interest and scale the climatic data
+nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+
+# calculate the genomic offset for the NFI plots
+snp_sets <- lapply(snp_sets, function(snp_set){
+  
+ref_pred <- predict(snp_set$gf_mod, as.data.frame(nfi_dfs$clim_ref[,clim_var])) # predictions under reference-period climates
+fut_pred <- predict(snp_set$gf_mod, as.data.frame(nfi_dfs$clim_pred[,clim_var])) # predictions under climates during survey period
+
+snp_set$go_nfi <- lapply(1:nrow(ref_pred), function(x, ref_pred, fut_pred){
+    as.numeric(pdist(ref_pred[x,],  fut_pred[x,])@dist)}, fut_pred=fut_pred, ref_pred=ref_pred) %>% 
+  unlist()
+
+
+return(snp_set)
+})
+
+# checking missing data
+# lapply(snp_sets, function(x) sum(is.na(x$go_nfi)))
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_nfi) %>%  unlist() %>% range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+
+# map genomic offset predictions in the NFI plots 
+lapply(snp_sets, function(x) make_go_map(
+  dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
+  snp_set = x,
+  type="NFI",
+  point_size = 0.5,
+  go_limits = go_limits,
+  legend_position = c(0.85,0.15),
+  legend_box_background = "gray80",
+  y_limits = c(35, 51)))
+```
+
+
+
+
+# Validation - Common gardens
+
+```{r MakeGOmapsCGplots, fig.width=15, fig.height=6, results="hide"}
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  dplyr::select(cg,any_of(clim_var))
+cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
+cg_names <- unique(cg_coord$cg)
+
+# Generate scaled climatic datasets with climatic data at the location of the populations and at the location of the common gardens
+cg_dfs <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)
+  
+# Predict genomic offset of each population when transplanted in the climate of the common gardens
+snp_sets <- lapply(snp_sets, function(snp_set){
+
+ref_pred <- predict(snp_set$gf_mod, as.data.frame(cg_dfs$clim_ref[,clim_var])) # predictions under reference-period climates
+fut_pred <- predict(snp_set$gf_mod, as.data.frame(cg_dfs$clim_pred[,clim_var])) # predictions under climates during survey period
+
+snp_set$go_cg <- lapply(1:nrow(ref_pred), function(x, ref_pred, fut_pred){
+    as.numeric(pdist(ref_pred[x,],  fut_pred)@dist)}, fut_pred=fut_pred, ref_pred=ref_pred) %>% 
+  setNames(cg_dfs$clim_ref[["pop"]]) %>% 
+  as.data.frame() %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  set_colnames(cg_dfs$clim_pred[["cg"]]) %>% 
+  rownames_to_column(var="pop") %>% 
+  as_tibble()
+
+return(snp_set)
+})
+
+# Map genomic offset predictions at the locations of the populations
+go_maps_cg <- lapply(cg_names, function(cg_name){
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[[cg_name]]) %>%  unlist() %>% range()
+go_limits[[1]] <- 0
+
+p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
+                                              snp_set = x,
+                                              point_size = 3,
+                                              type="CG",
+                                              go_limits = go_limits,
+                                              cg_name=cg_name,
+                                              cg_coord=cg_coord))
+
+plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
+  
+}) %>% setNames(cg_names)
+
+pdf(here("figs/GF/GOmaps_CGs.pdf"), width=15,height=6)
+lapply(go_maps_cg, function(x) x)
+dev.off()
+
+# show maps
+lapply(go_maps_cg, function(x) x)
+```
+
+Let's save the genomic offset predictions for comparison with the other methods.
+
+```{r SaveGOpredictions}
+snp_sets %>% saveRDS(file=here("outputs/GF/go_predictions.rds"))
+```
+
