@@ -43,10 +43,14 @@ library(here)
 library(parallel)
 library(magrittr)
 library(janitor)
+library(corrplot)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
 source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+
+# Functions from the BayPass software
+source(here("scripts/functions/baypass_utils.R"))
 ```
 
 
@@ -105,7 +109,7 @@ rownames(dfsum2) <- str_sub(rownames(dfsum2),1,-18)
 
 # identical(rownames(dfsum1), rownames(dfsum2)) # to check that the rownames (SNP names) are the same and in the same order
 
-geno <- cbind(dfsum1,dfsum2) %>% 
+cbind(dfsum1,dfsum2) %>% 
   as_tibble %>% 
   dplyr::select(sort(tidyselect::peek_vars())) %>% 
 
@@ -120,18 +124,18 @@ write.table(file = here(paste0("data/BayPassAnalysis/GenomicInputBayPass_",x,".t
 
 
 
-## Environmental data
+## Climatic data
 
 
-We load the population-specific climatic information for the climatic variables of interest. We use the following climatic variables (set 2 in the report `2_RedundancyAnalysis_part1.Rmd`):
+We load the population-specific climatic information for the climatic variables of interest.
 
 ```{r LoadClimaticData}
 # Which set of climatic variables are we going to use?
 clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 
 # we load the population-specific climatic data of the climatic variables of interest
-source(here("scripts/functions/generate_clim_datasets.R"))
-clim_past <- generate_clim_datasets(clim_var)[["clim_past"]]
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_ref <- generate_scaled_clim_datasets(clim_var)[["clim_ref"]]
 
 extract_climatedt_metadata(var_clim = clim_var) %>% 
   dplyr::select(label,description,unit) %>% 
@@ -139,10 +143,10 @@ extract_climatedt_metadata(var_clim = clim_var) %>%
   kable_mydf()
 ```
 
-```{r LoadEnvPopStructureData}
+```{r LoadEnvPopStructureData, eval=F}
 # We save one table per covariate
 for(i in c(clim_var)){
-  clim_past %>% 
+  clim_ref %>% 
   dplyr::select(all_of(i)) %>% 
   pull() %>% 
   t() %>% 
@@ -158,8 +162,7 @@ for(i in c(clim_var)){
 
 ## The core model
 
-We estimate the (scaled) covariance matrix of population allele frequencies $\Omega$ resulting from their (possibly unknown and complex) shared history. For that, we use the core model mode of <span style="font-variant:small-caps;">BayPass</span>. According to <span style="font-variant:small-caps;">BayPass</span> manual, "The core model depicted in Figure 1A might be viewed as a generalization
-of the model proposed by Nicholson *et al*. (2002) and was first proposed by Coop et al. (2010)." Here is the **Figure 1A from the <span style="font-variant:small-caps;">BayPass</span> manual:**
+We estimate the (scaled) covariance matrix of population allele frequencies $\Omega$ resulting from their (possibly unknown and complex) shared history. For that, we use the core model mode of <span style="font-variant:small-caps;">BayPass</span>. According to <span style="font-variant:small-caps;">BayPass</span> manual, 'The core model depicted in Figure 1A might be viewed as a generalization of the model proposed by Nicholson *et al*. (2002) and was first proposed by Coop et al. (2010).' Here is the **Figure 1A from the <span style="font-variant:small-caps;">BayPass</span> manual:**
 
 ![](CoreModelBayPass.png)
 
@@ -167,8 +170,6 @@ of the model proposed by Nicholson *et al*. (2002) and was first proposed by Coo
 ## Estimation & visualization
 
 We estimate the population covariance matrix using the genomic dataset not filtered for MAF.
-
-<span style="color: red;">**Code for you below Santi! :)**</span>
 
 
 ```{bash EstimateOmegaRun1, eval=F}
@@ -189,59 +190,47 @@ We visualize the matrix.
 
 ```{r VisualizeOmega, fig.height=8,fig.width=10, eval=F}
 # Upload the estimated Omega matrix
-omega=as.matrix(read.table("data/BayPassAnalysis/outputs/anacore_mat_omega.out"))
-pop_names <- clim_past$pop
-dimnames(omega)=list(pop.names,pop.names)
+omega <- as.matrix(read.table(here("data/BayPassAnalysis/outputs/anacore_mat_omega.out")))
+pop_names <- clim_ref$pop
+dimnames(omega)=list(pop_names,pop_names)
 
 # Visualization of the matrix
 # Using SVD decomposition
-plot.omega(omega=omega,pop.names=pop.names)
+plot.omega(omega=omega,pop.names=pop_names)
 
 # as a correlation plot
-cor.mat=cov2cor(omega)
-corrplot(cor.mat,method="color",mar=c(2,1,2,2)+0.1,
+cor_mat=cov2cor(omega)
+corrplot(cor_mat,method="color",mar=c(2,1,2,2)+0.1,
 main=expression("Correlation map based on"~hat(Omega)))
 
 # as a heatmap and hierarchical clustering tree (using the average agglomeration method)
-hclust.ave <- function(x) hclust(x, method="average")
-heatmap(1-cor.mat,hclustfun = hclust.ave,
+hclust_ave <- function(x) hclust(x, method="average")
+heatmap(1-cor_mat,hclustfun = hclust_ave,
 main=expression("Heatmap of "~hat(Omega)~"("*d[ij]*"=1-"*rho[ij]*")"))
 ```
 
 
 # IS standard covariate model
 
+## Mathematical model
+
 The standard covariate model is represented in the following figure (**Figure 1B from the <span style="font-variant:small-caps;">BayPass</span> the manual**):
 
 
 ![](StandardModelBayPass.png)
 
-According to <span style="font-variant:small-caps;">BayPass</span> manual, "This model allows evaluating to which extent a population covariable $k$ is (linearly) associated with each marker $i$ (which are assumed independent given $\Omega$) by the introduction of the regression coefficients $\beta_{ik}$ (for convenience the indices $k$ for covariables are dropped in Figure 1B)."
+From <span style="font-variant:small-caps;">BayPass</span> manual: 
+
+  - 'This model allows evaluating to which extent a population covariable $k$ is (linearly) associated with each marker $i$ (which are assumed independent given $\Omega$) by the introduction of the regression coefficients $\beta_{ik}$ (for convenience the indices $k$ for covariables are dropped in Figure 1B).'
 
 
-From <span style="font-variant:small-caps;">BayPass</span> manual: "Importance Sampling (IS) approximation allows estimating Bayes Factor to evaluate the support in favor of **association of each SNP $i$ with a covariable $k$**, i.e., to compare the model with association ($\beta_{ik} \neq 0$) against the null model ($\beta_{ik} = 0$). The IS based estimation was initially proposed by Coop et al. (2010) and is based on a numerical integration that requires the definition of a grid covering the whole support of the $\beta_{ik}$ prior distribution. In <span style="font-variant:small-caps;">BayPass</span>, the grid consists of $n_{\beta}$ (by default $n_{\beta} = 201$) equidistant points from $\beta_{min}$ to $\beta_{max}$ (including the boundaries) leading to a lag between two successive values equal to $\frac{\beta_{max}-\beta_{min}}{n_{\beta}-1}$ (i.e., 0.003 with default values). Other values for $n_{\beta}$ might be supplied by the user with the `-nbetagrid` option."
+  - 'Importance Sampling (IS) approximation allows estimating Bayes Factor to evaluate the support in favor of association of each SNP $i$ with a covariable $k$, i.e., to compare the model with association ($\beta_{ik} \neq 0$) against the null model ($\beta_{ik} = 0$). The IS based estimation was initially proposed by Coop et al. (2010) and is based on a numerical integration that requires the definition of a grid covering the whole support of the $\beta_{ik}$ prior distribution. In <span style="font-variant:small-caps;">BayPass</span>, the grid consists of $n_{\beta}$ (by default $n_{\beta} = 201$) equidistant points from $\beta_{min}$ to $\beta_{max}$ (including the boundaries) leading to a lag between two successive values equal to $\frac{\beta_{max}-\beta_{min}}{n_{\beta}-1}$ (i.e., 0.003 with default values). Other values for $n_{\beta}$ might be supplied by the user with the `-nbetagrid` option.'
 
 
-**Checking convergence by running several independant runs:**
+## Running the model
 
-  - From <span style="font-variant:small-caps;">BayPass</span> manual: "As for any MCMC analysis, it is recommended to run several independent MCMC (e.g., from 3 to 5), using different seeds for the random number generators (see `-seed` option). Comparing the estimates of parameters like $\Omega$ and statistics like $XtX$ or BF across runs allows ensuring (**empirically**) that the chains properly converged. For large enough data sets, estimations are generally reproducible for most parameters and statistics. Yet, for measures like the BF$_{is}$ that are based on an Importance Sampling approximation, single run estimations may be unstable (in particular when the number of populations is small), it is then recommended to use as an estimate the median computed over several different independent runs (for a real life example see @gautier2018genomic)."
+<span style="color: red;">We run the standard covariate model using Important sampling on the genomic dataset filtered for MAF.</span>
 
-  - In @gautier2018genomic: "Three independent runs (using the option `-seed`) were performed for each dataset. The estimated model hyper-parameters were highly consistent across both runs and datasets. Support for association of each SNP with the corresponding prevalence covariate was then evaluated using the median Bayes Factor (BF) computed over the three independent runs."
-
-Therefore, to check convergence, we run **5 independent runs** (different `-seed` options).
-
-## Estimation and visualization
-
-We identify the candidate SNPs using the genomic dataset filtered for MAF.
-
-<span style="color: red;">**Code for you below Santi! :)**</span>
-
-We run <span style="font-variant:small-caps;">BayPass</span> for each climatic variable. And for each variable, we run 5 iterations, to check that the outputs are consistent across the iterations. 
-
-<span style="color: red;">**Comment:** To avoid to repeat the code $b$ * 5 times (with $b$ the number of climatic variables), I tried to optimize the code with two loops. However, I was not able to test the code as I do not have BayPass on my computer. If it doesn't work, tell me and I will try to correct the loops or write the code without the loops (like in the second code chunk below for `bio3`; we will have to do that for all variables...). So I hope the loop will work!</span>
-
-
-Bash code with the loops:
 
 ```{bash, eval=F}
 # ** Bash script **
@@ -265,5 +254,155 @@ cd ..
 done
 ```
 
+```{r ExtractSummaryOutputs}
+# Number of iterations
+nb_iter <- 5
 
+# extract SNP names
+snp_names <- read.csv(here(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutmaf.csv")),
+                          row.names = 1) %>% 
+  rownames()
+
+list_out <- lapply(clim_var, function(var){
+
+# Bayes factors
+BF <- lapply(1:nb_iter, function(x){
+  read.table(here(paste0("data/BayPassAnalysis/outputs/ISruns_",var,"/anacovis",x,"_summary_betai_reg.out")),
+             h=T)$BF.dB.
+}) %>% 
+  setNames(paste0("BF",1:nb_iter)) %>% 
+  as_tibble()
+
+# Regression coefficients Beta_is
+beta <- lapply(1:nb_iter, function(x){
+  read.table(here(paste0("data/BayPassAnalysis/outputs/ISruns_",var,"/anacovis",x,"_summary_betai_reg.out")),
+             h=T)$Beta_is
+}) %>% 
+  setNames(paste0("beta",1:nb_iter)) %>% 
+  as.data.frame()
+
+
+# Empirical Bayesian P-values eBPis
+eBP <- lapply(1:nb_iter, function(x){
+  read.table(here(paste0("data/BayPassAnalysis/outputs/ISruns_",var,"/anacovis",x,"_summary_betai_reg.out")),
+             h=T)$eBPis
+}) %>% 
+  setNames(paste0("eBP",1:nb_iter)) %>% 
+  as.data.frame()
+
+out <- tibble(snp=snp_names,
+              medianBF=apply(BF,1,median),
+              medianBeta=apply(beta,1,median),
+              medianEBP=apply(eBP,1,median)) %>% 
+  mutate(variable=var)
+
+eBP_out <- tibble("eBP_threshold"=c(3),
+                  {{var}} :=c(length(which(out$medianEBP>3))))
+
+BF_out <-tibble("BF_threshold" = c(20,10,5),
+                {{var}} :=c(length(which(out$medianBF>20)),
+                            length(which(out$medianBF>10)),
+                            length(which(out$medianBF>5))))
+
+list(snp_out = out,
+     BF_out = BF_out,
+     eBP_out = eBP_out,
+     cor_BF = cor(BF),
+     cor_beta = cor(beta),
+     cor_eBP = cor(eBP))
+}) %>% setNames(clim_var)
+```
+
+
+
+## Checking convergence across runs
+
+Checking convergence by running several independent runs:
+
+  - From <span style="font-variant:small-caps;">BayPass</span> manual: 'As for any MCMC analysis, it is recommended to run several independent MCMC (e.g., from 3 to 5), using different seeds for the random number generators (see `-seed` option). Comparing the estimates of parameters like $\Omega$ and statistics like $XtX$ or BF across runs allows ensuring (empirically) that the chains properly converged. For large enough data sets, estimations are generally reproducible for most parameters and statistics. Yet, for measures like the BF$_{is}$ that are based on an Importance Sampling approximation, single run estimations may be unstable (in particular when the number of populations is small), it is then recommended to use as an estimate the median computed over several different independent runs. For a real life example, see @gautier2018genomic.'
+
+  - In @gautier2018genomic: 'Three independent runs (using the option `-seed`) were performed for each dataset. The estimated model hyper-parameters were highly consistent across both runs and datasets. Support for association of each SNP with the corresponding prevalence covariate was then evaluated using the median Bayes Factor (BF) computed over the three independent runs.'
+
+<span style="color: red;">To check convergence, we run **5 independent runs** (different `-seed` options) for each climatic variable. Below, we use the median of the Bayes factors ($BF$) and of the empirical p-values ($eBP$) to identify the candidate SNPs.</span>
+
+```{r Corrplots, fig.height=5,fig.width=14, results="hide"}
+par(mfrow=c(1,3))
+
+lapply(clim_var, function(var){
+  
+  lapply(c("BF","beta","eBP"), function(x){
+    
+list_out[[var]][[paste0("cor_",x)]] %>% corrplot(method = 'number',
+                                                 type = 'lower', 
+                                                 diag = FALSE,
+                                                 title=paste0(var," - ",x),
+                                                 mar=c(0,0,2,0),
+                                                 number.cex=2,
+                                                 tl.cex=1.5)
+  })
+})
+```
+
+
+
+## Identification threshold
+
+Which threshold do we use to identify the candidate SNPs?
+
+From @gautier2015genome: 'Jeffreys’rule (Jeffreys 1961) provides a useful decision criterion to quantify the strength of evidence (here in favor of association of the SNP with the covariable), using the following dB unit scale: 'strong evidence' when $10 < BF < 15$, 'very strong evidence' when $15 < BF < 20$, and 'decisive evidence' when $BF > 20$.'
+
+  - @gautier2015genome uses $BF > 20$ and $eBP > 3$.
+
+  - @vieira2022comparative uses $eBFmc > 3$ (using MCMC algorithm).
+  
+  - @ahrens2019standing uses $eBPis > 3$ (using IS algorithm).
+  
+  - @mayol2020multiscale uses $BF > 30$.
+
+  - @pina2019new uses $BF > 15$ (using the AUX model).
+  
+  - @ruiz2019looking uses $eBPis > 3$.
+  
+  - @vendrami2019rad $BF > 10$ (using standard covariate model)
+
+Here is the number of candidates using different thresholds ($BF > 5$, $BF > 10$,$BF > 20$ or $eBP > 3$) for each climatic variable:
+
+```{r NumberCandidates}
+list_out %>% lapply(function(out)out$BF_out) %>%  
+  reduce(left_join, by = "BF_threshold") %>% 
+  kable_mydf()
+
+list_out %>% lapply(function(out)out$eBP_out) %>%  
+  reduce(left_join, by = "eBP_threshold") %>% 
+  kable_mydf()
+```
+
+Threshold used for the candidate SNPs:
+  
+```{r IdentificationThreshold}
+threshold <- 10 # in dB
+```
+
+Given this threshold, here are the candidate SNPs:
+
+```{r IdentifyCandidatesGivenThreshold}
+cand <- list_out %>% 
+  lapply(function(out)out$snp_out[which(out$snp_out$medianBF>threshold),]) %>%  
+  bind_rows()
+
+cand %>% kable_mydf()
+```
+
+Are there any SNPs associated with several climatic variables?
+
+```{r IdentifyDuplicates}
+# Identify duplicates
+cand %>% group_by(snp) %>% filter(n()>1) %>% kable_mydf()
+```
+
+We export the list of candidate SNPs.
+
+```{r ExportCandidateSNPs}
+unique(cand$snp) %>% saveRDS(here("outputs/BayPass/baypass_outliers.rds"))
+```
 
