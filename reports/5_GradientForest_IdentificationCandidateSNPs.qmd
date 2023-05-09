@@ -45,6 +45,7 @@ library(cowplot)
 library(magrittr)
 library(ggVennDiagram)
 
+
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
 source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
