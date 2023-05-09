@@ -271,16 +271,28 @@ gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, clim_var = c
 
 gf_pvals <- extract_pvals(gf_outputs=gf_outputs,neutral_snps=neutral_snps)
 
+# Thresholds to identify the outliers
+# ===================================
 
-outliers005 <- gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp)
-outliers001 <- gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
-outliers_bonf <- gf_pvals %>% filter(pval_totalR2<0.01/length(gf_pvals$snp)) %>% pull(snp) # bonferroni correction
+# Thresholds based on the p-values
+outliers_pv005 <- gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp)
+outliers_pv001 <- gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
+
+# Thresholds based the rank of the SNPs => 0.2% with the lowest p-value (19 SNPs)
+outliers_rank002 <- gf_pvals %>% 
+  arrange(pval_totalR2) %>% 
+  slice(1:(nrow(gf_pvals)*0.002)) %>% 
+  pull(snp)
+
+# Threshold with a Bonferroni correction
+outliers_bonf <- gf_pvals %>% filter(pval_totalR2<0.01/length(gf_pvals$snp)) %>% pull(snp)
   
 gf_out <- list(genodata = genodata,
                clim_var= clim_var,
                gf_pvals = gf_pvals, 
-               outliers = list(outliers005 = outliers005,
-                               outliers001 = outliers001, 
+               outliers = list(outliers_pv005 = outliers_pv005,
+                               outliers_pv001 = outliers_pv001,
+                               outliers_rank002 = outliers_rank002,
                                outliers_bonf = outliers_bonf))
 
 return(gf_out)
@@ -382,15 +394,14 @@ rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
 
 
-list_outliers <- list("RDA" = rda_outliers[[3]]$outliers$snp,
-                      "RDA + PS" = rda_outliers[[4]]$outliers$snp,
-                      "GF-raw" = gf_out$gf_raw$outliers$outliers001,
-                      "GF-X" = gf_out$gf_X$outliers$outliers001)
+list_outliers <- list("RDA-raw" = rda_outliers[[3]]$outliers$snp,
+                      "RDA-X" = rda_outliers[[4]]$outliers$snp,
+                      "GF-raw" = gf_out$gf_raw$outliers$outliers_rank002,
+                      "GF-X" = gf_out$gf_X$outliers$outliers_rank002)
 
 ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
   scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
   guides(fill = "none") + 
-  #labs(caption='Set 3 climatic variables') +
   theme(text = element_text(size=16),
         plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
   scale_x_continuous(expand = expansion(mult = .2))

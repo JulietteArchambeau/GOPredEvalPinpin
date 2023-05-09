@@ -1160,15 +1160,18 @@ dev.off()
 
 ## Identify outliers
 
-Two ways of identifying the outliers with the RDA:
+Two methods can be used to identify the outliers with the RDA.
 
-  - identifying outliers based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). Method used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). To conduct the RDA-based genome scan, we use the `rdadapt` function from @capblancq2021redundancy.
+Outliers can be identified based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). The Mahalanobis distances are calculated with the `rdadapt` function from @capblancq2021redundancy, which returns $p$-values and $q$-values for each SNP. Different thresholds can then be used to identify the outliers:
 
-  - identifying RDA outliers is to search for *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)
+  -  @capblancq2020climate uses a $p$-value threshold with a Bonferroni correction to account for multiple testing: $p$-value < 0.01 / number of SNPs (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)). In our study, this threshold results in selecting 16 SNPs with the RDA-raw model, and 5 with the RDA-X model (and 1 in common between the two methods). 
+
+  - @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)) rank-ordered the SNPs based on their $p$-values (the $p$-value of a given SNP captures how far its Mahalanobis distance is from the distribution of Mahalanobis distances of all SNPs) and identified the 0.2% of the SNPs with the lowest $p$-values. In our study, this threshold results in selecting 19 SNPs (0.002 * `r dim(geno_pop)[[2]]`=`r 0.002*dim(geno_pop)[[2]]`). We will use this threshold in the following analyses.
+
+Outliers can also been identified based on the *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html), in which a 3 standard deviation cutoff is used (two-tailed $p$-value = 0.0027). We also use a 3 standard deviation cutoff in the following analyses. 
   
 
 ```{r echo=F}
-# !!! Temporary chunk !!!
 rda_models <- readRDS("outputs/RDA/RDAmodels.rds")
 listdf_pop <- readRDS("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds")
 ```
@@ -1185,12 +1188,21 @@ identify_outliers <- function(rda_model, explanatory_data, geno_data){
 # =============================================================================
 
 # Genome scan with K = 2 (degrees of freedom of the X2 distribution)
-GSout <- rdadapt(rda_model$mod_rda, 2) %>%  # rdadapt is a function to conduct a RDA based genome scan (from Capblancq & Forester 2021)
+  # rdadapt is a function to conduct a RDA based genome scan (from Capblancq & Forester 2021)
+GSout <- rdadapt(rda_model$mod_rda, 2) %>%  
+  as_tibble() %>% 
   mutate(snp=colnames(geno_data)) 
 
 # P-values threshold after Bonferroni correction
+# outliers_maha <- GSout %>% 
+#   filter(pvalues <  0.01/nrow(.)) %>% 
+#   mutate(maha_meth = TRUE) %>% 
+#   dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
+
+# P-values are rank-ordered and we select the 0.2% with the lowest p-values
 outliers_maha <- GSout %>% 
-  filter(pvalues <  0.01/length(pvalues)) %>% 
+  arrange(pvalues) %>% 
+  slice(1:(0.002*nrow(.))) %>% 
   mutate(maha_meth = TRUE) %>% 
   dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
 
@@ -1551,7 +1563,7 @@ plot_grid(
 ```
 
 ```{r GGPlotRDAoutliers, results='hide'}
-# Plot RDA outliers with different colors based either on the detection method or the most asspciated climatic variable
+# Plot RDA outliers with different colors based either on the detection method or the most associated climatic variable
 pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_2.pdf")
 lapply(rda_outliers, function(x) combine_rda_outlier_ggplots(rda_out = x, color_clim_var=color_clim_var))
 dev.off()

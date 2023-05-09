@@ -48,13 +48,13 @@ source(here("scripts/functions/kable_mydf.R"))
 
 We compare the genomic offset predictions from the four following methods:
 
-  - Generalized dissimilarity modelling (GDM). See report `to fill`.
+  - Generalized dissimilarity modelling (GDM). See report `9_GeneralizedDissimilarityModelling_GenomicOffsetPredictions.html`.
   
-  - Latent factor mixed model (LFMM) . See report `to fill`.
+  - Latent factor mixed model (LFMM) . See report `7_LFMM_IdentificationCandidateSNPs_GenomicOffsetPredictions.html`.
   
-  - Gradient Forest (GF). See report `to fill`.
+  - Gradient Forest (GF). See report `10_GradientForest_GenomicOffsetPredictions.html`.
   
-  - Redundancy analysis (RDA). See report `to fill`.
+  - Redundancy analysis (RDA). See report `11_RedundancyAnalysis_GenomicOffsetPredictions.html`.
   
 
 ```{r BuildDataframeGOpredictions}

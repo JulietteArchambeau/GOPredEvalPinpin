@@ -7,13 +7,15 @@
 
 The code (`.qmd` and `Rmd` files) used to generate the following reports can be found in the folder `/reports`.
 
--   [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html) Checking population information (coordinates and elevation data) from different sources - Extracting climatic data with ClimateDT.
+-   [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html) Checking population information (coordinates and elevation data) from different sources - Extracting climatic data with ClimateDT - Calculating the average of the climatic variables across time periods of interest.
 
 -   [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data and imputation of missing data.
 
--   [2_ReduncancyAnalysis_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_ReduncancyAnalysis_part1.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using RDA (Redundancy analysis)
-    
-    Associated figures and documents:
+-   [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_CommonGardenData.html). Extracting climatic data from ClimateDT and calculating the mean climate in each common garden between the planting date and the measurement date.
+
+-   [3_CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_CheckingPastFutureClimatesPopulationLocations.html) Checking past and future climatic values at the population locations.
+
+-   [4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using Redundancy analysis (RDA).
     
     *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/PCAplot.pdf" target="_blank">PCAplot.pdf</a> Principal component analysis performed on the population allele frequencies. The first three axes of the PCA are used to account for the population structure in the RDA analysis.
  
@@ -25,17 +27,24 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
     
     *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/RDAplots_outliers_2.pdf" target="_blank">RDAplots_outliers_2.pdf</a> RDA plots with outliers and  Manhattan plots following [Capblancq and Forester (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13722) (and the [associated Github repository](https://github.com/Capblancq/RDA-landscape-genomics)).
 
--   [3_GradientForest_part1.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_GradientForest_part1.html) Identification of candidate SNPs with the Gradient Forest (GF) algorithm.
+-   [5_GradientForest_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/5_GradientForest_IdentificationCandidateSNPs.html) Identification of candidate SNPs with the Gradient Forest (GF) algorithm.
 
--   [4_BaypassAnalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_BaypassAnalysis.html) Identification of candidate SNPs with BayPass.
+-   [6_BaypassAnalysis_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_BaypassAnalysis_IdentificationCandidateSNPs.html) Identification of candidate SNPs with BayPass.
 
--   [6_LEAanalysis.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_LEAanalysis.html) Identification of candidate SNPs and estimation of the genetic gap (i.e. genomic offset) with the `LEA` R package (Gain & Francois 2021), which uses the **latent factor mixed model** (LFMM) approach. 
+-   [7_LFMM_IdentificationCandidateSNPs_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/7_LFMM_IdentificationCandidateSNPs_GenomicOffsetPredictions.html) Identification of candidate SNPs and estimation of the genetic gap (i.e. genomic offset) with the `LEA` R package (Gain & Francois 2021), which uses the **latent factor mixed model** (LFMM) approach. 
 
--   [GeneratingSNPsets.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/GeneratingSNPsets.html) Identifying the common candidates across the different gene-environment association (GEA) methods, looking at their genomic position and generating a set of control SNPs.
+-   [8_GeneratingSNPsets](https://juliettearchambeau.github.io/GOPredEvalPinpin/8_GeneratingSNPsets) Identifying the common candidates across the different gene-environment association (GEA) methods, looking at their genomic position and generating a set of control SNPs.
 
-- [RedundancyAnalysis_GenomicOffsetEstimation.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/RedundancyAnalysis_GenomicOffsetEstimation.html) Predicting the genomic offset with RDA.
+-   [9_GeneralizedDissimilarityModelling_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/9_GeneralizedDissimilarityModelling_GenomicOffsetPredictions.html) Genomic offset predictions with the Generalized Dissimilarity Modelling (GDM) approach.
 
-- [GeneralizedDissimilarityModelling.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/GeneralizedDissimilarityModelling.html) Predicting the genomic offset with the Generalized Dissimilarity Modelling(GDM) approach.
+-   [10_GradientForest_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/10_GradientForest_GenomicOffsetPredictions.html) Genomic offset predictions with the Gradient Forest (GF) algorithm.
 
+    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_corrected.pdf" target="_blank">GFplots_cand_corrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods correcting for population structure (i.e RDA-X, GF-X, LFMM or BayPass).
+    
+    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_notcorrected.pdf" target="_blank">GFplots_cand_notcorrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods not correcting for population structure (i.e RDA-raw or GF-raw).
+    
+    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_control.pdf" target="_blank">GFplots_control.pdf</a> GF plots for the set of control SNPs.
+    
+-   [11_RedundancyAnalysis_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/11_RedundancyAnalysis_GenomicOffsetPredictions.html) Predicting the genomic offset with Redundancy Analysis (RDA).
 
-- [CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/CheckingPastFutureClimatesPopulationLocations.html) Checking past and future climatic values at the population locations.
+-   [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) Comparing the genomic offset predictions across the different methods.

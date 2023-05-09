@@ -6,10 +6,10 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 number-sections: true
 format: 
   html:
+    
     toc: true
     toc-depth: 4
     code-fold: true
-    
     page-layout: full
 embed-resources: true
 bibliography: references.bib
