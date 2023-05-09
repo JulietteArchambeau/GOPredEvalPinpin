@@ -29,7 +29,7 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [5_GradientForest_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/5_GradientForest_IdentificationCandidateSNPs.html) Identification of candidate SNPs with the Gradient Forest (GF) algorithm.
 
--   [6_BaypassAnalysis_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_BaypassAnalysis_IdentificationCandidateSNPs.html) Identification of candidate SNPs with BayPass.
+-   [6_BaypassAnalysis_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/6_BaypassAnalysis_IdentificationCandidateSNPs.html) Identification of candidate SNPs with [BayPass](https://www1.montpellier.inra.fr/CBGP/software/baypass/index.html).
 
 -   [7_LFMM_IdentificationCandidateSNPs_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/7_LFMM_IdentificationCandidateSNPs_GenomicOffsetPredictions.html) Identification of candidate SNPs and estimation of the genetic gap (i.e. genomic offset) with the `LEA` R package (Gain & Francois 2021), which uses the **latent factor mixed model** (LFMM) approach. 
 
