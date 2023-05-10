@@ -27,6 +27,7 @@
 /doc/*
 /outputs/*
 /reports/*.html
+/reports/to_rm/*
 
 
 # knitr and R markdown default cache directories
