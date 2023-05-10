@@ -112,7 +112,7 @@ snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 
 We calculate the pariwise $F_{ST}$ matrices.
 
-```{r CalculatePairwiseFstMatrices, eval=F}
+```{r CalculatePairwiseFstMatrices, eval=T}
 fst_matrices <- sapply(snp_sets, function(x){ 
   
 geno %>% 
@@ -252,7 +252,7 @@ list_clim_fut <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulat
 
 Therefore, we reproject the *geographic* (spheroid) CRS of the population coordinates (with units in degrees longitude and latitude) to a *projected* (two-dimensional; cartesian) CRS (typically with units of meters from a datum). We will use the CRS **EPSG:3035**.
 
-```{r}
+```{r ExtractPopCoordinates}
 # Steps:
   # extract the geographic coordinates of the populations
   # transform the coordinates in spatial points and specify the CRS (WGS84) with sp package
@@ -586,7 +586,7 @@ plot_grid(
 
 ### Using rasters
 
-```{r PredictGOpopWithRasters, eval=F}
+```{r PredictGOpopWithRasters, eval=T}
 # Past rasters
 path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
 tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))

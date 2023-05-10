@@ -6,7 +6,6 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 number-sections: true
 format: 
   html:
-    
     toc: true
     toc-depth: 4
     code-fold: true

@@ -123,7 +123,7 @@ We generate some plots to evaluate the GF models (stored in the files `GFplots_[
 
   - **Predictor cumulative plots**. They show, for each predictor, the cumulative importance distributions of splits improvement scaled by $\mathcal{R}^2$ weighted importance, and standardised by density of observations, averaged over all SNPs. These show cumulative change in overall allelic composition, and where changes occur on the gradient.
   
-  - **$\mathcal{R}^2$ measure of the fit** of the random forest model for each SNPs.
+  - $\mathcal{R}^2$ **measure of the fit** of the random forest model for each SNPs.
   
 The code to generate those plots comes from 'Example analysis of biodiversity survey data with R package `gradientForest`' by C. Roland Pitcher, Nick Ellis and Stephen J. Smith ([pdf available here](https://gradientforest.r-forge.r-project.org/biodiversity-survey.pdf)).
 

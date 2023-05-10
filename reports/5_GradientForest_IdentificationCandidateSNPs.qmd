@@ -16,8 +16,8 @@ editor_options:
 ---
 
 <style type="text/css">
-body, td {
-   font-size: 14px;
+body {
+   font-size: 15px;
 }
 code.r{
   font-size: 11px;
@@ -25,11 +25,16 @@ code.r{
 pre {
   font-size: 11px
 }
+
+table {
+  font-size: 10px
+}
 </style>
 
 
+
 ```{r setup, include=F}
-knitr::opts_chunk$set(cache=F, size="tiny")
+knitr::opts_chunk$set(cache=F)
 options(width = 300)
 library(knitr)      # CRAN v1.26
 library(kableExtra) # CRAN v1.1.0
@@ -252,6 +257,7 @@ Inputs:
 identify_GFoutliers <- function(genodata,
                                 climdata,
                                 clim_var, 
+                                set_seed,
                                 ntree, 
                                 rm_rare_alleles, 
                                 selected_snps, 
@@ -265,36 +271,18 @@ genodata <- format_geno(genodata,
                         selected_random_snps)
 
 # we sample random SNPs that are considered as neutral SNPs
+set.seed(set_seed)
 neutral_snps <- sample(colnames(genodata),nb_neutral_snps,replace = F)
 
-
+# We run the GF models individually for each SNP
 gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, clim_var = clim_var, ntree = ntree, cores)
 
+# We calculate the empirical p-values for each SNP
 gf_pvals <- extract_pvals(gf_outputs=gf_outputs,neutral_snps=neutral_snps)
-
-# Thresholds to identify the outliers
-# ===================================
-
-# Thresholds based on the p-values
-outliers_pv005 <- gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp)
-outliers_pv001 <- gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
-
-# Thresholds based the rank of the SNPs => 0.2% with the lowest p-value (19 SNPs)
-outliers_rank002 <- gf_pvals %>% 
-  arrange(pval_totalR2) %>% 
-  slice(1:(nrow(gf_pvals)*0.002)) %>% 
-  pull(snp)
-
-# Threshold with a Bonferroni correction
-outliers_bonf <- gf_pvals %>% filter(pval_totalR2<0.01/length(gf_pvals$snp)) %>% pull(snp)
   
 gf_out <- list(genodata = genodata,
                clim_var= clim_var,
-               gf_pvals = gf_pvals, 
-               outliers = list(outliers_pv005 = outliers_pv005,
-                               outliers_pv001 = outliers_pv001,
-                               outliers_rank002 = outliers_rank002,
-                               outliers_bonf = outliers_bonf))
+               gf_pvals = gf_pvals)
 
 return(gf_out)
 }
@@ -307,18 +295,27 @@ return(gf_out)
 
 We load the *uncorrected* and *corrected* allele frequency matrices in a list.
 
-The *uncorrected* allele frequency matrix is already a matrix a population-level allele frequencies, i.e. so with the number of populations in rows and the number of genetic markers in columns.
-
-The *corrected* allele frequency matrix is a matrix of genotype-level (ie individual-level) allele frequencies, i.e. so with the number of genotypes (ie clones, individuals) in rows and the number of genetic markers in columns. We have to transform it in a population-level allele frequency matrix.
-
 ```{r LoadGenomicData}
 # we load the two genomic matrices
 list_geno <- list(mat_raw = read.csv(here::here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"), 
                                      row.names = 1), 
                   mat_X = read.csv(here::here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"), 
                                      row.names = 1))
+```
 
 
+The *uncorrected* allele frequency matrix is already a matrix a population-level allele frequencies, i.e. so with the number of populations in rows and the number of genetic markers in columns.
+
+
+```{r UncorrectedAlleleFrequencyMatrix}
+list_geno$mat_raw[1:10,1:10] %>% kable_mydf()
+```
+
+
+The *corrected* allele frequency matrix is a matrix of genotype-level (ie individual-level) allele frequencies, i.e. so with the number of genotypes (ie clones, individuals) in rows and the number of genetic markers in columns. We have to transform it in a population-level allele frequency matrix.
+
+
+```{r CorrectedAlleleFrequencyMatrix}
 # we calculate the population-level allele frequencies for the corrected matrix
 list_geno$mat_X <- list_geno$mat_X %>% 
   rownames_to_column(var="pop") %>% 
@@ -326,6 +323,8 @@ list_geno$mat_X <- list_geno$mat_X %>%
   group_by(pop) %>% 
   summarise_all(~sum(., na.rm = TRUE)/((n()-sum(is.na(.)))*2)) %>% 
   column_to_rownames("pop")
+
+list_geno$mat_X[1:10,1:10] %>% kable_mydf()
 ```
 
 
@@ -364,64 +363,137 @@ clim_ref <- generate_scaled_clim_datasets(clim_var)[[1]]
 ```
 
 
-# Identify GF outliers
+# Run GF models and calculate p-values
 
 
-```{r IdentifyGFoutliers, eval=F}
-set.seed(55)
-
+```{r RunGFModels, eval=F}
 gf_out <- lapply(list_geno, function(geno)
 
 identify_GFoutliers(genodata = geno,
                     climdata = clim_ref,
                     clim_var = clim_var,
                     rm_rare_alleles = T, 
+                    set_seed = 4930,
                     selected_snps = "all", 
                     ntree=500,
                     cores = 9, 
                     selected_random_snps = 0,
-                    nb_neutral_snps = 1000)) %>% 
+                    nb_neutral_snps = 2000)) %>% 
   setNames(c("gf_raw","gf_X"))
 
-saveRDS(gf_out, here::here("outputs/GF/gf_outliers.rds"))
+saveRDS(gf_out, here::here("outputs/GF/gf_models.rds"))
 ```
+
+# Identify outliers
+
+Different possible thresholds to identify the candidate SNPs:
+
+  - $p$-value threshold: $p$-value < 0.005 or $p$-value < 0.001.
+  
+  - rank-based threshold. e.g. the 0.2% or 0.5% of the SNPs with the lowest p-values (i.e. 19 or 49 SNPs in our study). As done in @capblancq2023common and @fitzpatrick2021experimental.
+  
+  - Bonferroni threshold.
+  
+```{r IdentifyOutliers}
+gf_out <- readRDS(here::here("outputs/GF/gf_models.rds"))
+
+gf_outliers <- lapply(gf_out, function(x){
+
+# Thresholds based on the p-values
+outliers_pv05 <- x$gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp) # this threshold is not enough strict
+outliers_pv01 <- x$gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
+
+# Thresholds based the p-value rank of the SNPs
+# 0.2% with the lowest p-value (19 SNPs)
+outliers_rank002 <- x$gf_pvals %>% 
+  arrange(pval_totalR2) %>% 
+  slice(1:(dim(list_geno[[1]])[[2]]*0.002)) %>% 
+  pull(snp)
+
+# 0.5% with the lowest p-value (48 SNPs)
+outliers_rank005 <- x$gf_pvals %>% 
+  arrange(pval_totalR2) %>% 
+  slice(1:(dim(list_geno[[1]])[[2]]*0.005)) %>% 
+  pull(snp)
+
+# Threshold with a Bonferroni correction
+outliers_bonf <- x$gf_pvals %>% 
+  filter(pval_totalR2<0.01/length(x$gf_pvals$snp)) %>% 
+  pull(snp)
+  
+list(outliers_pv05 = outliers_pv05,
+     outliers_pv01 = outliers_pv01,
+     outliers_rank002 = outliers_rank002,
+     outliers_rank005 = outliers_rank005,
+     outliers_bonf = outliers_bonf)
+
+
+})
+
+saveRDS(gf_outliers, here::here("outputs/GF/gf_outliers.rds"))
+```
+
+
 
 # Common outliers with RDA
 
 
+```{r MakeVennDiagrams}
+# Function to make the Venn diagrams
+make_venndiagram <- function(list_candidates,
+                             caption="",
+                             title=""){
+
+list_candidates %>% 
+    ggVennDiagram(lty="solid", size=0.2) + 
+  scale_fill_gradient2(low = "white", high = 'gray40') + 
+  scale_color_manual(values = rep("gray80",4)) + 
+  guides(fill = "none") + 
+  labs(caption=caption) +
+  ggtitle(title) +
+  theme(text = element_text(size=16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+}
+```
+
+In the Venn diagrams below, the candidate SNPs identified with GF correspond to the 0.5% SNPs (48 SNPs) with the lowest empirical $p$-values.
 
 ```{r VennDiagrams, fig.height=8, fig.width=10}
 rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
 
-
 list_outliers <- list("RDA-raw" = rda_outliers[[3]]$outliers$snp,
                       "RDA-X" = rda_outliers[[4]]$outliers$snp,
-                      "GF-raw" = gf_out$gf_raw$outliers$outliers_rank002,
-                      "GF-X" = gf_out$gf_X$outliers$outliers_rank002)
+                      "GF-raw" = gf_out$gf_raw$outliers_rank005,
+                      "GF-X" = gf_out$gf_X$outliers_rank005)
 
-ggVennDiagram(list_outliers,lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
-  guides(fill = "none") + 
-  theme(text = element_text(size=16),
-        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
-  scale_x_continuous(expand = expansion(mult = .2))
+list_outliers %>% make_venndiagram()
+
+list_outliers[c(2,4)] %>% make_venndiagram(title="GEAs corrected for population structure")
+
+list_outliers[c(1,3)] %>% make_venndiagram(title="GEAs not corrected for population structure")
+```
 
 
-ggVennDiagram(list_outliers[c(2,4)],lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
-  guides(fill = "none") + 
-  labs(caption='GEAs corrected for population structure') +
-  theme(text = element_text(size=16),
-        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
-  scale_x_continuous(expand = expansion(mult = .2))
+# Unstable identification across runs
 
-ggVennDiagram(list_outliers[c(1,3)],lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + scale_color_manual(values = c("grey", "grey", "grey", "grey")) + 
-  guides(fill = "none") + 
-  labs(caption='GEAs not corrected for population structure') +
-  theme(text = element_text(size=16),
-        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
-  scale_x_continuous(expand = expansion(mult = .2))
+I am a bit worried about the GF runs because the outputs vary from one run to another.
+
+
+```{r ConsistenceAcrossRuns, eval=T}
+gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
+gf_out_1 <- readRDS(here::here("outputs/GF/gf_outliers_1.rds"))
+gf_out_2 <- readRDS(here::here("outputs/GF/gf_outliers_2.rds"))
+
+list("run 1"=gf_out_1$gf_raw$outliers_rank005,
+     "run 2"=gf_out_2$gf_raw$outliers_rank005,
+     "run 3"=gf_out$gf_raw$outliers_rank005) %>% 
+  make_venndiagram(title="0.5% SNPs with the lowest p-values")
+
+list("run 1"=gf_out_1$gf_raw$outliers_rank002,
+     "run 2"=gf_out_2$gf_raw$outliers_rank002,
+     "run 3"=gf_out$gf_raw$outliers_rank002) %>% 
+  make_venndiagram(title="0.2% SNPs with the lowest p-values")
 ```
 
