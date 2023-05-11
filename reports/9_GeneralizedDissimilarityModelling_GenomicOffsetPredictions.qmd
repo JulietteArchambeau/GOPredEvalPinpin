@@ -112,7 +112,7 @@ snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 
 We calculate the pariwise $F_{ST}$ matrices.
 
-```{r CalculatePairwiseFstMatrices, eval=T}
+```{r CalculatePairwiseFstMatrices, eval=F}
 fst_matrices <- sapply(snp_sets, function(x){ 
   
 geno %>% 
@@ -586,7 +586,7 @@ plot_grid(
 
 ### Using rasters
 
-```{r PredictGOpopWithRasters, eval=T}
+```{r PredictGOpopWithRasters, eval=F}
 # Past rasters
 path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
 tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
