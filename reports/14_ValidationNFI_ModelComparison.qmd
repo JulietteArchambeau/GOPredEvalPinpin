@@ -1,0 +1,1277 @@
+---
+title: "Mortality models in the NFI plots"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(here)
+library(parallel)
+library(janitor)
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+library(bayesplot)
+color_scheme_set("green")
+library(broom)
+library(raster)
+library(bayesplot)
+
+col.alpha <- function (col, alpha=0.5) 
+{
+        COL <- col2rgb(col)/255
+        rgb(red=COL[1], green=COL[2], blue=COL[3], alpha=alpha)
+}
+
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+```{r LoadNFIData}
+data <- readRDS(here("data/NFIdata/NFIdata_cleaned.rds"))
+```
+
+
+# Introduction
+
+**Goal:** estimate the association between the genomic offset and the mortality rates in natural populations.
+
+## Causal model
+
+```{mermaid}
+flowchart LR
+  C[Competition among trees] --> M[Mortality rates]
+  GO[Genomic offset] --> M
+  Country --> M
+  CS[Census interval] --> M
+  S[Spatial autocorrelation] --> C
+  S --> GO
+  S --> M
+  style S fill:#D5F5E3,stroke:#2ECC71
+  style M fill:#F5B7B1,stroke:#E74C3C
+```
+
+The mortality rates in the NFI plots may be influenced by:
+  
+  - **Competition among trees**. To account for it, we use as proxy the variable $C_{i}$, which is the *basal area* of all trees (all species confounded) in the plot $i$.
+  
+  - **Predicted genomic offset** at the location of the plot $i$. Proxy of the potential maladaptation experienced by the trees at this location.
+  
+  - **Country**. Indeed, the French and Spanish inventories present noticeable methodological differences that may bias the estimations, so we may want to estimate country-specific coefficients: the country-specific intercepts $\beta_{0,c}$ and the country-specific slopes $\beta_{C,c}$, $\beta_{GO,c}$ and $\beta_{BA,c}$. This is was I did during my PhD.
+  
+  - **Census interval**, that we account with an offset and a complementary log-log link function (see justification below).
+  
+  - **Spatial autocorrelation** among plots. To account for it, we may use Gaussian processes, following section 14.5 of *Statistical Rethinking* of Richard McElreath.
+  
+During my PhD, I also included the potential influence of fires on mortality rates. For that,  I used as proxy the variable $BA_{i}$, which is the estimated monthly *burned area* from the GFED4 database at the location of the plot $i$. Note that mortality events due to fires should not be recorded in the NFI. However, high mortality rates are observed in Galicia (see exploratory analyses in report `8_ValidationNFI`) and one potential explanation may be the higher fire-related mortality in this region. <span style="color: orange;">In the following analyses though, I decided not to incorporate fires as a potential cause of mortality rates, but this is something we can discuss!<span/>
+  
+**Mathematical model**
+  
+In order to account for the different census intervals between inventories, we modeled the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot i, as follows:
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= X\beta + \text{log}(\Delta_i) \\
+\end{align*}
+
+
+with $N_{i}$ the total number of maritime pines in the plot $i$, $m_{i}$ the number of maritime pines that died during the census interval $\Delta_{i}$ in the plot $i$, $X$ is the matrix of the intercept and the explanatory variables, $\beta$ is the matrix of the coefficients associated with the explanatory variables (and a column of 1 for the intercept).
+
+
+
+
+## Complementary log-log link function with an offset
+
+
+**The log-log link:**
+
+$$\eta = \mathcal{C}(\mu) = \log (- \log (1 - \mu ))$$
+
+**The complementary log-log link = cloglog function:**
+
+$$ \mu = \mathcal{C}^{-1}(\eta) = 1 - \exp (- \exp ( \eta )) $$
+
+With $\mu$ the probability of mortality during a given exposure period. \par
+With $\eta$ a linear predictor.
+
+
+In our case, we know:
+$$ \Pr(\text{survival during } \Delta t) = \Pr(\text{annual survival})^{\Delta t} $$
+
+
+With $\Delta t$ equal to the exposure time.
+
+Probability of survival during $\Delta t$ is equal to $1 - \mu_{t}$, with $\mu_{t}$ equal to the probability of mortality during $\Delta t$.
+
+Annual probability of survival is equal to $1 - \mu_{0}$, with $\mu_{0}$ equal to the annual probability of mortality. 
+
+So we know:
+\begin{align*} 
+1 - \mu_{t} &= 1 - \mu_{0}^{\Delta t}\\ 
+ \mu_{t}  &= 1 - ( 1 -  \mu_{0})^{\Delta t}
+\end{align*}
+
+We want to find which offset argument $\lambda_{t}$ (= the variable included to take into account the different exposure times between individuals) we have to include in the model to predict the annual mortality probabilities and not the mortality probabilities at different ages of the trees.
+For that, we model the probability of mortality (and not the probability of survival), with 0 corresponding to alive trees and 1 to dead trees.
+$\mu_{t}$ (the probability of mortality during $\Delta t$) is related to $\eta + \lambda_{t}$:
+$$ \eta + \lambda_{t} =  \mathcal{C}(\mu_{t}) = \log (- \log (1 - ( \mu_{t}))) $$
+
+$\mu_{0}$ (the annual probability of mortality) is related to $\eta$.
+$$ \eta =  \mathcal{C}(\mu_{0}) = \log (- \log (1 - \mu_{0}))  \tag*{(3)} $$
+
+
+**We want to prove that:**
+$$ \lambda_{t} = \log(\Delta t) $$
+
+
+**Let's prove that** $\lambda_{t} = \log(\Delta t)$.
+
+We know that (see the complementary log-log function):
+$$\mu_{t} = \mathcal{C}^{-1}(\eta + \lambda_{t}) = 1 - \exp (- \exp ( \eta  + \lambda_{t}))  \tag*{(1)} $$ 
+
+And we know that:
+$$\mu_{t} =  1 - ( 1 -  \mu_{0})^{\Delta t}  \tag*{(2)} $$
+
+Let's merge (1) + (2)
+\begin{align*} 
+1 - \exp (- \exp ( \eta  + \lambda_{t})) &= 1 - ( 1 -  \mu_{0})^{\Delta t}\\
+\exp (- \exp ( \eta  + \lambda_{t})) &= (1 -  \mu_{0})^{\Delta t}\\
+-\exp( \eta  + \lambda_{t}) &= \Delta t \log(1 -  \mu_{0})\\
+\exp( \eta  + \lambda_{t}) &= - \Delta t \log(1 -  \mu_{0})\\
+\exp(\eta)  \exp(\lambda_{t}) &= - \Delta t \log(1 -  \mu_{0})\\
+\exp(\lambda_{t}) &= - \Delta t \frac{\log(1 -  \mu_{0})}{\exp(\eta)}\\
+\exp(\lambda_{t}) &= - \Delta t \frac{\log(1 -  \mu_{0})}{\exp(\log (- \log (1 - \mu_{0})))} \tag*{see (3)}\\
+\exp(\lambda_{t}) &= - \Delta t \frac{\log(1 -  \mu_{0})}{- \log (1 - \mu_{0})}\\
+\exp(\lambda_{t}) &= \Delta t\\
+\lambda_{t} &= \log(\Delta t)\\
+\end{align*}
+
+Some useful links:
+  
+  - [interpreting estimates of cloglog logistic regression](https://stats.stackexchange.com/questions/132627/interpreting-estimates-of-cloglog-logistic-regression)
+  - [Modelling a binary outcome when census interval varies](https://stats.stackexchange.com/questions/148699/modelling-a-binary-outcome-when-census-interval-varies)
+  - [analyzing binary mortality data collected at different remeasurement intervals. Bonus for R implementation](https://stats.stackexchange.com/questions/210646/analyzing-binary-mortality-data-collected-at-different-remeasurement-intervals)
+  - [Logistic regression, accounting for differences in exposure](https://rpubs.com/bbolker/logregexp)
+
+## Mathematical models compared
+
+We check if the models are able to recover the simulated parameter values (simulated under the assumption that the model is true). To do this, we start with a very simple model and we gradually make it more complex.
+
+### Model M0: link clog-log + one predictor
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0} + \beta_{GO} GO_i \\
+\end{align*}
+
+with $\beta_{0}$ the intercept and $GO_{i}$ the estimated genomic offset in the plot $i$ and its associated slope $\beta_{GO}$.
+
+
+### Model M1: adding the offset
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0} + \beta_{GO} GO_i + \text{log}(\Delta_i) \\
+\end{align*}
+
+with $\Delta_{i}$ the census interval for the plot $i$. In this model, $m_{i}$ is the number of maritime pines that died during the census interval $\Delta_{i}$.
+
+
+
+### Model M2: adding a second predictor
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0} + \beta_{GO} GO_i +  \beta_C C_i + \text{log}(\Delta_i) \\
+\end{align*}
+
+with $C_{i}$ the basal area of all trees (all species confounded) in the plot $i$ (to account for the competition between trees) and its associated slope $\beta_C$
+
+
+### Model M3: adding country-specific fixed effects
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C,c} C_i + \beta_{GO,c} GO_i + \text{log}(\Delta_i) \\
+\end{align*}
+
+with $\beta_{0,c}$ the country-specific intercept, $C_{i}$ the basal area of all trees (all species confounded) in the plot $i$ (to account for the competition between trees) and its associated country-specific slope $\beta_{C,c}$, $GO_{i}$ the estimated genomic offset in the plot $i$ and its associated country-specific slope $\beta_{GO,c}$.
+
+
+
+### Model M4: adding country-specific varying effects
+  
+We might want to use country-specific varying intercepts (instead of fixed intercepts) but I thought it would add non-necessary complexity to the model (and there are only two countries to estimate of the variance among country-intercepts..). Finally, I did not include this model in the model comparison.
+
+Non-centered version of the model (with the $z$-score) to facilitate convergence. 
+  
+\begin{align*}
+m_{i} &\sim \text{Binomial}(N_{i},p_{i})\\
+\text{log}(-\text{log}(1-p_{i})) &= z_{\beta_{0,c}} \sigma_{\beta_{0}} +  z_{\beta_{C,c}} \sigma_{\beta_{C}} C_{i} + z_{\beta_{GO,c}} \sigma_{\beta_{GO}} GO_{i} + \text{log}(\Delta_{i}) \\[4pt]
+
+\begin{bmatrix}  z_{\beta_{0,c}} \\  z_{\beta_{C,c}} \\ z_{\beta_{GO,c}}
+    \end{bmatrix} & \sim \text{MVNormal}\left(\begin{bmatrix} 0 \\ 0 \\ 0 \\ 0 \end{bmatrix},\mathbf{R} \right) \\[4pt]
+
+\begin{bmatrix}  \sigma_{\beta_{0}} \\ \sigma_{\beta_{C}}\\ \sigma_{\beta_{GO}}
+    \end{bmatrix}   & \sim \text{Exponential}(1) \\[4pt]
+
+\mathbf{R}& \sim \text{LKJcorr(4)}
+    
+    
+\end{align*}
+
+
+### Model M5: adding spatial autocorrelation
+
+We will use spatial Gaussian processes with a squared exponential covariance kernel to model the spatial processes.
+
+Materials used to build this model:
+
+  - the case study [Robust Gaussian Process Modeling]() of Michael Betancourt.
+
+  - the tutorial [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark
+
+  - *Statistical Rethinking* of McElreath.
+
+
+#### M5_1: Spatial autocorrelation alone
+
+We first consider a model with only a clog-log link and the spatial processes to determine whether we are able to accurately estimate the spatial autocorrelation parameters.
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0} + \mu_i\\
+\end{align*}
+
+The intercepts $\mu_i$ capture the spatial effects. They have a *multivariate Gaussian prior* such as: 
+
+\begin{align*}
+\mu_i & \sim \text{MVNormal}(0,\mathbf{K})\\
+K_{ij} &= \alpha^{2}
+\exp \left( - \frac{ D_{ij}^2 }{2\rho^2} \right) + \delta_{ij} \sigma^2
+\end{align*}
+
+
+$\mathbf{K}$ is the covariance matrix of the $\mu_i$ intercepts and belongs to the *squared exponential family* (the [exponentiated quadratic covariance function in Stan's manual](https://mc-stan.org/docs/2_22/functions-reference/covariance.html). We can also talk about a *squared exponential covariance kernel*. This function says is that the covariance between any two spatial points $i$ and $j$ declines exponentially with the squared distance between them.
+
+The parameter $\rho$ determines the rate of decline, i.e. it controls how quickly the correlations between spatial points decay as a function of the distance between them. If it is large, then covariance declines rapidly with squared distance. $\rho$ is often called the *length scale parameter*.
+
+$\alpha^{2}$ is the *maximum covariance* between any two spatial points $i$ and $j$ (*Statistical Rethinking*, McElreath). The parameter $\alpha$ controls the *marginal variability* of the spatial function at all points; in other words it controls how much the spatial term contributes to the linear predictor ([*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark).
+
+$\delta_{ij} \sigma^2$ provides for extra covariance beyond $\alpha^{2}$ when $i = j$. It does this because the function $\delta_{ij}$ is equal to 1 when $i = j$ but is zero otherwise (*Statistical Rethinking*, McElreath). In our study, this term does not matter because we only have one observation for each NFI plot. But if we had more than one observation per plot, $\sigma$ would describe how these observations covary.
+
+So, in our study, when $i=j$, $K_{ij} = \alpha^{2}$.
+
+> Priors
+
+In *Statistical Rethinking*, McElreath, define priors for the square of $\rho$, $\alpha$ and $\sigma$ and estimate them on the same scale, because that’s computationally easier. Like in our study, he doesn't need $\sigma$ in his model, so he fixes it at an irrelevant constant. As $\rho^{2}$ and $\alpha^{2}$ must be positive, he uses exponential priors for them: $\rho^{2} \sim \text{Exponential(0.5)}$ and $\alpha^{2} \sim \text{Exponential(2)}$. 
+
+In [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html), Nicholas Clark uses: $\rho \sim \text{Normal(2,2.5)}$ (very small values will not be identifiable, so he says that this prior is an informative prior) and $\alpha \sim \text{Normal(0,1)}$.
+
+In our study, the distances (in km) among plots are very large and so we use:
+
+\begin{align*}
+\rho & \sim \text{Normal}(500,200)\\
+\alpha & \sim \text{Normal}(0,1)
+\end{align*}
+
+
+We check what the prior distributions imply for the covariance functions.
+
+```{r VizPrior}
+plot(NULL, xlab="Distance (in km)" , ylab= "Covariance", xlim=c(0,2150), ylim=c(0,6))
+
+n_curve <- 50
+rho <- rnorm(n_curve, 500, 200)
+alpha <- rnorm(n_curve, 0, 01)
+
+for ( i in 1:n_curve ) curve(alpha[i]^2*exp(-0.5 * ((x / rho[i])^2))  , add=T, col = col.alpha("darkgreen",0.5))
+```
+
+<span style="color: red;"> Problem: this model is already long to fit on 200 simulated spatial points, so it would not be possible to fit it on the `r nrow(data)` NFI plots... But then, how can we account for spatial autocorrelation?<span/>
+
+
+#### M5_2: Merging with the other variables
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C,c} C_i + \beta_{GO,c} GO_i + \text{log}(\Delta_i) + \mu_i\\
+\end{align*}
+
+
+
+# Simulated data
+
+Number of simulations:
+
+```{r SetNbSimulations}
+nb_simulations <- 100
+```
+
+
+```{r FunctionsToShowOutputs}
+# Some functions to show model coefficients and coverage across simulations
+
+make_coeff_table <- function(mod,pars=NULL,true_params){
+
+# Extract the 95% credible intervals and the median
+  conf95 <- broom.mixed::tidyMCMC(mod,
+                                  pars=pars,
+                                  droppars = NULL, 
+                                  estimate.method = "median", 
+                                  ess = T, rhat = T, conf.int = T,
+                                  conf.level = 0.95) %>% 
+    dplyr::rename(conf95_low=conf.low,
+                  conf95_high=conf.high,
+                  median=estimate)
+  
+  
+  broom.mixed::tidyMCMC(mod,
+                        pars=pars,
+                        droppars = NULL, 
+                        estimate.method = "mean", 
+                        ess = F, rhat = F, 
+                        conf.int = T, 
+                        conf.level = 0.80) %>% 
+    dplyr::rename(conf80_low=conf.low,
+                  conf80_high=conf.high,
+                  mean=estimate) %>% 
+     inner_join(conf95,by=c("term","std.error")) %>% 
+     dplyr::rename(std_error=std.error) %>% 
+     dplyr::select(term,mean,median,std_error,conf80_low,conf80_high,conf95_low,conf95_high, rhat,ess) %>% 
+  mutate(true_values = true_params) %>% 
+  mutate(conf80_coverage = if_else(conf80_low<=true_values & conf80_high>=true_values, TRUE,FALSE),
+         conf95_coverage = if_else(conf95_low<=true_values & conf95_high>=true_values, TRUE,FALSE))
+  
+}
+   
+calc_coverage_across_sims <- function(x){
+
+  x %>% 
+  group_by(term) %>% 
+  group_split() %>% 
+  purrr::map(\(x){
+    data.frame(parameter=unique(x$term),
+               conf80_coverage=sum(x$conf80_coverage == TRUE),
+               conf95_coverage=sum(x$conf95_coverage == TRUE))
+    }) %>% 
+    bind_rows()}
+```
+
+
+## M0
+
+```{r StanCodeM0}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/simulations/mo.stan"))
+print(stancode)
+```
+
+
+```{r SimulationM0, eval = F}
+set.seed(49205)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+nb_tot <- rep(30,N) # nb of trees per plot
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+ 
+set.seed(seed) 
+  
+beta_0 <- runif(1,-5.5,-4.5) # intercept
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+GO <- rnorm(N,0,1) # genomic offset values
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset values
+eta <- beta_0 + beta_GO * GO # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO)
+
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m0.rds"))
+```
+
+```{r TableCoeffM0}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m0.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+## M1
+
+```{r StanCodeM1}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/simulations/m1.stan"))
+print(stancode)
+```
+
+
+```{r SimulationM1, eval=F}
+set.seed(494442)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+nb_tot <- rep(30,N) # nb of trees per plot
+
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+ 
+set.seed(seed) 
+
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+beta_0 <- runif(1,-6.5,-5.5) # intercept
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+eta <- beta_0 + beta_GO * GO + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 log_nb_years=log(nb_years))
+
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0,save_warmup = FALSE) 
+
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m1.rds"))
+```
+
+```{r TableCoeffM1}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m1.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+
+## M2
+
+```{r StanCodeM2}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/simulations/m2.stan"))
+print(stancode)
+```
+
+
+### Balanced design
+
+```{r SimulationM2BalancedDesign, eval=F}
+set.seed(49205)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+nb_tot <- rep(30,N) # nb of trees per plot
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+  
+set.seed(seed) 
+  
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+beta_0 <- runif(1,-7.5,-6.5) # intercept
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+beta_C <- runif(1,0.5,1.5) # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area (capturing the competition among trees)
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+eta <- beta_0 + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 log_nb_years=log(nb_years))
+
+
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0,save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO,beta_C))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_balanceddesign.rds"))
+```
+
+```{r TableCoeffM2BalancedDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_balanceddesign.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+
+### Unbalanced design
+
+```{r SimulationM2UnbalancedDesign, eval=F}
+set.seed(420453)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+
+set.seed(seed) 
+  
+nb_tot <-sample(5:30, N, replace=T)  # nb of trees per plot
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+beta_0 <- runif(1,-7.5,-6.5) # intercept
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+beta_C <- runif(1,0.5,1.5) # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+eta <- beta_0 + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 log_nb_years=log(nb_years))
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0,save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO,beta_C))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_unbalanceddesign.rds"))
+```
+
+
+```{r TableCoeffM2UnbalancedDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_unbalanceddesign.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+### True design
+
+```{r SimulationM2TrueDesign, eval=F}
+set.seed(4453)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- length(data$plotcode) # same nb of plots as true data
+nb_tot <- data$nb_tot  # same nb of trees per plot as true data
+nb_years <- data$nb_years # same time periods between inventory dates
+
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+  
+set.seed(seed)
+
+
+beta_0 <- runif(1,-7.5,-6.5) # intercept
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+beta_C <- runif(1,0.5,1.5) # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area (capturing the competition among trees)
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+
+eta <- beta_0 + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 log_nb_years=log(nb_years))
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO,beta_C))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_truedesign.rds"))
+```
+
+```{r TableCoeffM2TrueDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_truedesign.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+
+## M3
+
+```{r StanCodeM3}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/simulations/m3.stan"))
+print(stancode)
+```
+
+
+### Balanced design
+
+
+```{r SimulationM3BalancedDesign, eval=F}
+set.seed(4945424)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+nb_tot <- rep(30,N) # nb of trees per plot
+nb_country <- 2
+country <- c(rep(1,N/2),rep(2,N/2))
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+  
+set.seed(seed)
+  
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+beta_0 <- c(runif(1,-7.5,-6.5),runif(1,-6.5,-5.5)) # country-specific intercepts
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+beta_C <- runif(1,0.5,1.5) # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 nb_country=nb_country,
+                 country=country,
+                 log_nb_years=log(nb_years))
+
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO,beta_C))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_balanceddesign.rds"))
+```
+
+```{r TableCoeffM3BalancedDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_balanceddesign.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+
+### Unbalanced design
+
+```{r SimulationM3UnbalancedDesign, eval=F}
+set.seed(53)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+# Experimental design
+N <- 1000 # nb of plots
+nb_country <- 2 # nb of countries
+country <- c(rep(1,N/2),rep(2,N/2))
+
+
+# Data simulation
+lapply(nb_setseed,function(seed){
+
+set.seed(seed) 
+
+nb_tot <-sample(5:30, N, replace=T)  # nb of trees per plot
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+
+
+beta_0 <- c(runif(1,-7.5,-6.5),runif(1,-6.5,-5.5)) # country-specific intercepts
+beta_GO <- runif(1,0.25,0.75) # coeff of the genomic offset
+beta_C <- runif(1,0.5,1.5) # coeff of the basal area
+
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 nb_country=nb_country,
+                 country=country,
+                 log_nb_years=log(nb_years))
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE) 
+
+# Build coeff table
+make_coeff_table(mod,true_params = c(beta_0,beta_GO,beta_C))
+
+}) %>% 
+  bind_rows(.id = "nb_sim") %>% 
+  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_unbalanceddesign.rds"))
+```
+
+
+```{r TableCoeffM3UnbalancedDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_unbalanceddesign.rds")) %>% 
+  calc_coverage_across_sims %>% 
+  kable_mydf()
+```
+
+
+
+### True design
+
+
+```{r 100SimulationsM3TrueDesign, eval=F}
+set.seed(49205)
+nb_setseed <- sample(1:1000,nb_simulations,replace=FALSE)
+
+simul_data <- function(x, data, stancode){
+  
+set.seed(x)
+  
+N <- length(data$plotcode) # same nb of plots as true data
+nb_tot <- data$nb_tot  # same nb of trees per plot as true data
+nb_years <- data$nb_years # same time periods between inventory dates
+
+nb_country <- length(unique(data$country))
+country <- as.numeric(data$country)
+beta_0 <- runif(2,min=-8,max=-5) # country-specific intercepts
+
+beta_GO <- runif(1,-0.7,0.7) # coeff of the genomic offset
+beta_C <- runif(1,-1.3,1.3) # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+
+eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 nb_country=nb_country,
+                 country=country,
+                 log_nb_years=log(nb_years))
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0) 
+
+# Model coefficients
+conf95 <- broom.mixed::tidyMCMC(mod,
+                          droppars = NULL, 
+                          estimate.method = "median", 
+                          ess = T, rhat = T, conf.int = T,
+                          conf.level = 0.95) %>% 
+     dplyr::rename(conf95_low=conf.low,
+                   conf95_high=conf.high,
+                   median=estimate)
+   
+broom.mixed::tidyMCMC(mod,
+                   droppars = NULL, 
+                   estimate.method = "mean", 
+                   ess = F, rhat = F, 
+                   conf.int = T, 
+                   conf.level = 0.80)%>% 
+     dplyr::rename(conf80_low=conf.low,
+                   conf80_high=conf.high,
+                   mean=estimate) %>% 
+     inner_join(conf95,by=c("term","std.error")) %>% 
+     dplyr::rename(std_error=std.error) %>% 
+     dplyr::select(term,mean,median,std_error,conf80_low,conf80_high,conf95_low,conf95_high, rhat ,  ess) %>% 
+  mutate(true_values = c(beta_0[1],beta_0[2],beta_C,beta_GO)) %>% 
+  mutate(conf80_coverage = if_else(conf80_low<=true_values & conf80_high>=true_values, TRUE,FALSE),
+         conf95_coverage = if_else(conf95_low<=true_values & conf95_high>=true_values, TRUE,FALSE))
+
+
+}
+
+
+lapply(nb_setseed, function(x) simul_data(x=x,data=data, stancode=stancode)) %>% 
+  saveRDS(here("outputs/ValidationNFI/Simulations/m3_truedesign_100simulations.rds"))
+```
+
+```{r Output100SimulationsM3TrueDesign}
+readRDS(file=here("outputs/ValidationNFI/Simulations/m3_truedesign_100simulations.rds")) %>% 
+  bind_rows(.id="sim_ID") %>% 
+  group_by(term) %>% 
+  group_split() %>% 
+  purrr::map(\(x){
+    data.frame(parameter=unique(x$term),
+               conf80_coverage=sum(x$conf80_coverage == TRUE),
+               conf95_coverage=sum(x$conf95_coverage == TRUE))
+    }) %>% 
+    bind_rows() %>% kable_mydf()
+```
+
+### True data
+
+#### Random genomic offset
+
+```{r SimulationsM4TrueData, eval=F}
+run_randomGO <- function(stancode,data){
+
+random_GO <- rnorm(nrow(data),mean=0,sd=1) 
+
+datalist <- list(N=nrow(data),
+                 nb_dead=data$nb_dead,
+                 nb_tot=data$nb_tot,
+                 GO=(random_GO - mean(random_GO)) / sd(random_GO),
+                 C=(data$basal_area-mean(data$basal_area))/sd(data$basal_area),
+                 nb_country=length(unique(data$country)),
+                 country=as.numeric(data$country),
+                 log_nb_years=log(data$nb_years))
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE) 
+
+# Model coefficients
+conf95 <- broom.mixed::tidyMCMC(mod,
+                          droppars = NULL, 
+                          estimate.method = "median", 
+                          ess = T, rhat = T, conf.int = T,
+                          conf.level = 0.95) %>% 
+     dplyr::rename(conf95_low=conf.low,
+                   conf95_high=conf.high,
+                   median=estimate)
+   
+broom.mixed::tidyMCMC(mod,
+                   droppars = NULL, 
+                   estimate.method = "mean", 
+                   ess = F, rhat = F, 
+                   conf.int = T, 
+                   conf.level = 0.80)%>% 
+     dplyr::rename(conf80_low=conf.low,
+                   conf80_high=conf.high,
+                   mean=estimate) %>% 
+     inner_join(conf95,by=c("term","std.error")) %>% 
+     dplyr::rename(std_error=std.error) %>% 
+     dplyr::select(term,mean,median,std_error,conf80_low,conf80_high,conf95_low,conf95_high, rhat ,  ess)
+   
+
+}
+
+set.seed(495)
+
+lapply(1:2, function(x) run_randomGO(stancode,data)) %>% saveRDS(here("outputs/ValidationNFI/Simulations/m3_truedata_randomGO_100simulations.rds"))
+```
+
+```{r TableCoeffM4TrueData, eval=F}
+readRDS(file=here("outputs/ValidationNFI/Simulations/m3_truedata_randomGO_100simulations.rds")) %>% 
+  bind_rows(.id="sim_ID") %>% 
+  dplyr::filter(term == "beta_GO") %>%
+  mutate(conf80_include_zero = if_else(conf80_low<=0 & conf80_high>=0, TRUE,FALSE),
+         conf95_include_zero = if_else(conf95_low<=0 & conf95_high>=0, TRUE,FALSE))
+```
+
+
+## M5
+
+
+### Balanced design
+
+The code below is mostly based on the tutorial [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark.
+
+We first generate some fake spatial points within the spatial range of the NFI plots.
+
+```{r GeneratingSpatialPoints}
+# Generating coordinates of spatial points based on the geographical range of the NFI plots
+# =========================================================================================
+
+N <- 200 # nb of plots
+lat <- runif(n = N, min = min(data$latitude), max = max(data$latitude))
+lon <- runif(n = N, min = min(data$longitude), max = max(data$longitude))
+coords <- as.matrix(cbind(lon, lat))
+colnames(coords) <- c('Longitude', 'Latitude')
+```
+
+We simulate `r N` geospatial coordinates within the geographic area of the NFI plots: latitude and longitude coordinates are sampled based on the minimum/maximum latitudes and longitudes of the NFI plots.
+
+We then calculate distances (in meters) between the points, ensure the resulting matrix is symmetric, and then convert distances to kilometers. 
+
+```{r BuildingDistanceMatrix}
+m <- pointDistance(coords, lonlat = TRUE) # calculate distances (in meters) between the points
+m[upper.tri(m)] = t(m)[upper.tri(m)] #  ensure the resulting matrix is symmetric
+m <- m / 1000 # convert distances to kilometers
+m[1:10,1:10] # preview the matrix
+
+# Another way of doing it, which
+# gives the same distance matrix:
+# library(geodist)
+# t <-  coords %>% geodist(measure="geodesic")
+# t[1:10,1:10]
+```
+
+In this matrix, the maximum distance is `r round(max(m),0)` km.
+ 
+We then assign values to the parameter $\rho$ and $\alpha$ to ensure that there is obvious spatial autocorrelation. 
+
+```{r GPparamvalues}
+alpha <- 1 # maximum covariance
+rho <- 500 # spatial decay of 500 km 
+```
+
+We calculate the squared exponential covariance matrix. A small offset is used on the diagonals to ensure the resulting matrix is positive definite. This is a requirement for simulating multivariate normal draws. 
+
+```{r CalculatingCovarianceMatrix}
+K <- alpha^2 * exp(-0.5 * ((m / rho) ^ 2)) + diag(1e-9, N)
+K[1:10,1:10]
+```
+
+Let's visualize the shape of the function relating distance to the covariance $K_{ij}$:
+
+```{r PlotCovarianceFunction}
+curve(alpha^2 * exp(-0.5 * ((x / rho) ^ 2)), 
+      from=0, to=2150, 
+      lty=2, 
+      xlab="Distance (in km)" , 
+      ylab="Covariance" )
+```
+
+We simulate the latent Gaussian Process function as random draws from a zero-centered multivariate normal distribution with $K$ as the covariance matrix. Let's visualize the spatial autocorrelation:
+
+```{r SimulateSpatialAutocorrelation, fig.height=5, fig.width=6}
+set.seed(4924)
+mu <- MASS::mvrnorm(1, mu = rep(0, N), Sigma = K)
+
+ggplot(data.frame(GP = mu,
+                  Longitude = lon,
+                  Latitude = lat),
+       aes(x = Longitude, y = Latitude, fill = GP)) +
+  geom_point(size = 5, shape = 21, col = 'white') +
+  scale_fill_continuous(type = "viridis") +
+  theme_minimal()
+```
+
+
+
+
+#### M5_1
+
+We then simulate the observed counts of dead trees.
+
+```{r SimulateMortalityRatesM51, fig.height=5, fig.width=6}
+set.seed(492)
+nb_tot <- rep(30,N) # nb of trees per plot
+beta_0 <- -6 # intercept
+eta <- beta_0 + mu
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N, nb_tot, p) # nb of dead trees in each plot
+
+
+ggplot(data.frame(Y = nb_dead,
+                  Longitude = lon,
+                  Latitude = lat),
+       aes(x = Longitude, y = Latitude, fill = Y)) +
+  geom_point(size = 5, shape = 21, col = 'white') +
+  scale_fill_continuous(type = "viridis", name = "nb dead trees") +
+  theme_minimal()
+```
+
+```{r StanCodeM51}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/simulations/m5_1_noncentered.stan"))
+print(stancode)
+```
+
+```{r RunM51, eval=F}
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 Dmat=m)
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, 
+                iter = 2000, 
+                chains = 4, cores = 4,
+                init=0, 
+                save_warmup = FALSE,
+                pars=c("mu","beta_0","alpha","rho")) 
+
+mod %>% saveRDS(file=here("outputs/ValidationNFI/Simulations/m5_1_init_random.rds"))
+```
+
+
+```{r ModelCoeffM51}
+#mod <- readRDS(file=here("outputs/ValidationNFI/Simulations/m5_1_init_random.rds"))
+mod <- readRDS(file=here("outputs/ValidationNFI/Simulations/m5_1_init0.rds"))
+
+# Model coefficients
+broom.mixed::tidyMCMC(mod,
+                      pars=c("beta_0","alpha","rho"),
+                      droppars = NULL, 
+                      conf.level=0.95,
+                      estimate.method = "median", 
+                      ess = T, rhat = T, conf.int = T) %>% 
+  kable_mydf(round_number=3)
+
+make_coeff_table(mod, pars=c("beta_0","alpha","rho"), true_params = c(beta_0,alpha,rho)) %>% 
+  kable_mydf()
+```
+
+Let's look at the scatter plots for $\rho$, $\alpha$ and $\beta_0$.
+
+```{r MCMCpairplotsM51, fig.height=6,fig.width=6}
+mcmc_pairs(as.array(mod), 
+           np = nuts_params(mod), 
+           pars = c("beta_0","alpha","rho"),
+           off_diag_args = list(size = 0.75))
+```
+
+
+Using the code from [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark, we visualize the posterior estimates for the spatial covariance kernel to see if the model captures the simulated covariance well. 
+
+```{r}
+# We define a function to compute the covariance kernel for each posterior draw
+quad_kernel = function(rho, alpha, distances){covs <- alpha^2 * exp(-0.5 * ((distances / rho)^2))}
+
+
+# We specify the distances (in km) over which to compute the posterior kernel estimates
+distances = seq(0, 2150, length.out = 75)
+
+# we compute posterior kernels
+kernels <- matrix(NA, nrow = 1000, ncol = length(distances))
+list_posteriors <- rstan::extract(mod, pars=c("rho","alpha"))
+for(i in 1:1000){
+  kernels[i,] <- quad_kernel(rho = list_posteriors$rho[i],
+                             alpha = list_posteriors$alpha[i],
+                             distances = distances)
+}
+
+# Calculate posterior empirical quantiles for the kernel
+probs <- c(0.05, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.95)
+cred <- sapply(1:NCOL(kernels),
+               function(n) quantile(kernels[,n],
+                                    probs = probs))
+
+c_light <- c("#DCBCBC")
+c_light_highlight <- c("#C79999")
+c_mid <- c("#B97C7C")
+c_mid_highlight <- c("#A25050")
+c_dark <- c("#8F2727")
+c_dark_highlight <- c("#7C0000")
+
+# Plot the estimated kernels and overlay the true simulated kernel in black
+pred_vals <- distances
+plot(1, xlim = c(0, 2150), ylim = c(0, max(cred)), type = 'n',
+     xlab = 'Distance (in km)', ylab = 'Covariance',
+     bty = 'L')
+box(bty = 'L', lwd = 2)
+polygon(c(pred_vals, rev(pred_vals)), c(cred[1,], rev(cred[9,])),
+        col = c_light, border = NA)
+polygon(c(pred_vals, rev(pred_vals)), c(cred[2,], rev(cred[8,])),
+        col = c_light_highlight, border = NA)
+polygon(c(pred_vals, rev(pred_vals)), c(cred[3,], rev(cred[7,])),
+        col = c_mid, border = NA)
+polygon(c(pred_vals, rev(pred_vals)), c(cred[4,], rev(cred[6,])),
+        col = c_mid_highlight, border = NA)
+lines(pred_vals, cred[5,], col = c_dark, lwd = 2.5)
+
+# Overlay the true simulated kernel
+true_kernel <- quad_kernel(rho = rho,
+                           alpha = alpha,
+                           distances = distances)
+lines(pred_vals,
+      true_kernel, lwd = 3.5, col = 'white')
+lines(pred_vals,
+      true_kernel, lwd = 3, col = 'black')
+```
+
+
+#### M5_2
+
+We then simulate the observed counts of dead trees.
+
+```{r SimulateMortalityRates, fig.height=5, fig.width=6, echo=F,eval=F}
+set.seed(492)
+nb_tot <- rep(30,N) # nb of trees per plot
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+nb_country <- 2
+country <- c(rep(1,N/2),rep(2,N/2))
+beta_0 <- c(-7,-6) # country-specific intercepts
+beta_GO <- 0.5 # coeff of the genomic offset
+beta_C <- 1 # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # basal area
+C <- (C - mean(C)) / sd(C) # scaling the basal area
+eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) + mu # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+
+ggplot(data.frame(Y = nb_dead,
+                  Longitude = lon,
+                  Latitude = lat),
+       aes(x = Latitude, y = Longitude, fill = Y)) +
+  geom_point(size = 5, shape = 21, col = 'white') +
+  scale_fill_continuous(type = "viridis", name = "nb dead trees") +
+  theme_minimal()
+```
+
+
+
+```{r SimulationM5BalancedDesign, echo=F,eval=F}
+nb_tot <- rep(30,N) # nb of trees per plot
+nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
+nb_country <- 2
+country <- c(rep(1,N/2),rep(2,N/2))
+beta_0 <- c(-7,-6) # country-specific intercepts
+beta_GO <- 0.5 # coeff of the genomic offset
+beta_C <- 1 # coeff of the basal area
+GO <- rnorm(N,0,1) # genomic offset
+GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
+C <- rnorm(N,0,1) # genomic offset
+C <- (C - mean(C)) / sd(C) # scaling the genomic offset
+eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) + sim_gp # linear predictor
+p <- 1-exp(-exp(eta)) # probability of mortality in each plot
+nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
+
+
+
+
+ggplot(data.frame(Y = nb_dead,
+                  Longitude = lon,
+                  Latitude = lat),
+       aes(x = Latitude, y = Longitude, fill = Y)) +
+  geom_point(size = 5, shape = 21, col = 'white') +
+  scale_fill_continuous(type = "viridis") +
+  theme_minimal()
+
+# Stan list
+datalist <- list(N=N,
+                 nb_dead=nb_dead,
+                 nb_tot=nb_tot,
+                 GO=GO,
+                 C=C,
+                 nb_country=nb_country,
+                 country=country,
+                 Dmat=m,
+                 log_nb_years=log(nb_years))
+
+# Stan code
+stancode = stan_model("scripts/StanModels/simulations/m4.stan")
+print(stancode)
+
+# Running stan model
+mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0) 
+
+# Model coefficients
+broom.mixed::tidyMCMC(mod,
+                      droppars = NULL, 
+                      conf.level=0.95,
+                      estimate.method = "median", 
+                      ess = T, rhat = T, conf.int = T) %>% 
+  kable_mydf(round_number=3)
+```
+
+
