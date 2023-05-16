@@ -48,3 +48,5 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 -   [11_RedundancyAnalysis_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/11_RedundancyAnalysis_GenomicOffsetPredictions.html) Predicting the genomic offset with Redundancy Analysis (RDA).
 
 -   [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) Comparing the genomic offset predictions across the different methods.
+
+-   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building the Bayesian models to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
