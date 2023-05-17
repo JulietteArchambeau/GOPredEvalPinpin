@@ -290,7 +290,7 @@ The FDR algorithm requires that the tests are correctly calibrated, i.e. that th
 <span style="color: red;">**Which FDR level do we use?**</span>
 
 ```{r SetFDRlevel}
-fdr_level <- 0.1
+fdr_level <- 0.05
 ```
 
 To identify the candidate SNPs, we apply the chosen FDR control to the p-values, which converts them into q-values. And then we identify candidates as those with q-values below a given FDR threshold.

@@ -59,7 +59,7 @@ make_venndiagram <- function(list_candidates,
 list_candidates %>% 
     ggVennDiagram(lty="solid", size=0.2) + 
   scale_fill_gradient2(low = "white", high = 'gray40') + 
-  scale_color_manual(values = rep("gray80",4)) + 
+  scale_color_manual(values = rep("gray80",6)) + 
   guides(fill = "none") + 
   labs(caption=caption) +
   ggtitle(title) +
@@ -78,43 +78,45 @@ Candidate SNPs were identified using different gene-environment association (GEA
 
 Two RDA models were fitted:
 
-  - not accounting for population structure, which we will call *<span style="color: orange;">RDA-raw</span>*.
+  - not accounting for population structure, which we will call *<span style="color: orange;">RDA</span>*.
   
-  - accounting for population structure by incorporating in the RDA model the three first PCs of the PCA performed on the genomic dataset (not filtered for minor allele frequencies), which we will call *<span style="color: orange;">RDA-X</span>*.
+  - accounting for population structure by incorporating in the RDA model the three first PCs of the PCA performed on the genomic dataset (not filtered for minor allele frequencies), which we will call *<span style="color: orange;">pRDA</span>*.
 
 
 RDA candidates are SNPs that have been identified with one of these two methods:
 
-   - based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a $K$ number of axes (we used $K=2$). This method was used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). For that, (1) the Mahalanobis distances were calculated, (2) the SNPs were then rank-ordered based on their $p$-values (capturing how far their Mahalanobis distance differs from the distribution of Mahalanobis distances of all SNPs), (3) the 0.2% of the SNPs (19 SNPs) with the lowest $p$-values were considered as outliers.
+   - based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a $K$ number of axes (we used $K=2$). This method was used in @capblancq2020climate (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)) and @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). For that, (1) the Mahalanobis distances were calculated, (2) $p$-values and $q$-values were obtained with the `radapt` function from @capblancq2021redundancy, and (3) a FDR (False Discovery Rate) threshold of 5% was applied to the $q$-values to identify the outliers.
 
   - based on *extreme loadings on each significant axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html)). We use a 3 standard deviation cutoff (two-tailed $p$-value = 0.0027) to identify the outliers.
   
+
+Below, we keep only the SNPs that have been identified with the Mahalanobis distance method.
  
 ```{r RDAoutliers, fig.width=12,fig.height=5}
 par(mfrow=c(1,2))
 
 rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 
-list_candidates <- list("RDA-raw"=rda_outliers[[3]]$outliers$snp,
-                        "RDA-X"=rda_outliers[[4]]$outliers$snp,
-                        "RDA-raw (mahalanobis)"=rda_outliers[[3]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
-                        "RDA-raw (loadings)"=rda_outliers[[3]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp),
-                        "RDA-X (mahalanobis)"=rda_outliers[[4]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
-                        "RDA-X (loadings)"=rda_outliers[[4]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp))
+list_candidates <- list("RDA"=rda_outliers[[3]]$outliers$snp,
+                        "pRDA"=rda_outliers[[4]]$outliers$snp,
+                        "RDA (mahalanobis)"=rda_outliers[[3]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                        "RDA (loadings)"=rda_outliers[[3]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp),
+                        "pRDA (mahalanobis)"=rda_outliers[[4]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                        "pRDA (loadings)"=rda_outliers[[4]]$outliers %>% dplyr::filter(load_meth==T) %>% pull(snp))
 
 
 
-p <- make_venndiagram(list_candidates[c("RDA-raw","RDA-X")], title = "Mahalanobis and loadings methods")
+p <- make_venndiagram(list_candidates[c("RDA","pRDA")], title = "Mahalanobis and loadings methods")
 
 
-pp <- make_venndiagram(list_candidates[c("RDA-raw (mahalanobis)","RDA-X (mahalanobis)")], title = "Mahalanobis method only")
+pp <- make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)")], title = "Mahalanobis method only")
 
 plot_grid(p,pp,nrow=1)
 
-p <- make_venndiagram(list_candidates[c("RDA-raw (loadings)","RDA-X (loadings)")], title = "Loadings method only")
+p <- make_venndiagram(list_candidates[c("RDA (loadings)","pRDA (loadings)")], title = "Loadings method only")
 
 
-pp <- make_venndiagram(list_candidates[c("RDA-raw (mahalanobis)","RDA-raw (loadings)","RDA-X (mahalanobis)","RDA-X (loadings)")])
+pp <- make_venndiagram(list_candidates[c("RDA (mahalanobis)","RDA (loadings)","pRDA (mahalanobis)","pRDA (loadings)")])
 
 plot_grid(p,pp,nrow=1)
 ```
@@ -140,6 +142,8 @@ Different options for the thresholds:
   - Bonferroni threshold.
   
 In the following analyses, **we use the 0.5% SNPs with the lowest empirical $p$-values.**
+
+**<span style="color: red;">Warning:</span>** Gradient Forest has only been used once as a genome scan [@capblancq2023common] and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. This method does not provide a significance level for each SNPs that we can use to select the candidate SNPs and therefore we have to use empirical $p$-values, which may be less robust. Moreover, when we performed several runs of GF as a genome scan, we did not obtain the same exact set of candidate SNPs each time. A final observation that made us skeptical of GF is that no common candidates were found between GF-raw and GF-X (although we do not expect much overlap, it is still unexpected that there is no overlap at all). For these reasons, we have to be careful when using this method as a GEA and we may not want the selection of the candidates to rely on this method. 
   
 ```{r GFoutliers, fig.width=12,fig.height=5}
 par(mfrow=c(1,2))
@@ -166,7 +170,7 @@ list_candidates$"GF-X"=gf_out$gf_X$outliers_rank005
 
 ## Latent factor mixed model (LFMM)
 
-We identified the candidate SNPs by applying a FDR threshold of 10% to the p-values from a LFMM. LFMM was corrected for population structure (ie population relatedness) as the population structure should be captured by the $K$ latent factors ($K = 5$ in our case).
+We identified the candidate SNPs by applying a FDR threshold of 5% to the p-values from a LFMM. LFMM was corrected for population structure (ie population relatedness) as the population structure should be captured by the $K$ latent factors ($K = 5$ in our case).
 
 ```{r LFMMoutliers}
 list_candidates$"LFMM" <- readRDS(here::here("outputs/LFMM/candidates.rds"))
@@ -193,15 +197,23 @@ Let's look at the common candidates across the different GEA methods.
 
 ```{r VennDiagramCommoncandidates,fig.height=5,fig.width=8}
 # generating the Venn diagrams showing common candidates across GEA methods
-make_venndiagram(list_candidates[c("RDA-raw","GF-raw")],
+make_venndiagram(list_candidates[c("RDA (mahalanobis)","GF-raw")],
                  caption = "GEA methods not correcting for population structure")
-make_venndiagram(list_candidates[c("RDA-X","GF-X","LFMM","BayPass")],
+make_venndiagram(list_candidates[c("pRDA (mahalanobis)","GF-X","LFMM","BayPass")],
                  caption = "GEA methods correcting for population structure")
 
+
 # Identifying SNPs identified by at least two GEA methods
-common_cand_notcorrected <- list_candidates[c("RDA-raw","GF-raw")] %>% unlist() %>% .[duplicated(.)] %>% unique()
-common_cand_corrected <- list_candidates[c("RDA-X","GF-X","LFMM","BayPass")] %>% unlist() %>% .[duplicated(.)] %>% unique()
-common_cand <- list_candidates[c("RDA-raw","GF-raw","RDA-X","GF-X","LFMM","BayPass")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_notcorrected <- list_candidates[c("RDA (mahalanobis)","GF-raw")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_corrected <- list_candidates[c("pRDA (mahalanobis)","GF-X","LFMM","BayPass")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand <- list_candidates[c("RDA (mahalanobis)","GF-raw","pRDA (mahalanobis)","GF-X","LFMM","BayPass")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_RDA_LFMM <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_RDA_LFMM_BayPass <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+common_cand_RDA_LFMM_BayPass_GFraw <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass", "GF-raw")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+
+# Identifying SNPs in common between some of the GEA methods
+common_cand_RDA_LFMM_intersect <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM")] %>% Reduce(intersect, .)
+common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass")] %>% Reduce(intersect, .)
 ```
 
 
@@ -209,17 +221,35 @@ common_cand <- list_candidates[c("RDA-raw","GF-raw","RDA-X","GF-X","LFMM","BayPa
 
   1. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
 
-  2. SNPs that were identified by at least one GEA method **not correcting for population structure**, namely *RDA-raw* and *GF-raw* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  2. SNPs that were identified by at least one GEA method **not correcting for population structure**, namely *RDA* and *GF-raw* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
   
-  3. SNPs that were identified by at least one GEA method **correcting for population structure**, namely *RDA-X*, *GF-X*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  3. SNPs that were identified by at least one GEA method **correcting for population structure**, namely *pRDA*, *GF-X*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
   
+  4. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
+  
+  5. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass %>% length()` SNPs.</span>
+  
+  6. SNPs in common between *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_intersect %>% length()` SNPs.</span>
+  
+  7. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
+  
+  8. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF-raw* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs.</span>.
 
 <span style="color: OrangeRed;">`r length(intersect(common_cand_corrected,common_cand_notcorrected))` SNPs</span> are in common between the sets 2 and 3.
+
+> Our choice
+
+We will use the set with SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF-raw* (`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (and choosing for instance a set of SNPs with SNPs in common across all methods) and not including too many false positives (eg, by selecting SNPs identified by at least by two methods). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF-raw). 
+
+```{r VennDiagrammSelectedMethods,fig.height=7,fig.width=7}
+make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF-raw")],
+                 caption = "Selected methods")
+```
 
  
 > Comparison with @capblancq2023common
 
-In @capblancq2023common, they selected the SNPs that were in the top 0.2% for at least two of four genome scans (GF-raw, GF-X, RDA-raw or RDA-X), which resulted in the selection of 240 loci (over 335 588 loci exhibiting  MAF > 0.1). They observed substantial overlap between RDA and GF when neutral population structure was not accounted for, with 149 loci (i.e. 22% of each set) found by both methods. On the contrary, congruence was low when correcting for population structure, with only 15 common loci (2%) between methods, and no visible covariation between GF R2 and RDA Mahalanobis distance.
+In @capblancq2023common, they selected the SNPs that were in the top 0.2% for at least two of four genome scans (GF-raw, GF-X, RDA or pRDA), which resulted in the selection of 240 loci (over 335 588 loci exhibiting  MAF > 0.1). They observed substantial overlap between RDA and GF when neutral population structure was not accounted for, with 149 loci (i.e. 22% of each set) found by both methods. On the contrary, congruence was low when correcting for population structure, with only 15 common loci (2%) between methods, and no visible covariation between GF R2 and RDA Mahalanobis distance.
 
   
 # Genome position of candidate SNPs
@@ -239,7 +269,7 @@ Information on genome position for candidates SNPs identified by at least two GE
 
 ```{r GenomePositionCandidates}
 snppos %>% 
-  dplyr::filter(snp_ID %in% common_cand) %>% 
+  dplyr::filter(snp_ID %in% common_cand_RDA_LFMM_BayPass_GFraw) %>% 
   kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
@@ -247,7 +277,7 @@ SNPs on the same scaffold:
 
 ```{r SNPsSameScaffold}
 snppos %>% 
-  dplyr::filter(snp_ID %in% common_cand) %>% 
+  dplyr::filter(snp_ID %in% common_cand_RDA_LFMM_BayPass_GFraw) %>% 
   group_by(scaffold) %>% 
   filter(n()>1) %>% 
   kable_mydf(boldfirstcolumn = F, font_size = 11)
@@ -256,17 +286,17 @@ snppos %>%
 
 If we keep only one SNP per scaffold, we will have:
 
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method.
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_RDA_LFMM_BayPass_GFraw) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF-X*.
 
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_notcorrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method not correcting for population structure (*RDA-raw* and *GF-raw*).
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_notcorrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method not correcting for population structure (*RDA* and *GF-raw*).
   
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_corrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method correcting for population structure (*RDA-X*, *GF-X*, *LFMM* and *BayPass*).
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_corrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method correcting for population structure (*pRDA*, *GF-X*, *LFMM* and *BayPass*).
   
   
 When some SNPs are on the same scaffold, we remove the SNPs with higher $p$-values in the RDA.
 
-```{r}
-snp_to_remove <- lapply(list(common_cand,common_cand_notcorrected,common_cand_corrected), function(set){
+```{r rmSNPsSameGenomePosition}
+snp_to_remove <- lapply(list(common_cand_RDA_LFMM_BayPass_GFraw,common_cand_corrected), function(set){
 
   snppos %>% 
   dplyr::filter(snp_ID %in% set) %>% 
@@ -286,17 +316,18 @@ rda_outliers[[3]]$GSout %>%
 })
 
 
-common_cand <- setdiff(common_cand, snp_to_remove[[1]])
-common_cand_notcorrected <- setdiff(common_cand_notcorrected, snp_to_remove[[1]])
+common_cand_RDA_LFMM_BayPass_GFraw <- setdiff(common_cand_RDA_LFMM_BayPass_GFraw, snp_to_remove[[1]])
 common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
 ```
 
 
 # Control SNPs
 
-We *randomly* sample a set of SNPs (approximately the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
+We *randomly* sample a set of SNPs (the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
 
 ```{r ControlSNPs, eval=T}
+nb_snps <- common_cand_RDA_LFMM_BayPass_GFraw %>% length()
+
 # names of the SNPs that were identified by at least one GEA method
 all_candidates <- list_candidates %>% unlist() %>% unique()
 
@@ -307,17 +338,17 @@ no_candidates <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_Alle
 
 # sample the set of control SNPs
 set.seed(36)
-control_snps <- sample(no_candidates,30,replace = F)
+control_snps <- sample(no_candidates,nb_snps,replace = F)
 ```
 
 
 ```{r SaveThreeSetsSNPs, eval=T}
-snp_sets <- list(cand_corrected = list(set_code = "cand_corrected",
-                                       set_name = "Common candidates (with correction)",
-                                       set_snps = common_cand_corrected),
-                 cand_notcorrected = list(set_code = "cand_notcorrected",
-                                       set_name = "Common candidates (no correction)",
-                                       set_snps = common_cand_notcorrected),
+snp_sets <- list(candidate = list(set_code = "cand",
+                                  set_name = "Candidate SNPs",
+                                  set_snps = common_cand_RDA_LFMM_BayPass_GFraw),
+                 candidate_corrected = list(set_code = "cand_corrected",
+                                            set_name = "Candidate SNPs (with correction)",
+                                            set_snps = common_cand_corrected),
                  control = list(set_code = "control",
                                 set_name = "Control SNPs",
                                 set_snps = control_snps))

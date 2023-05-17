@@ -1167,6 +1167,8 @@ Outliers can be identified based on their *extremeness* along a *distribution of
   -  @capblancq2020climate uses a $p$-value threshold with a Bonferroni correction to account for multiple testing: $p$-value < 0.01 / number of SNPs (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)). In our study, this threshold results in selecting 16 SNPs with the RDA-raw model, and 5 with the RDA-X model (and 1 in common between the two methods). 
 
   - @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)) rank-ordered the SNPs based on their $p$-values (the $p$-value of a given SNP captures how far its Mahalanobis distance is from the distribution of Mahalanobis distances of all SNPs) and identified the 0.2% or 0.5% of the SNPs with the lowest $p$-values. In our study, this threshold results in selecting 19 SNPs (0.002 * `r dim(geno_pop)[[2]]`=`r 0.002*dim(geno_pop)[[2]]`) or 48 SNPs (0.005 * `r dim(geno_pop)[[2]]`=`r 0.005*dim(geno_pop)[[2]]`). We will use this threshold in the following analyses.
+  
+  - we can also use a FDR (False Discovery Rate) threshold of 5% or 10% to identify outliers as the `rdadapt` function returns both $p$-values and $q$-values (see @franccois2016controlling).
 
 Outliers can also been identified based on the *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html), in which a 3 standard deviation cutoff is used (two-tailed $p$-value = 0.0027). We also use a 3 standard deviation cutoff in the following analyses. 
   
@@ -1193,18 +1195,28 @@ GSout <- rdadapt(rda_model$mod_rda, 2) %>%
   as_tibble() %>% 
   mutate(snp=colnames(geno_data)) 
 
+GSout$qvalues %>% hist(col = "orange", 
+     main="Histogram of non-calibrated p-values",
+     xlab="p-values")
+
 # P-values threshold after Bonferroni correction
 # outliers_maha <- GSout %>% 
 #   filter(pvalues <  0.01/nrow(.)) %>% 
 #   mutate(maha_meth = TRUE) %>% 
 #   dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
 
-# P-values are rank-ordered and we select the 0.5% with the lowest p-values
-outliers_maha <- GSout %>% 
-  arrange(pvalues) %>% 
-  slice(1:(0.005*nrow(.))) %>% 
-  mutate(maha_meth = TRUE) %>% 
+# FDR threshold of 5%
+outliers_maha <- GSout %>%
+  filter(qvalues <  0.05) %>%
+  mutate(maha_meth = TRUE) %>%
   dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
+
+# P-values are rank-ordered and we select the 0.5% with the lowest p-values
+# outliers_maha <- GSout %>% 
+#   arrange(pvalues) %>% 
+#   slice(1:(0.005*nrow(.))) %>% 
+#   mutate(maha_meth = TRUE) %>% 
+#   dplyr::select(snp,maha_meth) # we do not keep the p.values and q.values in the outlier table
 
 
 # outlier detection based on  extreme axis loadings
