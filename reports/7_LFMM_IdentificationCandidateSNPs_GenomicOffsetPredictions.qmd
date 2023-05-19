@@ -47,6 +47,7 @@ library(magrittr)
 library(LEA)
 library(cowplot)
 library(rnaturalearth)
+library(corrplot)
 library(raster)
 library(RColorBrewer)
 
@@ -442,7 +443,7 @@ cor(ggap_all_snps[[gcm]]$go,list_dist_env[[gcm]]^2)
   kable_mydf()
 ```
 
-Comment: The squared Euclidean climatic distance and the genetic gap are somewhat correlated (the strength of the correlation depending on whether we include or not the outlier pops), so it means that the genetic gap $GO$ can be expressed as follows: $GO = a \times dist^2 + b + e$ with $dist$ being the Euclidean climatic distance and the $e$ the residuals (ie the noise). **Note that $GO$ and $dist^2$ are correlated but not proportional to!**
+Comment: The squared Euclidean climatic distance and the genetic gap are somewhat correlated, so it means that the genetic gap $GO$ can be expressed as follows: $GO = a \times dist^2 + b + e$ with $dist$ being the Euclidean climatic distance and the $e$ the residuals (ie the noise). **Note that $GO$ and $dist^2$ are correlated but not proportional to!**
 
 We can plot the `eigenvalues` with a barplot to evaluate the relative importance of the climatic variables.
 
@@ -530,6 +531,115 @@ plot_grid(
   rel_heights = c(0.1, 1))
 ```
 
+#### Validation - NFI plots
+
+We load the climatic data of the NFI plots.
+
+```{r LoadNFIdata}
+# Load the climatic data of the NFI plots.
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+
+# Keep only the climatic variables of interest and scale the climatic data
+nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+```
+
+We predict the genomic offset at the location of the NFI plots.
+
+```{r GOpredNFIplotsWithAllSNPs, fig.width=8,fig.height=8}
+go_nfi <- genetic.gap(input = geno,
+                      env = clim_ref,
+                      new.env = nfi_dfs$clim_ref[,-1],
+                      pred.env = nfi_dfs$clim_pred[,-1],
+                      K = 5)
+
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <- go_nfi$offset %>%  range()
+# The minimum GO value is very very small, almost zero, so we fix it to zero.
+go_limits[[1]] <- 0
+
+
+# map genomic offset predictions in the NFI plots 
+go_allsnps <- list(go_nfi = go_nfi$offset,
+                   set_name = "All SNPs")
+make_go_map(
+  dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
+  snp_set = go_allsnps,
+  type="NFI",
+  point_size = 0.5,
+  go_limits = go_limits,
+  legend_position = c(0.85,0.15),
+  legend_box_background = "gray80",
+  y_limits = c(35, 51))
+```
+
+#### Validation - Common gardens 
+
+```{r LoadCommonGardenInformation}
+# Common garden information
+# =========================
+cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  dplyr::select(cg,any_of(clim_var))
+cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
+cg_names <- unique(cg_coord$cg)
+
+
+# Climatic datasets for the predictions
+# =====================================
+
+# In these datasets, one row per prediction
+# We want GO predictions for each combination pop * CG, so 34 * 5 = 160 rows
+
+# climatic data of the populations
+# each row (ie each population climatic data) is repeated 5 times
+clim_pop <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[1]] %>% 
+  slice(rep(1:n(), each = nrow(cg_clim)))
+
+# Climatic data in the common gardens scaled with the mean and variance of the ref-period climatic data
+# each climatic dataset is repeated 34 times and then rows are combined
+clim_cg <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[2]] %>% 
+  replicate(nrow(pop_coord),.,simplify=F) %>% 
+  bind_rows()
+```
+
+
+```{r GOpredictionsCGallSNPs, fig.height=6,fig.width=12}
+# Genomic offset predictions in the common gardens
+# ================================================
+go_allsnps$go_cg <- bind_cols(pop=clim_pop[,1],cg=clim_cg[,1]) %>% 
+  mutate(go=genetic.gap(input = geno,
+                     env = clim_ref,
+                     new.env = clim_pop[,-1],
+                     pred.env = clim_cg[,-1],
+                     K = 5)$offset) %>% 
+  pivot_wider(names_from = cg, values_from = go)
+
+
+
+# Mapping
+# ========
+go_maps_cg <- lapply(cg_names, function(cg_name){
+  
+# Find minimum and maximum values of genomic offset for the maps
+go_limits <-  go_allsnps$go_cg[[cg_name]] %>%  range()
+go_limits[[1]] <- 0
+  
+make_go_map(dfcoord=pop_coord,
+                 snp_set = go_allsnps,
+                 point_size = 3,
+                 type="CG",
+                 go_limits = go_limits,
+                 cg_name=cg_name,
+                 cg_coord=cg_coord)})
+
+plot_grid(plotlist=go_maps_cg)
+```
+
+We save the genomic offset predictions for comparison with other methods.
+
+```{r SaveGOpredictionsallSNPs}
+go_allsnps$go <- lapply(ggap_all_snps, function(x) x$go)
+
+go_allsnps %>% saveRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))
+```
 
 
 
@@ -628,6 +738,29 @@ cor(sqrt(snp_set$go[[gcm]]),list_dist_env[[gcm]]^2)
   kable_mydf()
 ```
 
+### Comparing GO predictions
+
+We look at the correlation across the different genomic offset predictions at the location of the populations, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
+
+```{r CorrplotsGOPredictionsPopulations, fig.height=5,fig.width=14, results="hide"}
+par(mfrow=c(1,3))
+
+lapply(names(go_allsnps$go), function(gcm){
+  
+lapply(snp_sets, function(x) x$go[[gcm]]) %>% 
+  as_tibble() %>%
+  mutate(allsnps = go_allsnps$go[[gcm]]) %>% 
+  cor() %>% 
+  corrplot(method = 'number',type = 'lower', 
+           diag = FALSE,mar=c(0,0,2,0),
+           title=gcm,
+           number.cex=2,tl.cex=1.5)
+  
+})
+```
+
+
+
 ### Maps
 
 ```{r MakeGomapsSNPsets, fig.width=12, fig.height=7, results="hide", warning=F}
@@ -684,12 +817,6 @@ plot_grid(
 # Validation - NFI plots
 
 ```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
-# Load the climatic data of the NFI plots.
-nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
-
-# Keep only the climatic variables of interest and scale the climatic data
-nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
-
 # Calculate the genomic offset for the NFI plots
 snp_sets <- lapply(snp_sets, function(snp_set){
   
@@ -727,36 +854,22 @@ lapply(snp_sets, function(x) make_go_map(
   y_limits = c(35, 51)))
 ```
 
+We look at the correlation across the different genomic offset predictions in the NFI plots, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
+
+```{r CorrelationGONFIPlots, fig.height=5,fig.width=14, results="hide"}
+lapply(snp_sets, function(x) x$go_nfi) %>% 
+  as_tibble() %>%
+  mutate(allsnps = go_allsnps$go_nfi) %>% 
+  cor() %>% 
+  corrplot(method = 'number',type = 'lower', diag = FALSE,mar=c(0,0,2,0),
+               number.cex=2,tl.cex=1.5)
+```
+
 
 # Validation - Common gardens
 
 
 ```{r  MakeGOmapsCGplots, fig.width=15, fig.height=6, results="hide"}
-# Common garden information
-# =========================
-cg_clim <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%  dplyr::select(cg,any_of(clim_var))
-cg_coord <- readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% dplyr::select(cg,contains("ude"))
-cg_names <- unique(cg_coord$cg)
-
-
-# Climatic datasets for the predictions
-# =====================================
-
-# In these datasets, one row per prediction
-# We want GO predictions for each combination pop * CG, so 34 * 5 = 160 rows
-
-# climatic data of the populations
-# each row (ie each population climatic data) is repeated 5 times
-clim_pop <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[1]] %>% 
-  slice(rep(1:n(), each = nrow(cg_clim)))
-
-# Climatic data in the common gardens scaled with the mean and variance of the ref-period climatic data
-# each climatic dataset is repeated 34 times and then rows are combined
-clim_cg <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)[[2]] %>% 
-  replicate(nrow(pop_coord),.,simplify=F) %>% 
-  bind_rows()
-
-
 # Predict genomic offset of each population when transplanted in the climate of the common gardens
 snp_sets <- lapply(snp_sets, function(snp_set){
 
@@ -804,11 +917,33 @@ dev.off()
 lapply(go_maps_cg, function(x) x)
 ```
 
+We look at the correlation across the different genomic offset predictions in the common gardens, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
 
-Let's save the genomic offset predictions for comparison with the other methods.
+```{r CorrelationGOCommonGardens, fig.height=5,fig.width=14, results="hide"}
+par(mfrow=c(1,3))
 
-```{r SaveGOpredictions}
-snp_sets %>% saveRDS(file=here("outputs/LFMM/go_predictions.rds"))
+lapply(cg_names, function(cg_name){
+
+list_go_cg <- lapply(snp_sets, function(x) x$go_cg)
+list_go_cg$allsnps <- go_allsnps$go_cg
+
+lapply(list_go_cg, function(set){
+  set[[cg_name]]
+}) %>% 
+    as_tibble() %>% 
+    cor() %>% 
+    corrplot(method = 'number',type = 'lower', 
+             diag = FALSE,mar=c(0,0,2,0),
+             title=str_to_title(cg_name),
+             number.cex=2,tl.cex=1.5)
+
+})
+```
+
+We save the genomic offset predictions for comparison with the other methods.
+
+```{r SaveGOpredictionsSNPsets}
+snp_sets %>% saveRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))
 ```
 
 

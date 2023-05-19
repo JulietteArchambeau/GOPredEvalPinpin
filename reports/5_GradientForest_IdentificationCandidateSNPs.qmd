@@ -463,10 +463,10 @@ In the Venn diagrams below, the candidate SNPs identified with GF correspond to 
 rda_outliers <- readRDS(here::here("outputs/RDA/RDA_outliers.rds"))
 gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
 
-list_outliers <- list("RDA-raw" = rda_outliers[[3]]$outliers$snp,
-                      "RDA-X" = rda_outliers[[4]]$outliers$snp,
-                      "GF-raw" = gf_out$gf_raw$outliers_rank005,
-                      "GF-X" = gf_out$gf_X$outliers_rank005)
+list_outliers <- list("RDA" = rda_outliers[[3]]$outliers$snp,
+                      "pRDA" = rda_outliers[[4]]$outliers$snp,
+                      "GF (uncorrected)" = gf_out$gf_raw$outliers_rank005,
+                      "GF (corrected)" = gf_out$gf_X$outliers_rank005)
 
 list_outliers %>% make_venndiagram()
 
@@ -476,9 +476,9 @@ list_outliers[c(1,3)] %>% make_venndiagram(title="GEAs not corrected for populat
 ```
 
 
-# Unstable identification across runs
+# Unstable outlier identification across runs
 
-I am a bit worried about the GF runs because the outputs vary from one run to another.
+GF runs because the outputs vary from one run to another. Below is the comparison of the outliers selected with three different runs of GF not corrected for population structure.
 
 
 ```{r ConsistenceAcrossRuns, eval=T}
