@@ -1,0 +1,113 @@
+---
+title: "Evaluation of genomic offset predictions in common gardens"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+bibliography: references.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(readxl)     # CRAN v1.3.1
+library(xtable)
+library(reshape2)
+library(kableExtra)
+library(magrittr)
+library(cowplot)
+library(rnaturalearth)
+library(raster)
+library(RColorBrewer)
+library(here)
+
+# my own function for building tables in reports
+source(here("scripts/functions/kable_mydf.R"))
+```
+
+We load the genomic offset predictions from the different methods.
+
+```{r LoadGOpredictions}
+df <- lapply(c("control","cand"), function(x){
+
+list_snps <- list()
+
+list_snps[[x]]$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x]][["go_cg"]]
+list_snps[[x]]$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x]][["go_cg"]]
+list_snps[[x]]$RDA <- readRDS(file=here("outputs/RDA/go_predictions.rds"))[[x]][["go_cg"]]
+list_snps[[x]]$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x]][["go_cg"]]
+
+
+list_snps <- list_snps[[x]] %>% 
+  bind_rows(.id="method") %>% 
+  mutate(snpset = x)
+
+return(list_snps)
+}) %>% bind_rows()
+
+
+df <- readRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))[["go_cg"]] %>% 
+   mutate(method="LFMM",
+          snpset="all") %>% 
+   bind_rows(df)
+```
+
+
+For comparison with genomic offset predictions, we calculate the climatic transfer distances.
+
+```{r CalculateCTD}
+# selected climatic variables
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
+
+# climatic data in the common gardens (btw planting and measurement dates)
+cg_clim <-readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% 
+  dplyr::select(cg,any_of(clim_var)) 
+
+# Loading point estimate climatic data
+adj <- "noADJ"  # not adjusted for elevation
+ref_period <- "ref_1901_1950" # reference period 1901-1950
+clim_past <- readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))[[ref_period]]$ref_means %>%
+  dplyr::select(pop,longitude,latitude,any_of(clim_var))
+
+
+lapply(cg_clim[["cg"]], function(x){
+  
+for(var in clim_var){
+  
+  clim_past[[var]] <- clim_past[[var]] - cg_clim %>% filter(cg == x) %>% pull(var)
+} 
+  
+return(clim_past)
+}) %>%  
+  setNames(cg_clim[["cg"]]) %>% 
+  bind_rows(.id="cg")
+```
+
+
