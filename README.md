@@ -39,9 +39,9 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [10_GradientForest_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/10_GradientForest_GenomicOffsetPredictions.html) Genomic offset predictions with the Gradient Forest (GF) algorithm, approach described in [Fitzpatrick & Keller 2015](https://onlinelibrary.wiley.com/doi/full/10.1111/ele.12376) and [Gougherty et al. 2021](https://www.nature.com/articles/s41558-020-00968-6).
 
-    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_corrected.pdf" target="_blank">GFplots_cand_corrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods correcting for population structure (i.e RDA-X, GF-X, LFMM or BayPass).
+    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand.pdf" target="_blank">GFplots_cand.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods among RDA, pRDA, GF, LFMM and BayPass.
     
-    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_notcorrected.pdf" target="_blank">GFplots_cand_notcorrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods not correcting for population structure (i.e RDA-raw or GF-raw).
+    * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_corrected.pdf" target="_blank">GFplots_cand_corrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods correcting for population structure (i.e pRDA, LFMM, BayPass).
     
     * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_control.pdf" target="_blank">GFplots_control.pdf</a> GF plots for the set of control SNPs.
     
