@@ -34,8 +34,9 @@ window <- function(x)  {
 
 # id_spatial_points = name of the column with the ID of the spatial points
 
+# months_to_rm = in common gardens,  months before the planting date and months after the measurement date (which have to be removed from the calculation of the biolclimatic variables)
 
-calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop"){
+calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop",months_to_rm=NULL){
   
   # Selecting the years of interest
   if(ref_period[[1]]==2041){
@@ -56,12 +57,15 @@ calc_avg_clim_var <- function(clim_df,ref_period,id_spatial_points = "pop"){
       dplyr::rename(id=all_of(id_spatial_points)) # rename the column with ID of the spatial points to 'id'
   }
   
-  
+  # remove the months before the planting date and the months after the measurement date in common gardens
+  if(id_spatial_points=="cg"){
+    clim_df[1,lapply(months_to_rm[["first_year"]], function(x) paste0(c("tmn","tmx","prc"),x)) %>% unlist()] <- NA
+    clim_df[nrow(clim_df),lapply(months_to_rm[["last_year"]], function(x) paste0(c("tmn","tmx","prc"),x)) %>% unlist()] <- NA}
   
   # Calculating the mean of tmn, tmx and prc over the period considered
   tab <- clim_df %>% 
     group_by(id) %>% 
-    summarise_at(vars(contains("tmn"),contains("tmx"),contains("prc")),"mean")
+    summarise_at(vars(contains("tmn"),contains("tmx"),contains("prc")),"mean",na.rm=T)
   
   tavg <- (tab %>% dplyr::select(contains("tmn")) + tab %>% dplyr::select(contains("tmx")))  / 2
   tmx <- tab %>% dplyr::select(contains("tmx"))

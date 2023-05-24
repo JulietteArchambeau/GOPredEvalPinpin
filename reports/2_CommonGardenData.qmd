@@ -62,25 +62,36 @@ coord %>%
 
 # Calculating mean climate for each site
 
-Time period in each common garden:
+Time period of height and survival measurements in each common garden:
 
-  - Height measurement in **Asturias** (Spain) in November 2012 when the trees were 21 month-old: 2011 to 2012 (trees were planted in February 2011).
+  - **Asturias** (Spain) in **March 2014** when the trees were 37 month-old (trees were planted in **February 2011**).
   
-  - Height measurement in **Fundão** (Portugal) in October 2012 when the trees were 20 month-old: 2011 to 2012 (trees were planted in February 2011)
+  - **Bordeaux** (France) in **November 2018** when the trees were 85 month-old (trees were planted in **October 2011**).
   
-  - Height measurement in **Bordeaux** (France) in November 2018 when the trees were 85 month-old: 2012 to 2018 (trees were planted in October 2011).
+  - **Cáceres** (Spain) in **December 2011** when the trees were 8 month-old (trees were planted in **April 2011**). Note that for this common garden, we calculate the bioclimatic variables for the entire year 2011 (instead of calculating the variables only for months between April and December). Indeed, the calculation of the annual bioclimatic variables will be wrong if we do not account for some months, e.g. the mean annual temperature will be higher than expected because we do not account for some winter months.  
   
-  - Mortality and height measurements in **Madrid** (Spain) in December 2011 when the trees were 13 month-old: 2011 (trees were planted in November 2010).
+  - **Madrid** (Spain) in **December 2011** when the trees were 13 month-old (trees were planted in **November 2010**).
   
-  - Mortality and height measurements in **Caceres** (Spain) in December 2011 when the trees were 8 month-old: 2011 (trees were planted in April 2011).
+  - **Fundão** (Portugal) in **May 2013** when the trees were 27 month-old (trees were planted in **February 2011**)
 
 
 ```{r DefineCGmeasurementPeriods}
-cg_periods <- list(asturias = 2011:2012,
-                   portugal = 2011:2012,
-                   bordeaux = 2012:2018,
+years_to_select <- list(asturias = c(2011,2014),
+                   bordeaux = c(2011,2018),
                    caceres = 2011,
-                   madrid = 2011)
+                   madrid = c(2010,2011),
+                   portugal = c(2011,2013))
+
+months_to_rm <- list(asturias = list(first_year=c("01"),
+                                     last_year=c("04","05","06","07","08","09","10","11","12")),
+                     bordeaux = list(first_year=c("01","02","03","04","05","06","07","08","09"),
+                                     last_year=c("12")),
+                     caceres = list(first_year=NULL,
+                                    last_year=NULL),
+                     madrid = list(first_year=c("01","02","03","04","05","06","07","08","09","10"),
+                                   last_year=NULL),
+                     portugal = list(first_year=c("01"),
+                                     last_year=c("06","07","08","09","10","11","12")))
 ```
 
 ```{r SetSelectedClimaticVariables}
@@ -105,13 +116,16 @@ clim <- read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), 
   purrr::map(\(x){
     
 cg <- unique(x$cg)
-cg_period <- cg_periods[[cg]]     
+years_to_select <- years_to_select[[cg]]  
+months_to_rm <-  months_to_rm[[cg]]
     
-x %>% calc_avg_clim_var(ref_period = cg_period, id_spatial_points = "cg")
+x %>% calc_avg_clim_var(ref_period = years_to_select, id_spatial_points = "cg")
 
   }) %>% list_rbind() 
 
 
 clim %>% saveRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
+
+clim %>% dplyr::select(cg,any_of(clim_var)) %>% kable_mydf
 ```
 
