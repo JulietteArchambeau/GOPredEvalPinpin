@@ -11,7 +11,7 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data and imputation of missing data.
 
--   [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_CommonGardenData.html). Extracting climatic data from ClimateDT and calculating the mean climate in each common garden between the planting date and the measurement date.
+-   [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_CommonGardenData.html). Extracting climatic data from ClimateDT and calculating the mean climate in each common garden between the planting date and the measurement date.
 
 -   [3_CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_CheckingPastFutureClimatesPopulationLocations.html) Checking past and future climatic values at the population locations.
 
