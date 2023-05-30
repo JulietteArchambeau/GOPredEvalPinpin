@@ -40,10 +40,16 @@ library(xtable)
 library(reshape2)
 library(kableExtra)
 library(here)
+library(rstan)
+library(tidybayes)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
 library(parallel)
 library(geodist)
 library(janitor)
+library(latex2exp)
 library(magrittr)
+library(paletteer)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -55,29 +61,27 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 # Introduction
 
 
-In this report, we aim to estimate the association between the genomic offset predictions and a proxy of the absolute fitness in natural populations, i.e. mortality rates. A positive association between the genomic offset predictions and the mortality rates would suggest that the genomic offset approach captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
+In this report, we aim to estimate the association between the genomic offset predictions and mortality rates in natural populations, a proxy of the absolute fitness. A positive association between the genomic offset predictions and the mortality rates would suggest that the genomic offset approach captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
 
 For that, we use mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French data relies on temporary plots sampled between 2005 and 2014 while the Spanish data relies on permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
 
-In order to account for the different census intervals between inventories, we modeled the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot i, as follows:
+In order to account for the different census intervals between inventories, we modeled the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot $i$, as follows:
 
-<!-- Write the final model equation here -->
 
 \begin{align*}
-m_{i} &\sim \text{Binomial}(N_{i},p_{i})\\
-\text{log}(-\text{log}(1-p_{i})) &=   \beta_{0,c} +  \beta_{C,c}C_{i} + \beta_{GO,c}GO_{i} + \text{log}(\Delta_{i}) \\
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C} C_i + \beta_{GO} GO_i + \text{log}(\Delta_i) \\
 \end{align*}
 
-with $N_{i}$ the total number of maritime pines in the plot $i$, $m_{i}$ the number of maritime pines that died during the census interval $\Delta_{i}$ in the plot $i$, $C_{i}$ the basal area of all tree species confounded in the plot $i$ (to account for the competition between trees) and $GO_{i}$ the estimated genomic offset in the plot $i$. As the French and Spanish inventories present noticeable methodological differences that may bias the estimations, we estimated country-specific coefficients: the country-specific intercepts $\beta_{0,c}$ and the country-specific slopes $\beta_{C,c}$ and $\beta_{GO,c}$.
 
-The building, evaluation of the model convergence and fit was done in the report `XXXX.qmd`.
+with $N_{i}$ the total number of maritime pines in the plot $i$, $m_{i}$ the number of maritime pines that died during the census interval $\Delta_{i}$ in the plot $i$, $C_{i}$ the basal area of all tree species confounded in the plot $i$ (to account for the competition among trees) and $GO_{i}$ the estimated genomic offset in the plot $i$. We used country-specific intercepts $\beta_{0,c}$ to account for the methodological differences between the French and Spanish inventories that may bias the estimations.
 
-<!-- This model will be performed for the genomic offset estimated with both the GDM and GF methods, for each set of SNPs (four sets) and each scenario of future climate (two scenarios), therefore leading to 16 models runs. -->
+The building and evaluation of the statistical model was done in the report `14_ValidationNFI_ModelComparison.qmd`.
 
 
-# National Forest Inventory data
 
-## Downloading
+# NFI data
+
 
 This dataset was harmonized in @changenet2021occurrence.
 
@@ -189,23 +193,29 @@ We save the file for model comparison.
 nfi_data %>% saveRDS(file=here("data/NFIdata/NFIdata_cleaned.rds"))
 ```
 
-## Distance matrix
 
-To consider the spatial autocorrelation in our dataset, we have to account for the geographical distance across NFI plots. For that, we calculate the *geodesic distances* across plots with the R package `geodist`.
+## Inventory dates
 
-```{r CalculateGeodesicDistances, eval=F}
-# matrix of geodesic distances:
-distmat <- nfi_data %>% 
-  dplyr::select(latitude,longitude) %>% 
-  geodist(measure="geodesic")
+```{r InventoryDates, results="hide", message=F, warning=F}
+country_names <- c(`ES` = "SPAIN",`FR` = "FRANCE")
 
-distmat[1:10,1:10] %>% as.data.frame() %>% kable_mydf()
+ggplot(nfi_data, aes(x=second_survey, fill=as.factor(country))) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  theme_bw()  +
+  facet_wrap(~as.factor(country), labeller = as_labeller(country_names)) + 
+  labs(y="Count of plots",x="Inventory date") +
+  theme(legend.position = "none")
 
-# we save the matrix of geodesic distances
-distmat %>% saveRDS(file=here("data/NFIdata/geodesic_distance_matrix.rds"))
+ggplot(nfi_data, aes(x=first_survey)) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  theme_bw()
+
+nfi_data %>% 
+  ggplot(aes(x=nb_years, fill=country)) + 
+  geom_histogram(alpha=0.5, position="identity") + 
+  labs(y="Count of plots",x="Number of years between surveys") +
+  theme_bw()
 ```
-
-
 
 
 # Climatic data
@@ -351,32 +361,167 @@ list(clim_ref = clim_ref,
 
 
 
-## Exploring
 
-### Inventory dates
+# Genomic offset predictions
 
-```{r InventoryDates, results="hide", message=F, warning=F}
-country_names <- c(`ES` = "SPAIN",`FR` = "FRANCE")
+We load the genomic offset predictions estimated from the different GEAs.
 
-ggplot(nfi_data, aes(x=second_survey, fill=as.factor(country))) + 
-  geom_histogram(alpha=0.5, position="identity") + 
-  theme_bw()  +
-  facet_wrap(~as.factor(country), labeller = as_labeller(country_names)) + 
-  labs(y="Count of plots",x="Inventory date") +
-  theme(legend.position = "none")
 
-ggplot(nfi_data, aes(x=first_survey)) + 
-  geom_histogram(alpha=0.5, position="identity") + 
-  theme_bw()
+```{r LoadGenomicOffsetPredictions}
+df <- lapply(c("control","cand"), function(x){
 
-nfi_data %>% 
-  ggplot(aes(x=nb_years, fill=country)) + 
-  geom_histogram(alpha=0.5, position="identity") + 
-  labs(y="Count of plots",x="Number of years between surveys") +
-  theme_bw()
+list_snps <- list()
+
+list_snps[[x]]$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x]][["go_nfi"]]
+list_snps[[x]]$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x]][["go_nfi"]]
+list_snps[[x]]$RDA <- readRDS(file=here("outputs/RDA/go_predictions.rds"))[[x]][["go_nfi"]]
+list_snps[[x]]$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x]][["go_nfi"]]
+
+
+list_snps <- list_snps[[x]] %>% 
+  bind_rows() %>% 
+  mutate(method_input = x,
+         plotcode = unique(nfi_data$plotcode))
+
+return(list_snps)
+}) %>% 
+  bind_rows() %>% 
+  pivot_longer(cols=c("GDM","GF","RDA","LFMM"), names_to = "method_type",values_to ="GO") %>% 
+  bind_rows(tibble(GO = readRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))[["go_nfi"]],
+                   method_type = "LFMM",
+                   method_input = "all",
+                   plotcode = unique(nfi_data$plotcode))) %>% 
+  mutate(method = paste0(method_type, " (",method_input," SNPs)"))
 ```
 
-### Variable distributions and correlations
+
+# The model
+
+Stan code of the model:
+
+```{r CompileMortalityModel, message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/simulations/m3.stan"))
+print(stancode)
+```
+
+Running the model for each method (GDM, LFMM, GF and RDA) and each input (all SNPs - only for LFMM-, candidate SNPs and control SNPs):
+
+```{r RunMortalityModels, eval=F}
+coefftab <- lapply(unique(df$method), function(method_i){
+    
+    sub_data <- df %>% 
+      filter(method == method_i) %>% 
+      inner_join(nfi_data, by="plotcode")
+      
+# Data in a list for Stan 
+    stanlist <- list(N = nrow(sub_data),
+                     nb_dead = sub_data$nb_dead,
+                     nb_tot=sub_data$nb_tot,
+                     GO = (sub_data$GO - mean(sub_data$GO))/sd(sub_data$GO),
+                     C = (sub_data$basal_area - mean(sub_data$basal_area))/sd(sub_data$basal_area),
+                     nb_country=length(unique(sub_data$country)),
+                     country=as.numeric(as.factor(sub_data$country)),
+                     log_nb_years=log(sub_data$nb_years))
+
+       
+
+# Running stan model
+mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE)
+
+# Save coefficients
+    broom.mixed::tidyMCMC(mod,
+                  droppars = NULL,
+                  estimate.method = "median",
+                  ess = F,
+                  rhat = F,
+                  conf.int = T,
+                  conf.level = 0.95) %>%
+    #filter(str_detect(term, c('beta'))) %>%
+    dplyr::rename(median=estimate,
+                  std_error=std.error,
+                  conf_low=conf.low,
+                  conf_high=conf.high) %>%
+    mutate(method=method_i,
+           method_type=unique(sub_data$method_type),
+           method_input=unique(sub_data$method_input),
+           .before=1)
+    
+  }) %>% bind_rows()
+
+coefftab %>% saveRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
+```
 
 
+### Plot model coefficients
 
+Below, we plot the 95% credible intervals of:
+
+  - the **$\beta_{GO}$ coefficients**, which stand for the association between mortality rates in NFI plots and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations at the location of the NFI plots).
+  
+  - the **$\beta_C$ coefficients**, which stands for the association between the tree basal area (all species confounded) in the NFI plots and the mortality rates.
+
+
+```{r CoeffPlotsHeightModels, fig.height=6, fig.width=7, eval=T, results="hide"}
+
+coefftab <- readRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
+  
+coeff_match <- list(beta_GO="$\\beta_{GO}$ estimates",beta_C="$\\beta_C$ estimates")
+
+p <- lapply(c("beta_GO","beta_C"), function(coeff){
+  
+p <- coefftab %>% 
+  filter(term==coeff) %>% 
+  mutate(method_input=case_when(method_input=="all" ~ "All SNPs",
+                                method_input=="cand" ~ "Candidate SNPs",
+                                method_input=="control" ~ "Control SNPs")) %>% 
+  mutate(method_input=factor(method_input, levels=c("All SNPs",
+                                                    "Candidate SNPs",
+                                                    "Control SNPs"))) %>% 
+    ggplot(aes(x = method_type,
+               y = median,
+               ymin = conf_low, 
+               ymax = conf_high,
+               color=method_input,
+               shape=method_input)) +
+  geom_hline(yintercept = 0,color="gray") +
+  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
+  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  ylim(c(-0.1,0.2)) +
+  scale_color_paletteer_d("ggthemes::calc") +
+  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  theme_bw() +
+  labs(color="",shape="") +
+  theme(axis.text.x =  element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title.y = element_text(size=16),
+        axis.title.x = element_text(size=1),
+        legend.title=element_text(size=13), 
+        strip.text.x = element_text(size = 16),
+        strip.background = element_blank(),
+        legend.position = c(0.8,0.15),
+        legend.text=element_text(size=12),
+        panel.grid.minor.x=element_blank(),
+        panel.grid.major.x=element_blank()) +
+  guides(color=guide_legend(ncol=1),
+         shape = guide_legend(override.aes = list(size =2 )))
+
+# save in pdf and png
+ggsave(p,file=here(paste0("figs/ValidationNFI/",coeff,"_IntervalPlots.pdf")),
+       device="pdf",
+       height=7,
+       width=7)
+
+return(p)
+
+})
+
+p
+```
+
+<span style="color: orange;">Interpretation</span>
+
+As expected, the basal area is positively associated with mortality rates.
+
+**For the four methods (GDM, LFMM, GF and RDA), populations with higher genomic offset based on the candidate SNPs (and all SNPs for LFMM) had higher mortality rates in the NFI plots**. Interestingly, this was not the case with genomic offset predictions based on the control SNPs: for GF and LFMM, populations with higher genomic offset based on the control SNPs also shoed higher mortality rates but for GDM and RDA, populations with higher genomic offset showed lower mortality rates in the NFI plots. This confirms the importance of selecting a set of alleles potentially under selection before using the genomic offset predictions to predict maladaptation in natural populations (or using all SNPs with the LFMM approach). 
+
+We can also note the very high association between mortality rates and the genomic offset predictions based on candidate SNPs and from the GF and GDM methods.
