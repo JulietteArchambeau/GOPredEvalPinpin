@@ -233,10 +233,10 @@ with $C_{i}$ the basal area of all trees (all species confounded) in the plot $i
 
 \begin{align*}
 m_i &\sim \text{Binomial}(N_i,p_i)\\
-\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C,c} C_i + \beta_{GO,c} GO_i + \text{log}(\Delta_i) \\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C} C_i + \beta_{GO} GO_i + \text{log}(\Delta_i) \\
 \end{align*}
 
-with $\beta_{0,c}$ the country-specific intercept, $C_{i}$ the basal area of all trees (all species confounded) in the plot $i$ (to account for the competition between trees) and its associated country-specific slope $\beta_{C,c}$, $GO_{i}$ the estimated genomic offset in the plot $i$ and its associated country-specific slope $\beta_{GO,c}$.
+with $\beta_{0,c}$ the country-specific intercept, $C_{i}$ the basal area of all trees (all species confounded) in the plot $i$ (to account for the competition between trees) and its associated slope $\beta_{C}$, $GO_{i}$ the estimated genomic offset in the plot $i$ and its associated slope $\beta_{GO}$.
 
 
 
@@ -329,22 +329,22 @@ alpha <- rnorm(n_curve, 0, 01)
 for ( i in 1:n_curve ) curve(alpha[i]^2*exp(-0.5 * ((x / rho[i])^2))  , add=T, col = col.alpha("darkgreen",0.5))
 ```
 
-<span style="color: red;"> Problem: this model is already long to fit on 200 simulated spatial points, so it would not be possible to fit it on the `r nrow(data)` NFI plots... But then, how can we account for spatial autocorrelation?<span/>
+<span style="color: red;"> Problem: this model is already long to fit on 200 simulated spatial points, so it would not be possible to fit it on the `r nrow(data)` NFI plots... So, I decided not to include spatial autocorrelation into the models. However,  I checked that the model M3 was able to accurately estimate the association between the mortality rates and the genomic offset predictions on simulated data with spatial autocorrelation. The rational was that, if the model M3 shows reasonable accuracy on simulated data with auto-correlation, we could use the model M3 to estimate the association between the mortality rates and the genomic offset predictions even if this model does not account for spatial autocrrelation. <span/>
 
 
 #### M5_2: Merging with the other variables
 
-
+If it had been possible to fit the M5_1 model to the NFI plots, the next steps would have been to incorporate genomic offset predictions and basal area into the model, such as:
 \begin{align*}
 m_i &\sim \text{Binomial}(N_i,p_i)\\
 \text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C,c} C_i + \beta_{GO,c} GO_i + \text{log}(\Delta_i) + \mu_i\\
 \end{align*}
 
-
+However, as I did not manage to fit the M5_2 model to the full dataset, I have not evaluated this model in this report.
 
 # Simulated data
 
-Number of simulations:
+To determine whether the models are able to recover the true parameters (i.e. the simulate parameters), we perform 100 simulations:
 
 ```{r SetNbSimulations}
 nb_simulations <- 100
@@ -403,9 +403,11 @@ calc_coverage_across_sims <- function(x){
 
 ## M0
 
+Stan code of M0:
+
 ```{r StanCodeM0}
 # Stan code
-stancode = stan_model(here("scripts/StanModels/simulations/mo.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_mo.stan"))
 print(stancode)
 ```
 
@@ -449,6 +451,8 @@ make_coeff_table(mod,true_params = c(beta_0,beta_GO))
   saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m0.rds"))
 ```
 
+To compare the model estimates with the true parameter values, the following table shows the coverage of the 80% and 95% credible intervals for the $\beta_0$ and $\beta_{GO}$ coefficients.
+
 ```{r TableCoeffM0}
 readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m0.rds")) %>% 
   calc_coverage_across_sims %>% 
@@ -459,7 +463,7 @@ readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m0.rds")) %>%
 
 ```{r StanCodeM1}
 # Stan code
-stancode = stan_model(here("scripts/StanModels/simulations/m1.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m1.stan"))
 print(stancode)
 ```
 
@@ -519,7 +523,7 @@ readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m1.rds")) %>%
 
 ```{r StanCodeM2}
 # Stan code
-stancode = stan_model(here("scripts/StanModels/simulations/m2.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m2.stan"))
 print(stancode)
 ```
 
@@ -695,7 +699,7 @@ readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m2_truedesign.rds")) %>
 
 ```{r StanCodeM3}
 # Stan code
-stancode = stan_model(here("scripts/StanModels/simulations/m3.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m3.stan"))
 print(stancode)
 ```
 
@@ -1080,7 +1084,7 @@ ggplot(data.frame(Y = nb_dead,
 
 ```{r StanCodeM51}
 # Stan code
-stancode = stan_model(here("scripts/StanModels/simulations/m5_1_noncentered.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m5_1_noncentered.stan"))
 print(stancode)
 ```
 
@@ -1261,7 +1265,7 @@ datalist <- list(N=N,
                  log_nb_years=log(nb_years))
 
 # Stan code
-stancode = stan_model("scripts/StanModels/simulations/m4.stan")
+stancode = stan_model("scripts/StanModels/ValidationNFI_m4.stan")
 print(stancode)
 
 # Running stan model
@@ -1279,6 +1283,13 @@ broom.mixed::tidyMCMC(mod,
 
 
 ## M3 + spatial autocorrelation
+
+As I was not able to fit the model M5_1 on a large dataset, I checked that the model M3 was able to recover the true parameter values on simulated data in which I included some autocorrelation among spatial points. 
+
+Here is the sample of covariance functions that were likely in the simulations, given the chosen distributions for $\rho$ and $\alpha$:
+
+$$\rho \sim \text{Uniform}(50,600)$$
+$$\alpha \sim \text{Uniform}(0.2,1.5)$$
 
 ```{r VizParamRangeCovarianceMatrix}
 plot(NULL, xlab="Distance (in km)" , ylab= "Covariance", xlim=c(0,2150), ylim=c(0,3))
@@ -1380,6 +1391,7 @@ make_coeff_table(mod,
   saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_withspatialautocorrelation.rds"))
 ```
 
+The following table shows the coverage of the 80% and 95% credible intervals for the country-specific intercepts, $\beta_0$ and $\beta_{GO}$ coefficients from model M3 fitted on simulated data with autocorrelation:
 
 ```{r TableCoeffM3WithSPatialAutocorrelation}
 readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_withspatialautocorrelation.rds")) %>% 
