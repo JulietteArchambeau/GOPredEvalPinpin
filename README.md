@@ -49,4 +49,8 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) Comparing the genomic offset predictions across the different methods.
 
--   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building the Bayesian models to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
+-   [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html) Evaluating the genomic offset predictions with mortality rates in natural populations from the National Forest Inventory plots of France and Spain. The genomic offset predictions evaluated come from the four different methods (GF, GDM, RDA and LFMM) and are based on either the candidate or the control SNPs (and also all SNPs for LFMM).
+
+-   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building and evaluating the accuracy of the Bayesian models used to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
+
+-   [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html) Evaluating the genomic offset predictions with mortality and height data from five clonal common gardens (CLONAPIN network).
