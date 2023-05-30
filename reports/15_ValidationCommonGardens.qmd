@@ -60,9 +60,9 @@ library(latex2exp)
 source(here("scripts/functions/kable_mydf.R"))
 ```
 
-In this report, we aim to evaluate the genomic offset predictions from the different GEA methods (LFMM, GF, GDM and RDA) with phenotypic data from common gardens. For that, for each GEA method, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with the highest genomic offset in each common garden are expected to have a lower fitness in the common gardens. In this report, we use tree height and mortality in five common gardens as proxies of fitness.
+In this report, we aim to evaluate the genomic offset predictions from the different GEA methods (LFMM, GF, GDM and RDA) with phenotypic data from five common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (Fundão) and France (Pierroton). For that, for each GEA method, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with the highest genomic offset in each common garden are expected to have a lower fitness in the common gardens. In this report, we use tree height and mortality in five common gardens as proxies of fitness.
 
-In comparison, we also estimate the climatic transfer distances (CTD) between the climate-of-origin of the populations and the climate of the common garden (i.e. the **absolute value** of the difference between the **climate of origin of the populations** and the **climate in the common garden** between the tree planting date and the measurement date**) and we estimate the association between tree height and mortality and the climatic transfer distances. The climatic transfer distances are calculated for the same set of climatic variables as the one used to calculate the genomic offset (one CTD per climatic variable).
+In comparison, we also estimate the climatic transfer distances (CTD) between the climate-of-origin of the populations and the climate of the common garden (i.e. the **absolute value** of the difference between the **climate of origin of the populations** and the **climate in the common garden** between the tree planting date and the measurement date) and we estimate the association between tree height and mortality and the climatic transfer distances. The climatic transfer distances are calculated for the same set of climatic variables as the one used to calculate the genomic offset (one CTD per climatic variable).
 
 
 # Data
@@ -179,7 +179,8 @@ Height and survival measurements in each common garden:
 
 # Mortality models
 
-In this section, we want to determine whether **genomic offset (GO)** or **climate transfer distances (CTD)** are associated with the **proportion of dead trees in the populations**, independently in the five common gardens. For that, we build a model that assumes that **tree height acts as a confounder**. Indeed, trees that were higher at the time of planting have a higher probability of survival. This is particularly true in Madrid and Cáceres (Spain) where the seedlings experienced an extreme drought event the same year they were planted, resulting in very high mortality rates. Here is the model:
+In this section, we want to determine whether **genomic offset (GO)** or **climate transfer distances (CTD)** are associated with the **proportion of dead trees in the populations**, independently in the five common gardens. We build a model that assumes that **the initial sapling height acts as a confounder**. Indeed, trees that were higher at the time of planting have a higher probability of survival. This is particularly true in Madrid and Cáceres (Spain) where the seedlings experienced an extreme drought event the same year they were planted, resulting in very high mortality rates.
+Here is the model:
   
 \begin{align*} 
 a_{p} &\sim \text{Binomial} (N_{p},p_{p}) \\
@@ -187,7 +188,9 @@ a_{p} &\sim \text{Binomial} (N_{p},p_{p}) \\
 \end{align*}
 
 
-with $a_{p}$ the count of individual that died in the population $p$, $N_{p}$ the total number of individuals in the population $p$ (=number of individuals that were initially planted in the common garden), $p_p$ is the estimated probability of mortality in the population $p$, $X_{p}$ is the genomic offset or climatic transfer distance for the population $p$ and $H_{p}$ is the BLUPs for height of the population $p$ [population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining]. We included $H_{p}$ as a covariate in the model to account for height differences before planting, as smaller trees had a higher mortality probability than taller trees. We used the following weakly informative priors:
+with $a_{p}$ the count of individual that died in the population $p$, $N_{p}$ the total number of individuals in the population $p$ (=number of individuals that were initially planted in the common garden), $p_p$ is the estimated probability of mortality in the population $p$, $X_{p}$ is the genomic offset or climatic transfer distance for the population $p$ and $H_{p}$ is the BLUPs for height of the population $p$ [population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining]. $H_{p}$ is used as a proxy of the initial tree height.
+
+We used the following weakly informative priors:
 
   
 \begin{align*} 
@@ -215,7 +218,7 @@ pop_heights[1:5,] %>% kable_mydf
 
 ### Survival data 
 
-The response variable is counts of dead trees. To calculate those counts, we load the survival data in the common gardens, in which `0` corresponds to dead trees and `1` to survivors.
+The response variable is counts of dead trees. To calculate these counts, we load the survival data in the common gardens, in which `0` corresponds to dead trees and `1` to survivors.
 
 ```{r LoadSurvData}
 surv_measurements <- c("AST_survmar14","BDX_surv18","CAC_survdec11","MAD_survdec11","POR_survmay13")
@@ -305,7 +308,11 @@ coefftab <- readRDS(file=here("outputs/ValidationCommonGarden/MortalityModels/co
 coefftab[1:5,] %>% kable_mydf()
 ```
 
-We plot the 95% credible intervals of $\beta_H$ (effect of the initial tree height) and $\beta_X$ (associaiton with the genomic offset predictions, i.e. effect of the potential maladaptation of the populations when transplanted in the new environment of the common gardens).
+Below, we plot the 95% credible intervals of:
+
+  - the **$\beta_X$ coefficients**, which stand for the association between the counts of dead trees and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic tranfer distances.
+  
+  - the $\beta_H$ coefficients, which stand for the association between the counts of dead trees and the BLUPs for height in the five common gardens, used as a proxy of the initial seedling height (a confounder in the model).
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
 coeff_match <- list(beta_H="$\\beta_{H}$ estimates (effect of initial tree height)",
@@ -386,6 +393,22 @@ return(p)
 p
 ```
 
+<span style="color: orange;">Interpretation</span>
+
+As expected, seedlings that were higher at the planting date had a higher probability of survival in Fundão, Cáceres and Madrid, the three common gardens in which mortality rates were considerable. In Bordeaux and Asturias, mortality rates were very low, and there was no association with the initial seedling height, so we may consider that mortality events in these two common gardens were more probably random events than due to climatic or other environmental conditions. So, to evaluate the association between genomic offset predictions/climatic transfer distances and the counts of dead trees, we only interpret the results in Fundão, Cáceres and Madrid.
+
+In Fundão, Cáceres and Madrid, for most genomic offset predictions, populations experiencing higher mortality rates were also those showing higher genomic offset. The most consistent associations across the three common gardens were obtained with:
+
+  - <span style="color: orange;">**Gradient Forest (GF)** with both candidate and control SNPs.</span>
+  
+  - <span style="color: orange;">**Redundancy analysis (RDA)** with both candidate and control SNPs.</span>
+  
+  - <span style="color: orange;">**Latent factor mixed model (LFMM)** with all SNPs or control SNPs.</span>
+
+
+Interestingly, climatic transfer distances generally explain mortality probability less well than genomic offset predictions, and none of them show a consistent association with the number of dead trees across the three common gardens. Note that it is almost the case for the climatic transfer distance calculated based on the temperature seasonality, which shows a positive association with the counts of dead trees in Madrid and Fundão, and almost in Cáceres.
+
+
 ## Experimental design
 
 We export in a table with the number and proportion of dead trees for each population in each common garden.
@@ -427,16 +450,16 @@ ExpDesignTab[,-1] %>%
 
 ## No confounder
 
-## Mathematical model
+### Mathematical model
 
-In this section, we want to determine whether **genomic offset (GO)** or **climate transfer distances (CTD)** are associated with the **mean height of the populations**, independently in five common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (near Fundão) and France (Pierroton). In each common garden, we perform the following model:
+In this section, we want to determine whether **genomic offset (GO) predictions** or **climate transfer distances (CTD)** are associated with **tree height**, independently in the five common gardens. In each common garden, we perform the following model:
   
 \begin{align*}
 Y_{ipb}  &\sim \mathcal{N}(\mu_{p},\sigma^{2}_{r}) \\
 \mu_{p} &= B_b + \beta_{X1}X_{p} + \beta_{X2}X^{2}_{p}\\
 \end{align*}
 
-with $Y_i$ is the height of the individual $i$ in the population $p$ in the block $b$ and $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+with $Y_ipb$ is the height of the individual $i$ in the population $p$ in the block $b$ and $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
 
 
 ```{r CompileHeightModel, cache=T,message=F,warning=F}
@@ -467,7 +490,7 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
       left_join(df_sub, by = c("cg","pop"))
       
     stanlist <- list(N = nrow(sub_data),
-                     H=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                      X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
                      nb_bloc = length(unique(sub_data$block)),
                      bloc = as.numeric(as.factor(sub_data$block)))
@@ -506,8 +529,10 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 ```
 
 
-### Viz model coefficients
+### Plot model coefficients
 
+Below, we plot the 95% credible intervals of the **$\beta_X_1$ and $\beta_X_2$ coefficients**, which stand for the association between tree height and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic tranfer distances.
+  
 ```{r CoeffPlotsHeightModels, fig.height=9, fig.width=12, eval=T}
 generate_interval_plots <- function(confounder="withoutconfounder"){
 
@@ -706,6 +731,22 @@ return(ggplots)
 
 generate_poly_plots()
 ```
+
+<span style="color: orange;">Interpretation</span>
+
+Higher genomic offset predictions are consistently associated with lower tree height only in Asturias. Most genomic offset predictions are also associated with lower tree height in Bordeaux.
+
+In Fundão, Cáceres and Madrid, the association between genomic offset predictions and tree height are often in the opposite direction as expected. 
+
+Interestingly, the climatic transfer distances based in the mean annual temperature and the annual precipitation are negatively associated with tree height in all common gardens (except Cáceres for the CTD based on annual precipitation). These CTD may therefore be better predictors of tree height in common gardens than the genomic offset predictions. 
+
+Finally, I think that using tree height as a proxy for fitness to evaluate genomic offset predictions in common gardens may not be appropriate in maritime pine because this trait has a very low genetic-by-environment interaction (see previous papers). 
+Therefore, the association between genomic offset predictions and tree height in Asturias and Bordeaux may not be due to a higher fitness of the trees that are best adapted to the climate in these common gardens, but more probably to height differences that are common across all environments (i.e. populations from Atlantic climates are generally taller).
+This is confirmed by the models below in which the population-specific BLUPs for height across all common gardens was included as a confounder. When included, the association between genomic offset predictions and tree height in Asturias almost disappears and either disappears or goes in the opposite direction as expected in Bordeaux. Except the genomic offset predictions based on the RDA remain negatively associated with tree height in Bordeaux and Asturias. 
+
+Therefore, I am not sure we can go very far in this validation step. We may retain that genomic offset predictions seem to show the most consistent association with tree height when generated with the RDA, and that this association is robust (though smaller) even when the fixed genetic differences across populations are included as confounder. 
+
+
 
 ## Initial height as a counfounder
 
