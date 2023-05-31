@@ -15,7 +15,7 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [3_CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_CheckingPastFutureClimatesPopulationLocations.html) Checking past and future climatic values at the population locations.
 
--   [4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using Redundancy analysis (RDA) (approach developed in [Capblancq et al. 2018](https://onlinelibrary.wiley.com/doi/10.1111/1755-0998.12906)).
+-   [4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using Redundancy analysis (RDA) (approach developed in [Capblancq et al. 2018](https://onlinelibrary.wiley.com/doi/10.1111/1755-0998.12906) and [Capblancq and Forester 2021](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13722)).
     
     *  <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/PCAplot.pdf" target="_blank">PCAplot.pdf</a> Principal component analysis performed on the population allele frequencies. The first three axes of the PCA are used to account for the population structure in the RDA analysis.
  

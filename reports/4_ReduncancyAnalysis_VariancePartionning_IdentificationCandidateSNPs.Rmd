@@ -1,6 +1,6 @@
 ---
-title: "Redundancy analysis - Part 1"
-subtitle: "Climatic variable selection, variance partitionning & candidate SNPs identification"
+title: "Redundancy analysis (RDA)"
+subtitle: "Selection of the climatic variables, variance partitionning & candidate SNPs identification"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output_dir: "docs"
@@ -438,9 +438,9 @@ dev.off()
 
 # Selecting the climatic variables
 
-The selection procedure of the climatic variables is based on three criteria:
+The selection procedure of the climatic variables is a critical step of the genomic offset approaches, and more generally the landscape genomic approaches. In the present study, we selected the climatic variables based on three criteria:
 
-  - strong contribution to explaining genetic variance.
+  - contribution to the genetic variance.
   
   - biological relevance.
   
@@ -509,14 +509,6 @@ kable_mydf(sumstepwise, boldfirstcolumn = F)
 According to the stepwise selection procedure, the climatic variables that maximize the variance of the genomic data are:
   
   - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
-  
-  <!-- - `AHM`: annual heat moisture index (in °C/mm): (`bio1`+10)/(`bio12`/1000)) -->
-
-  <!-- - `SHM`: summer heat moisture index (in °C/mm): `MWMT`/(`SP`/1000) -->
-
-  <!-- - `bio9`: mean temperature of driest quarter (in °C) -->
-
-  <!-- - `Eref`: Hargreaves reference evaporation (in mm) -->
 
   - `bio4`: temperature seasonality (standard deviation x100) (in °C).
 
@@ -532,7 +524,9 @@ Reminder of the study goals:
   
   - provide *GO estimates* for the studied populations to identify populations that will show the highest disruption of their current gene-environment relationships under climate change (those estimates will be provided based on the 'best performing' genomic offset predictions in the evaluation part).
   
-Knowing that, the set of selected climatic variables has to capture the changes in climatic conditions that will threaten the maritime pine population viability. In the context of climate change and in the Mediterranean area, it is necessary to include climatic variables capturing the summer drought conditions. The set of climatic variables has also to capture the climatic conditions that drive population vulnerability (decrease in fitness) in the different evaluation part, which may be driven by different climatic variables that the climatic variables that will drive population vulnerability in natural conditions. Therefore, one option may be not to select the same climatic variables for the different study goals and evaluation methods, which is discussed below.
+Given the study goals, the set of selected climatic variables has to capture the changes in climatic conditions that are likely to threaten the viability of the maritime pine populations. In the context of climate change and in the Mediterranean area, it appears necessary to include climatic variables capturing the summer drought conditions. 
+
+The set of climatic variables has also to capture the climatic conditions that are likely to drive population vulnerability (decrease in fitness) in the different evaluation parts, which may be driven by different climatic variables than the climatic variables that are likely to drive population vulnerability in natural conditions. Therefore, one option may be not to select the same climatic variables for the different study goals and evaluation methods, which is discussed below.
 
 ### Climatic variables relevant for the evaluation part{#ClimVarEvalPart}
 
@@ -541,11 +535,11 @@ Knowing that, the set of selected climatic variables has to capture the changes 
 
 Differences among populations in their seedling survival in common gardens after a strong summer drought is likely to be mainly driven by their differences in adaptation to summer drought conditions. 
 
-For this evaluation step, the genomic offset has to be calculated with climatic variables capturing the summer-drought conditions. It has also to be noted to even though the gene-environment relationships are estimated with a set of climatic variables incorporating summer drought related variables, these variables may not be important in explaining the genomic composition across the landscape and therefore may little contribute to the genomic offset predictions. 
+For this evaluation step, the genomic offset has to be calculated with climatic variables capturing the summer-drought conditions. It has also to be noted that, even though the gene-environment relationships are estimated with a set of climatic variables incorporating summer drought related variables, these variables may not be important in explaining the genomic composition across the landscape and therefore may little contribute to the genomic offset predictions. 
 
 Therefore, I think that this evaluation part requires that the genomic offset has to be estimated with a set of climatic variables including summer drought-related variables, and that these variables should contribute to some extent to the genomic offset predictions (i.e. contribute to explaining the current genomic composition across the landscape).
 
-In the case where summer drought-related variables do not contribute much to the genomic composition across the landscape, it could be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset* (ie *summer drought GO*).
+In the case where summer drought-related variables do not contribute much to the genomic composition across the landscape, it could be relevant to estimate a genomic offset based only on climatic variables capturing summer droughts, aka a *summer-drought genomic offset*.
 
 
 
@@ -553,9 +547,9 @@ In the case where summer drought-related variables do not contribute much to the
 
 Height of young trees in common gardens is likely to be impacted by both winter and summer conditions, and both temperature and precipitation conditions. 
 
-Ideally, for this evaluation part, the genomic offset has to be estimated on a set of variables incorporating both summer drought conditions and mean climatic conditions across the whole year. (ie *yearly-climate genomic offset*, *yearly-climate GO*).
+Ideally, for this evaluation part, the genomic offset has to be estimated on a set of variables incorporating both summer drought conditions and mean climatic conditions across the whole year (aka a *yearly-climate genomic offset*).
 
-It may still be interesting to compare height in common gardens with the *summer-drought GO* predictions. If the  *summer-drought GO* predictions are more associated with height in common gardens than *yearly-climate GO* predictions, it could mean that height is mostly impacted by summer conditions in the studied common gardens.
+It may still be interesting to compare height in common gardens with the summer-drought genomic offset predictions. If the  summer-drought genomic offset predictions are more associated with height in common gardens than yearly-climate genomic offset predictions, it could mean that height is mostly impacted by summer conditions in the studied common gardens.
 
 > Evaluating genomic offset predictions with mortality data from natural populations
 
@@ -563,21 +557,21 @@ In natural populations, climate change can *directly* impact tree mortality thro
 
 Therefore, in this evaluation part, the genomic offset should be estimated with a set of climatic variables including both summer drought conditions and annual climatic conditions.
 
-It may also be interesting to evaluate the association between *summer-drought GO* predictions and mortality rates in NFI to determine whether current mortality rates in natural populations may be *only* attributed to maladaptation to summer drought conditions.
+It may also be interesting to evaluate the association between summer-drought genomic offset predictions and mortality rates in NFI to determine whether current mortality rates in natural populations may be largely attributed to maladaptation to summer drought conditions.
 
 
 > Evaluating genomic offset predictions with predictions from ecophysiological models
 
-Comparing the genomic offset predictions with ecophysiological models such as Surreau would require including drought-related variables in the genomic offset estimations as Surreau predicts the **risk of hydraulic failure**.
-
-<!-- I have to read the paper of Cailleux-Petit et al. to determine whether it is relevant to evaluate both *summer drought GO* and *yearly-climate GO* predictions. -->
+It would be very interesting to compare the genomic offset predictions with predictions of the risk of hydraulic failure from ecophysiological models such as Surreau. In this case, the genomic offset predictions should capture potential maladaptation to summer-drought conditions. However, in the present study, we did not go further on this point.
 
 
 ### Climatic variables relevant for providing GO predictions
 
-According to previous studies, maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures (eg [@grivet2011molecular]). Under climate change, cold temperatures are expected to increase in average at the location of the studied populations. An increase in cold temperatures is unlikely to directly negatively impact the fitness of adult trees but it may impact the survival of young trees, the reproductive ability and the impact of pests and pathogens. 
+According to previous studies, maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures [eg @grivet2011molecular]. Under climate change, cold temperatures are expected to increase in average at the location of the studied populations. An increase in cold temperatures is unlikely to directly negatively impact the fitness of adult trees but it may impact the survival of young trees, the reproductive ability and the impact of pests and pathogens. 
 
-Thus, for the second objective of this paper (which is to provide GO estimates for the studied populations), whether or not to include winter conditions in GO predictions is a tricky question, for which there is probably no correct answer. 
+Thus, for the second objective of this paper (which is to provide genomic offset estimates for the studied populations), whether or not to include winter conditions in genomic offset predictions is a tricky question, for which there is probably no correct answer. 
+
+In the present study, we decided not to include climatic variables related to cold-winter temperatures.
 
 
 
@@ -595,25 +589,11 @@ At the beginning of the study, we used two sets of climatic variables: one captu
   
   - it was hard to find a set of climatic variables capturing both the summer drought and annual conditions, without included variables that were not too correlated.
 
-However, using different sets of climatic variables adds a supplementary level of complexity to the paper, which is already very dense. So, we decided to use one set of climatic variables capturing both the summer drought conditions and the mean annual conditions. The drawback of this approach is that if the variables capturing the summer-drought conditions are not important to explain the gene-environment relationships, the genomic offset approach will not be able to capture population vulnerability to drought conditions, which is problematic in some of the evaluation parts (see \@ref(ClimVarEvalPart))
+However, using different sets of climatic variables adds a supplementary level of complexity to the paper, which is already very dense. At the end, we decided to use only one set of climatic variables capturing both the summer drought conditions and the mean annual conditions. The drawback of this approach is that the variables capturing the summer-drought conditions may not be important to explain the gene-environment relationships, which would result in genomic offset predictions that will not capture population vulnerability to drought conditions, which is problematic in some of the evaluation parts (see \@ref(ClimVarEvalPart))
 
 ### Sets of climatic variables
 
 Variance partitioning and candidate SNP identification were performed for three sets of climatic variables. We included in each set climatic variables capturing both summer and annual climatic conditions. For each set, we checked that the VIFs (variance inflation factors) were not too high in the RDA (lower than 10), which indicates that their respective effects can be identified separately in the RDA. We selected the set of climatic variables that best explain the genomic data.
-
-<!--   - **Set 1**: **summer  drought-related variables**, which only include two climatic variables related to summer drought conditions. -->
-
-<!--   - **Set 2**: **yearly-climatic variables**, which include variables related the average climatic conditions across the whole year. This set include variables that were identified through the stepwise selection procedure (section \@ref(StepwiseSelection)) in preliminary analyses (i.e. based on climatic data extracted from ClimateDT with slightly different coordinates for some populations): `bio3`, `bio4` and `bio15`. -->
-
-<!--   - **Set 3**: both variables capturing **summer-drought** conditions and **average annual climatic** conditions.  -->
-
-
-<!-- In preliminary analyses, I was unable to find a set of climate variables that incorporated both summer drought and annual climatic variables without the climate variables being too highly correlated. Thus, the variables in sets 1 and 2 cannot be grouped together because they have very high VIFs (variance inflation factors) in the RDA, indicating that their respective effects cannot be identified separately in the RDA. If we want to use those variables to estimate the genomic offset, we may have to go with sets 1 and 2 independantly and follow the the following workflow: -->
-
-<!--   - if the predictions of *summer-drought GO* or *yearly-climate GO* are consistently better across the different evaluation methods, then we will provide these GO predictions for the studied populations. -->
-
-<!--   - if the predictions of *summer-drought GO* or *yearly-climate GO* are not consistently better across the different evaluation parts, then we will provide both the *summer-drought GO* or *yearly-climate GO* predictions for the studied populations. -->
-  
 
 
 > set 1
