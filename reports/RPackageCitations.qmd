@@ -1,0 +1,41 @@
+---
+title: "Citations of the R packages"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    code-fold: true
+embed-resources: true
+bibliography: grateful-refs.bib
+csl: molecular-ecology.csl
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 11px
+}
+</style>
+
+```{r setup, include=F}
+options(width = 300)
+library(grateful)
+```
+
+# R packages used in the study
+
+```{r Rpackages}
+pkgs <- cite_packages(output = "table", out.dir = ".")
+knitr::kable(pkgs)
+```
