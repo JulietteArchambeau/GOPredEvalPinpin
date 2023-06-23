@@ -4,6 +4,7 @@ author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format: 
   pdf:
+    keep-tex: true
     toc: true
     toc-depth: 4
     number-sections: true
@@ -14,21 +15,30 @@ format:
       - right=20mm
       - heightrounded
     fig-pos: 'H'
+    cap-location: top
     #extra_dependencies: ["flafter"]
+bibliography: 
+  - ../reports/references.bib
+  - ../reports/grateful-refs.bib
+csl: ../reports/molecular-ecology.csl
 header-includes:
   - \usepackage{pdfpages}
   - \usepackage{float}
+  - \floatplacement{table}{H}
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(cache=F)
+knitr::opts_chunk$set(cache=F, echo=F)
 options(width = 300)
 library(knitr)      # CRAN v1.26
 library(kableExtra) # CRAN v1.1.0
 library(tidyverse)  # CRAN v1.3.0
 library(here)
+library(magrittr)
+library(readxl)
+library(formatdown)
 
 # My function to build tables
 # ---------------------------
@@ -37,94 +47,155 @@ kable_mydf <- function(x,
                        font_size = 10, 
                        round_number = 2,
                        latex_options = c("hover","HOLD_position"),
-                       booktabs = T,
-                       caption = ""){
+                       booktabs = T){
   x %>% 
     mutate(across(where(is.numeric), round, round_number)) %>%
-    kable(booktabs=booktabs, caption = caption) %>%  
+    kable(booktabs=booktabs) %>%  
     kable_styling(latex_options = latex_options, 
                   font_size = font_size) %>% 
     {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
 }
+
+
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
 ```
 
 
 {{< pagebreak >}}
 
-# Genomic data
 
-## Population neutral genetic structure
+# Population neutral genetic structure
 
-![Principal component analysis of the genomic data with minor allele frequencies. The first three PC scores are used in the following Redundancy analyses to account for the population genetic structure of the populations.](../figs/ExploratoryAnalyses/PCAplot.pdf)
-
-# Selection of the climatic variables
-
-We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the B4EST project.
-
-In a preselection step, we removed variables with reduced biological interest, that were too highly correlated with any other variable ($\rho > 0.95$), or that had no meta-information on the ClimateDT website, resulting in the following set of climate variables:
-
-  - `bio1`: mean annual temperature (in °C). 
-
-  - `bio3`: isothermality (`bio2`/`bio7`) (x100) (index) with `bio2` the mean diurnal range (mean of monthly (max temp - min temp)) and `bio7` the temperature annual range (`bio5`-`bio6`, with `bio5` the max temperature of warmest month and `bio6` the minimum temperature of the coldest month).
-  
-  - `bio4`: temperature seasonality (standard deviation x100) (in °C).
-  
-  - `bio8` mean temperature of wettest quarter (in °C).
-
-  - `bio9`: mean temperature of driest quarter (in °C).
-  
-  - `bio12`: annual precipitation (in mm).
-  
-  - `bio15`: precipitation seasonality (coefficient of variation).
-  
-  - `AHM`: annual heat moisture index (in °C/mm): (`bio1`+10)/(`bio12`/1000)).
-  
-  - `SHM`: summer heat moisture index (in °C/mm): `MWMT`/(`SP`/1000).
-  
-  - `Eref`: Hargreaves reference evaporation (in mm).
-
-  - `SP`: summer (May-September) precipitation (in mm) (`MSP` in the ClimateDT metadata).
-  
-  - `MWMT`: the mean warmest month temperature (in °C).
-  
-  - `MCMT` mean coldest month temperature	(in °C).
-  
-  - `GDD18` degree-days above 18°C, i.e. cooling degree-days (in °C * days).
-  
-
-We selected the climatic variables based on three criteria: 
-
-  - predicted deviations from their current distribution under climate change (i.e. exposure to climate change)
-
-  - contribution to the explained genetic variance in a RDA-based stepwise selection procedure
-  
-  - biological relevance
-
-
-## Criteria 1: exposure to climate change
-
-We identified variables that are predicted to show in future years a **strong deviation** from their **current distribution** at the location of the study populations. For that, for each climatic variable, we estimated the mean $\mu_{ref}$ and standard deviation $\sigma_{ref}$ of its annual values between 1901 and 1950. We then compare its predicted mean climate value $X$ for the period 2041-2070 to the distribution of its annual values between 1901-1950 obtained from $\mu_{ref}$ and $\sigma_{ref}$. For that, we calculated a Z-score such as: *Z-score* = $(X - \mu_{ref})/\sigma_{ref}$.
-
-
-![Z-scores of the climatic variables from the distribution of their values during the reference period 1901-1950. A point is specific to a given population. The two figures are the same, except that the y-axis of the second one has been cut to aid visualization.](../figs/ExploratoryAnalyses/ExposureClimateChange.pdf){height=70%}
-
-
-## Criteria 2: explaining genetic variance
-
-We used a RDA-based stepwise selection procedure to identify the set of variables maximizing the genetic variance explained (see for instance @capblancq2021redundancy). For that, we used the `ordiR2step` function of the package `vegan`, with the following stopping criteria: variable significance of p < 0.01 using 1000 permutations, and the $R^2_{adj}$ of the full model.
-
-We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected, see the results in the table below.
-
-```{r TableStepwiseSelection, echo=F}
-sumstepwise <- readRDS(file=here("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_100models.rds"))
-
-kable_mydf(sumstepwise)
+```{r LoadGenomicDataWithMAF}
+geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv"))
 ```
 
 
+The population neutral genetic structure was inferred with a principal component analysis (PCA) on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs including SNPs with minor allele frequencies (@fig-PCA). We did not remove SNPs with minor allele frequencies because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). We retained the first three PCs of the PCA as proxy of population evolutionary history in the Redundancy analyses (RDA).
+
+![Principal component analysis of the genomic data with minor allele frequencies. Each point correspond to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
+
+{{< pagebreak >}}
+
+# Selection of the climatic variables
+
+We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the [B4EST project](https://b4est.eu/). We used the time period 1901-1950 as reference period,
+
+## Preselection step 
+
+In a preselection step, we removed climatic variables that (i) had reduced biological interest for the study goals, (ii) were too highly correlated with any other variable ($\rho > 0.95$), or (iii) that had no meta-information on the ClimateDT website. The remaining climatic variables are described in @tbl-PreselectedClimaticVariableInformation.
+
+```{r}
+#| label: tbl-PreselectedClimaticVariableInformation
+#| tbl-cap: Preselected climatic variables
+
+readRDS(here("outputs/VariableSelection/PreselectedClimaticVariableNames.rds")) %>% 
+extract_climatedt_metadata() %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  mutate(Unit=case_when(Unit == "index" ~ "Index",
+                        TRUE ~ Unit)) %>% 
+  kableExtra::kbl(booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
+```
+
+
+![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three PC axes of the PCA based on the genomic data (@fig-PCA). MEM1, MEM2, MEM3 and MEM4 correspond to the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
+
+## Selection of the climatic variables
+
+Based on the reduced set of climatic variables from @tbl-PreselectedClimaticVariableInformation, we then selected the final set of climatic variables based on three criteria: 
+
+  1. biological relevance
+
+  2. contribution to genomic variation.
+  
+  3. magnitude of the differences between the current and future values of the climatic variables.
+
+The final set of climatic variables is shown in @tbl-SelectedClimaticVariableInformation and their distributions are shown in @fig-DistributionSelectedClimaticVariables.
+
+```{r}
+#| label: tbl-SelectedClimaticVariableInformation
+#| tbl-cap: Climatic variables selected for the gene-environment association analyses and the genomic offset predictions.
+
+readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+extract_climatedt_metadata() %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  mutate(Unit=case_when(Unit == "index" ~ "Index",
+                        TRUE ~ Unit)) %>% 
+  kableExtra::kbl(booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
+```
+
+![Distributions of the climatic variables selected for the gene-environment association analyses and the genomic offset predictions.](../figs/ExploratoryAnalyses/DistributionSelectedClimaticVariables.pdf){#fig-DistributionSelectedClimaticVariables}
+
+
+### Criteria 1: biological relevance
+
+We aimed to provide genomic offset predictions capturing both the changes in annual climatic conditions (e.g. mean annual temperature or precipitation) and in seasonal climatic conditions (e.g. summer droughts). 
+
+**Winter cold temperatures:** Previous studies found that maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures [@grivet2011molecular; @archambeau2023reduced]. We did not include climatic variables related to winter cold temperatures because, in the context of climate change, the expected increase in winter cold temperatures may benefit maritime pine populations. In such a scenario, populations undergoing strong variations in winter cold conditions will have a high genomic offset, which will not reflect a potential maladaptation but will, on the contrary, inform about a potential increase in their fitness under climate change. Increased winter cold temperatures may also impact the survival of young trees, the reproductive ability of adult trees or the dynamics of pests and pathogens. However, it is not clear how this negative impacts may counterbalance the positive effects of cooler winter, and that is why we did not include climatic variables related to winter cold temperatures in the set of climatic variables used to make genomic offset predictions.
+
+
+
+### Criteria 2: contribution to genomic variation.
+
+We used a RDA-based stepwise selection procedure to identify the set of climatic variables maximizing the genetic variance explained [see for instance @capblancq2021redundancy]. We used the `ordiR2step` function of the package `vegan`, in which we have to specify two models: 
+
+  - a *null* model where genomic variation is explained only by an intercept.
+
+  - a *full* model including as predictors all the climatic variables shown in @tbl-PreselectedClimaticVariableInformation.
+
+For including new variables during the selection procedure, we used the default stopping criteria of the `ordi2step` function: variable significance of p < 0.01 using 1000 permutations and the comparison of adjusted variation ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. This selection criteria means that if the new variable is not significant or the $R^2_{adj}$ of the model including the new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
+
+We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected. The results are reported in @tbl-StepwiseSelection.
+
+```{r TableStepwiseSelection}
+#| label: tbl-StepwiseSelection
+#| tbl-cap: Number of times that each climatic variable was selected among the 100 iterations of the RDA-based stepwise selection procedure.
+
+readRDS(file=here("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_100models.rds")) %>% kable_mydf()
+```
+
+### Criteria 3: exposure to climate change
+
+To compare the values of the climatic variables under current and future climates, we calculated the relative climatic distance $D$ for each climatic variable $x$:
+
+$$  D_x = \frac{\mu_{fut} - \mu_{ref}}{\mu_{ref}}$$
+
+where $\mu_{ref}$ is the average of the climatic variable of interest over the reference period (i.e. 1901-1950) and $\mu_{fut}$ is the average of the predictions for the climatic variable over the future period 2041-2070 and under the shared socio-economic pathway (SSP) 3-7.0. 
+
+![Relative climatic distances for the six climatic variables used to make genomic offset predictions. The relative climatic distances were calculated for five different Global Climate Models (GCMs), each corresponding to a different panel.](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf){#fig-RelativeClimaticDistances}
 
 # Variance partitioning
 
+Following @capblancq2021redundancy, we used a partial redundancy analysis (pRDA) to identify the relative contribution of climate, neutral population structure and geography in explaining genetic variation. The climate was captured by the six climatic variables that were then used to identify the loci potentially involved in local adaptation (.i.e. gene-environment association analyses) and to make genomic offset predictions (@fig-DistributionSelectedClimaticVariables). The neutral population genetic structure was accounted for with the first three PCs of a PCA based on the genomic data not filtered for MAF (@fig-PCA). The geography was either accounted for with the geographical coordinates of the populations or with the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].
 
 
+```{r}
+#| label: tbl-VarPartGeo
+#| tbl-cap: Variance partioning using geographical coordinates to account for geography.
 
+readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_coordinates.rds"))[[2]] %>%
+kable_mydf(boldfirstcolumn = T, font_size = 8)
+```
+
+
+```{r}
+#| label: tbl-VarPartMEMs
+#| tbl-cap: Variance partioning using the first four distance-based Moran's eigenvector maps (dbMEMs) to account for geography.
+
+readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>%
+kable_mydf(boldfirstcolumn = T, font_size = 8)
+```
+
+
+In @tbl-VarPartGeo and @tbl-VarPartMEMs, `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography.
+
+# Gene-environment association methods
+
+
+RDA was performed with the `vegan` R package v`r packageVersion("vegan")`.
+
+# References

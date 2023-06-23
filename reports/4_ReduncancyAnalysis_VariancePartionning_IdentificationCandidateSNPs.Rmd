@@ -19,18 +19,18 @@ bibliography: references.bib
 always_allow_html: true
 ---
 
-```{css, echo=FALSE}
-pre {
-  max-height: 150px;
-  overflow-y: auto;
-  overflow-x: auto;
-  font-size: 10px;
-}
+<!-- ```{css, echo=FALSE} -->
+<!-- pre { -->
+<!--   max-height: 150px; -->
+<!--   overflow-y: auto; -->
+<!--   overflow-x: auto; -->
+<!--   font-size: 10px; -->
+<!-- } -->
 
-body{
-  font-size: 12px;
-}
-```
+<!-- body{ -->
+<!--   font-size: 12px; -->
+<!-- } -->
+<!-- ``` -->
 
 
 ```{r setup, include=FALSE}
@@ -69,7 +69,8 @@ source("scripts/functions/corpmat.R") # to compute the matrix of p-value
 source("scripts/functions/rdadapt.R") # to conduct a RDA based genome scan (from Capblancq & Forester 2021)
 source("scripts/functions/detectoutliers.R") # to identify outliers based on their RDA loadings (from  Forester et al. 2018)
 
-# Function to generate a corrplot
+# Function to generate a corrplot in png
+# ======================================
 make_corrplot <- function(df,variables,fig_options){
   
   # correlation matrix
@@ -95,6 +96,42 @@ make_corrplot <- function(df,variables,fig_options){
                      # Combine with significance
                      p.mat = pmat, 
                      sig.level = 0.01, 
+                     insig = "blank",
+                     
+                     # hide correlation coefficient on the principal diagonal
+                     diag=FALSE,
+                     number.cex=0.6)
+  dev.off()
+  
+}
+
+# Function to generate a corrplot in pdf
+# ======================================
+make_corrplot_pdf <- function(df,variables,fig_options){
+  
+  # correlation matrix
+  cor <- cor(df[,variables]) 
+  
+  # matrix of the p-value of the correlation
+  pmat <- corpmat(cor)
+
+  # Generate a correlation plot
+  pdf(file=fig_options$path,
+      width=fig_options$width,
+      height=fig_options$height)
+  corrplot::corrplot(cor, 
+                     method="color", 
+                     col=colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))(200),
+                     type="upper", 
+                     order="hclust",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     tl.col="black", 
+                     tl.srt=45, #Text label color and rotation
+                   
+                     # Combine with significance
+                     p.mat = pmat, 
+                     sig.level = 0.01, 
+                     mar=c(0,0,0,0),
                      insig = "blank",
                      
                      # hide correlation coefficient on the principal diagonal
@@ -241,11 +278,17 @@ clim <- clim %>% dplyr::select(-all_of(clim_var_to_rm))
 
 # we check that there are no more pairs of highly correlated variables
 identify_corr_var(df=clim,corr_threshold = 0.95) %>% nrow()
+
+# Export the names of the pre-selected climatic variables (for the Supplementary Information)
+clim %>% 
+  dplyr::select(-pop,-elevation,-contains("ude"),-contains("MEM")) %>% 
+  colnames() %>% 
+  saveRDS(file="outputs/VariableSelection/PreselectedClimaticVariableNames.rds")
 ```
 
 ### Viz 
 
-We can look at the distribution of the climatic variables.
+We can look at the distribution of the pre-selected climatic variables.
 
 ```{r PlotDistributionClimaticVariables, fig.height=9, fig.width=9}
 p <- clim %>% 
@@ -257,16 +300,20 @@ p <- clim %>%
   facet_wrap(~variable,scales="free") + 
   theme_bw() 
 
-p %>% ggsave(file="figs/ExploratoryAnalyses/DistributionClimaticVariables_selected.png",
+p %>% ggsave(file="figs/ExploratoryAnalyses/DistributionPreselectedClimaticVariables.png",
                width=15,height=12)
 
 p
 ```
 
-We also generate a correlation plot and perform a PCA to look at the correlation among the remaining climatic variables.
+We also look at the correlation among the pre-selected climatic variables:
 
 ```{r CorrelationsPanels,fig.height=6,fig.width=6, results="hide"}
-# Chunk to generate figures to visualize the correlations among the climatic variables
+# Generate figures to visualize correlations among climatic variables
+
+# ===
+# PNG
+# ===
 fig_options <- list(
   path = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",
   width=1000,
@@ -274,12 +321,25 @@ fig_options <- list(
   res=100)
 
 make_corrplot(df = clim,
-              variables = colnames(clim)[-1], # we keep long, lat, elev and clim variables
+              variables = colnames(clim)[-1],
               fig_options = fig_options)
+
+# ===
+# PDF
+# ===
+fig_options <- list(
+  path = "figs/ExploratoryAnalyses/CorrplotClimVariables.pdf",
+  width=10,
+  height=8)
+
+make_corrplot_pdf(df = clim,
+                  variables = colnames(clim)[-1],
+                  fig_options = fig_options)
 ```
 
 ![](../figs/ExploratoryAnalyses/CorrplotClimVariables.png)
 
+We also look at the correlation among the climatic variables with a principal component analysis:
 
 ```{r PCAClimVariables,fig.height=6,fig.width=6, results="hide"}
 # Generate a PCA
@@ -423,14 +483,14 @@ levels(GPs) <- list("Northern Africa" = "Q1",
 We plot the PCA performed on **population-based allele frequencies not filtered for MAF** (section \@ref(PCscores)). The figure is stored in `PCAplot.pdf`.
 
 ```{r PlotPCA, fig.width=10,fig.height=6, results="hide"}
-pdf(width=10,"figs/RDA/PCAplot.pdf")
-par(mfrow=c(1,2))
+pdf(width=9,height=5,"figs/RDA/PCAplot.pdf")
+par(mfrow=c(1,2),mar=c(4,4,0.5,0.5))
 lapply(2:3, function(second_axis){
   plot(pca, type="n", scaling=3, choices=c(1,second_axis),
        xlab=paste0("PC1 (",round(summary(eigenvals(pca))[2,1]*100,2),"%)"),
        ylab=paste0("PC",second_axis," (",round(summary(eigenvals(pca))[2,second_axis]*100,2),"%)"))
   points(pca, display="sites", pch=21, cex=1.3, col="gray32", scaling=3, bg=bg[GPs], choices=c(1,second_axis))
-  if(second_axis==3) legend("bottomright", legend=levels(GPs), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg)
+  if(second_axis==3) legend("bottomright", legend=levels(GPs), bty="n", col="gray32", pch=21, cex=1, pt.bg=bg, title="Main gene pool",title.adj=0.05)
 recordPlot()})
 dev.off()
 ```
@@ -567,11 +627,9 @@ It would be very interesting to compare the genomic offset predictions with pred
 
 ### Climatic variables relevant for providing GO predictions
 
-According to previous studies, maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures [eg @grivet2011molecular]. Under climate change, cold temperatures are expected to increase in average at the location of the studied populations. An increase in cold temperatures is unlikely to directly negatively impact the fitness of adult trees but it may impact the survival of young trees, the reproductive ability and the impact of pests and pathogens. 
+We aimed to provide GO predictions capturing both the changes in annual climatic conditions (e.g. mean annual temperature or precipitation) and in seasonal climatic conditions (e.g. summer droughts).
 
-Thus, for the second objective of this paper (which is to provide genomic offset estimates for the studied populations), whether or not to include winter conditions in genomic offset predictions is a tricky question, for which there is probably no correct answer. 
-
-In the present study, we decided not to include climatic variables related to cold-winter temperatures.
+**Winter cold temperatures:**  Previous studies found that maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures [@grivet2011molecular and @archambeau2023reduced]. We did not include climatic variables related to winter cold temperatures because, in the context of climate change, the expected increase in winter cold temperatures may benefit maritime pine populations. In such a scenario, populations undergoing strong variations in winter cold conditions will have a high genomic offset, which will not reflect a potential maladaptation but will, on the contrary, inform about a potential increase in their fitness under climate change. Increased winter cold temperatures may also impact the survival of young trees, the reproductive ability of adult trees or the dynamics of pests and pathogens. However, it is not clear how this negative impacts may counterbalance the positive effects of cooler winter, and that is why we did not include climatic variables related to winter cold temperatures in the set of climatic variables used to make genomic offset predictions.
 
 
 
@@ -1600,5 +1658,27 @@ We will use the set 2 of climatic variables in the following analyses because it
 set2_var$variables %>% saveRDS("data/ClimaticData/NamesSelectedVariables.rds")
 ```
 
+
+We export a figure for the Supplementary Information of the distribution of the selected climatic variables:
+
+
+```{r PlotDistributionSelectedClimaticVariables, fig.height=8, fig.width=10}
+p <- clim %>% 
+  dplyr::select(any_of(set2_var$variables)) %>% 
+  pivot_longer(everything(),names_to="variable") %>% 
+  ggplot(aes(x=value)) +  
+  geom_histogram(aes(y=after_stat(density)), colour="blue",fill="white",bins = 34) +
+  geom_density(alpha=.2,fill="pink") +
+  facet_wrap(~variable,scales="free") +
+  xlab("Climatic variable") +
+  ylab("Density") +
+  theme_bw() 
+
+p %>% ggsave(device="pdf",
+             file="figs/ExploratoryAnalyses/DistributionSelectedClimaticVariables.pdf",
+             width=10,height=8)
+
+p
+```
 
 # References

@@ -557,49 +557,7 @@ violin_plots[[2]][[1]]
 
 Predictions **consistent across GCMs**.
 
-<!-- Predictions are quite **consistent across GCMs**, except for the mean temperature of the driest quarter (`bio9`) of the **OLB population from Central Spain**. Indeed, for this population, the IPSL-CM6A-LR, MPI-ESM1-2-HR and UKESM1-0-LL GCMs GCMs predict a larger increase in `bio9` in the future than the GFDL-ESM4 and MRI-ESM2-0 GCMs. See the tables below that show the climatic values for the OLB population under past and future climates, with or without adjusted data for elevation, and with climatic data from point estimates or extracted from rasters.  -->
 
-<!-- > Past climatic values for the period 1901-1950: -->
-
-<!-- ```{r OLBpopPastClimate} -->
-<!-- lapply(list("ADJ","noADJ"), function(x){ -->
-
-<!--   list_clim_past[[x]]$data$ref_1901_1950$ref_means[,c("pop","bio9")] %>%  -->
-<!--   mutate(ext_var =extract_clim_var(x="bio9",period="1901-1950")) %>%  -->
-<!--   filter(pop=="OLB") %>%  -->
-<!--   set_colnames(c("Population","Point estimate","Extracted value from raster"))  -->
-
-<!-- }) %>%  -->
-<!--   setNames(c("ADJ","noADJ")) %>%  -->
-<!--   bind_rows(.id="Adjust for elevation") %>%  -->
-<!--   kable_mydf() -->
-<!-- ``` -->
-
-<!-- > Future climatic value extracted from rasters (2041-2070, SSP3-7.0): -->
-
-<!-- ```{r OLBFutClimateRasters} -->
-<!-- fut_rast %>%  -->
-<!--   filter(ref_period =="1901-1950") %>%  -->
-<!--   filter(variable=="bio9") %>%  -->
-<!--   filter(pop=="OLB") %>%  -->
-<!--   dplyr::select(pop,gcm,mean_fut) %>%  -->
-<!--   set_colnames(c("Population","Global Climate Model","Value extracted from rasters")) %>%  -->
-<!--   kable_mydf() -->
-<!-- ``` -->
-
-<!-- > Future climatic values from point estimates (GFDL-ESM4 GCM): -->
-
-<!-- ```{r OLBFutureClimatePointEstimates} -->
-<!-- fut_clim %>%  -->
-<!--   bind_rows(.id="adj") %>%   -->
-<!--   filter(pop=="OLB") %>%  -->
-<!--   dplyr::select(pop,bio9,adj) %>%  -->
-<!--   set_colnames(c("Population","Point estimate","Adjust for elevation")) %>%  -->
-<!--   kable_mydf() -->
-<!-- ``` -->
-
-
-<!-- <span style="color: orange;">**The strong differences among GCMs for the OLB population may be explained by its location in a mountainous region with complicated orography.**</span> -->
 
 ## Relative climatic distance
 
@@ -608,50 +566,11 @@ To compare past and future climatic values, we calculate, for each GCM and each 
 
 ### Future climatic data from rasters
 
-On the graph below, the relative distances are on the y-axis and are calculated using point estimates for the past climates and raster data for the future climates (mean predicted climatic values across the period 2041-2070 and the SSP3-7.0. The past climates correspond to:
+On the graph below, the relative distances are on the y-axis and are calculated using point estimates for the past climates (i.e. climates under the reference periods 1901-1950 or 1961-1990) and raster data for the future climates (mean predicted climatic values across the period 2041-2070 and the SSP3-7.0. The past climates correspond to:
 
   - either the reference period 1901-1950 or 1961-1990.
 
   - either the adjusted or not adjusted data for elevation.
-
-
-```{r LoadFutureClimatePointEstimatesSentByMaurizio, warning=F, eval=F,echo=F}
-# Extract population future climate for each GCM
-fut_rast <- lapply(list_clim_past, function(clim_past){
-  
-lapply(clim_past$data, function(y){
-
-lapply(clim_var, function(x){
-  
-lapply(gcm_names, function(gcm) extract_clim_var(x=x,gcm=gcm,period="2041-2070",ssp="ssp370")) %>% 
-  setNames(gcm_names) %>% 
-  as_tibble() %>% 
-  mutate(pop=unique(clim_past$data[[1]]$ref_means$pop))
-
-}) %>% 
-  setNames(clim_var) %>% 
-  bind_rows(.id = "variable") %>% 
-  pivot_longer(names_to = "gcm",values_to="mean_fut",cols=gcm_names) %>% 
-  mutate(fut_method= "extracted from rasters") %>% 
-  mutate(ref_period=paste0(y$range[[1]],"-",y$range[[2]])) %>% 
-  left_join(y$ref_sdmeans, by=c("pop","variable")) %>% 
-  dplyr::mutate(zscore=(mean_fut-mean_ref)/sd_ref) %>% 
-  left_join(gps, by="pop") 
-    
-
-}) %>% 
-    bind_rows() %>% 
-    mutate(adj=clim_past$code)
-  
-}) %>%  bind_rows()
-```
-
-
-
-```{r CheckingNAs, eval=F,echo=F}
-# We check that there is no NAs:
-sapply(fut_rast, function(x) sum(is.na(x)))
-```
 
 ```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide"}
 # Violin plots
@@ -697,8 +616,11 @@ fut_rast %>%
 })
 
 
+
+
 # legend 
 violin_plots$legend <- get_legend(violin_plots[[1]] + theme(legend.position = c(0.5,0.5)) )
+
 
 # make title
 title <- ggdraw() + 
@@ -710,6 +632,18 @@ title <- ggdraw() +
 
 # merge plots
 p <- plot_grid(plotlist=violin_plots)
+
+# ========================================
+# Figure for the Supplementary Information
+
+# We save plots for the reference period 1901-1950 and with point estimates not adjusted for elevation
+if (y=="noADJ" & z=="1901-1950"){
+
+ ggsave(p,device="pdf",filename=here("figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf"),
+        width=12,height=10)
+    
+}
+# ========================================
 
 # merge plots + title
 plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
@@ -723,7 +657,6 @@ violin_plots
 ```
 
 **Interpretation:** For all populations, `AHM`, `SHM`, `bio1` and `bio9` and `Eref` are predicted to increase under future climates. Some exceptions for `AHM` for some populations from the Iberian and French Atlantic regions for the MRI-ESM2-0 GCM. Different predictions across GCMs for the OLB populations. <span style="color: orange;">**The different predictions across GCMs show the importance of calculating the genomic offset under the different GCMs.**</span>
-
 
 
 ### Future climatic data from point estimates
