@@ -100,8 +100,7 @@ clim_dfs <- generate_scaled_clim_datasets(clim_var,clim_ref_adj = FALSE)
 
 ## Adaptively enriched genetic space
 
-The different sets of SNPs (one set of control SNPs and two sets of putative adaptive loci) are used as **multivariate response** in a new 'adaptively enriched' RDA, using the selected climatic variables as explanatory variables.
-
+Following @capblancq2021redundancy (and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics)), for the different sets of SNPs (one set of control SNPs and two sets of putative adaptive loci), a RDA was performed with the set of SNPs as **multivariate response** and the set of climatic variables as explanatory variables. For the sets of candidate SNPs, the resulting RDA spaces can be considered as 'adaptively enriched genetic spaces' [@capblancq2021redundancy; @capblancq2023common].
 
 ```{r FunctionToRunRDA}
 runRDA <- function(snp_set, clim_var, clim_df, geno){
@@ -146,7 +145,7 @@ varexp_axis2 <- eigenvalues[2,2] *100
 ggplot() +
   geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
   geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
-  geom_point(data = TAB_loci, aes(x=RDA1*3, y=RDA2*3), colour = "#EB8055FF", size = 2, alpha = 0.8) + #"#F9A242FF"
+  geom_point(data = TAB_loci, aes(x=RDA1*3, y=RDA2*3), colour = '#CD24B2', size = 2, alpha = 0.8) + #"#F9A242FF"
   geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), colour="black", linewidth=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
   geom_text(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 3) +
   xlab(paste0("RDA 1 (",round(varexp_axis1,1),"%)")) + 
@@ -162,23 +161,35 @@ ggplot() +
 }
 ```
 
-
 ```{r MakeRDAbiplots, fig.width=12, fig.height=7}
 rda_biplots <- lapply(snp_sets, make_RDAbiplot)
 
 grid_RDAbiplots <- plot_grid(rda_biplots[[1]],rda_biplots[[2]],rda_biplots[[3]], 
                          nrow=1)
+
 ggsave(here("figs/RDA/RDAbiplots_SNPsets.pdf"), grid_RDAbiplots, width = 14, height=6)
+
+
+# We save a plot for the Supplementary Information
+# ================================================
+plot_grid(rda_biplots[[1]],rda_biplots[[3]],nrow=1) %>% # we keep only the control and candidate SNPs
+  ggsave(here("figs/RDA/RDAbiplots_SNPsets_SI.pdf"), ., width = 9, height=6)
+
 
 grid_RDAbiplots
 ```
 
+
 ## Adaptive index across the landscape
 
-From @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics): The scores (loadings) of the climatic variables along the RDA axes can be used to calculate a genetic-based index of adaptation for each pixel of the landscape. This index is estimated independently for each RDA axis of interest using the formula:
+We used the scores of the climatic variables along the RDA axes to calculate a genetic-based index for each pixel of the landscape. For each RDA axis, the index is calculated as follows:
 
 $$\sum_{i=1}^{n}a_ib_i$$
-where $a$ is the climatic variable score (loading) along the RDA axis, $b$ is the standardized value for this particular variable at the focal pixel, and $i$ refers to one of the $n$ different variables used in the RDA model.
+
+where $i$ is one of the $n$ climatic variables used in the RDA model, $a$ is the score of the climatic variable $i$ along the RDA axis and $b$ is the standardized value for the climatic variable $i$ at the focal pixel.
+
+
+When calculating based on the set of candidate SNPs, this index can be considered as an **adaptive index** that provides an estimate of the **adaptive genetic similarity or difference** of all pixels on the landscape as a function of the values of the climatic predictors at that location. 
 
 
 ```{r ProjectingAdaptiveIndex}
@@ -191,9 +202,7 @@ project_adaptive_index(clim_var=clim_var,K=2,snp_set=snp_set)
 })
 ```
 
-The **adaptive index** thus provides an estimate of **adaptive genetic similarity** or difference of all pixels on the landscape as a function of the values of the climatic predictors at that location. 
-
-We project the adaptive index on maps to visualize the different adaptive gradients across the maritime pine range. 
+We project the index on maps to visualize the different gradients across the maritime pine range (which can be considered as **adaptive gradients** when based on the sets of putatively adaptive loci).
 
 ```{r MappingAdaptiveIndex, fig.width=12, fig.height=8, results="hide",warning=F}
 # countries borders for the map
@@ -221,26 +230,42 @@ x_limits = c(-10, 15)
 y_limits = c(31, 52)
 ggtitle <- snp_set$set_name
 
-
 ggplot(data = TAB_RDA) + 
   geom_sf(data = world, fill="gray98") + 
   scale_x_continuous(limits = x_limits) +
   scale_y_continuous(limits = y_limits) + 
-  geom_raster(aes(x = x, y = y, fill = cut(value, breaks=seq(0, 1, length.out=10), include.lowest = T))) + 
-  scale_fill_viridis_d(alpha = 0.8, direction = -1, option = "A", labels = c("Negative scores","","","","Intermediate scores","","","","Positive scores")) +
+  geom_raster(aes(x = x, y = y, fill = cut(value, breaks=seq(0, 1, length.out=11), include.lowest = T))) + 
+  scale_fill_viridis_d(alpha = 0.8, direction = -1, option = "A") +
   xlab("Longitude") + ylab("Latitude") +
-  guides(fill=guide_legend(title="Adaptive index")) +
+  guides(fill=guide_legend(title="Genetic index")) +
   facet_grid(~ variable) +
   ggtitle(ggtitle) +
   theme_bw(base_size = 11) +
   theme(panel.grid = element_blank(), plot.background = element_blank(), panel.background = element_blank(), strip.text = element_text(size=11))
+
 })
 
+# We save the maps for the Github repository
+# ==========================================
 pdf(here("figs/RDA/AdaptiveIndex_maps.pdf"), width=10,height=6)
 lapply(ai_maps, function(x) x)
 dev.off()
 
-# show maps
+# We save the maps for the Supplementary Information
+# ==================================================
+
+# Candidate SNPs
+pdf(here("figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.pdf"), width=9,height=4.9)
+ai_maps[[1]] + theme(plot.title = element_blank())
+dev.off()
+
+# Control SNPs
+pdf(here("figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.pdf"), width=9,height=4.9)
+ai_maps[[3]] + theme(plot.title = element_blank())
+dev.off()
+
+# Show AI maps
+# ============
 lapply(ai_maps, function(x) x)
 ```
 
@@ -417,6 +442,19 @@ go_maps$legend_maps <- legend_maps
 
 go_maps <-plot_grid(plotlist=go_maps)
 
+# =====================================================
+# We save the figures for the Supplementary Information
+# =====================================================
+if(x$set_code=="cand"){ 
+  ggsave(here("figs/RDA/GOMaps_PopLocations_CandidateSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+} else if(x$set_code=="control"){
+    ggsave(here("figs/RDA/GOMaps_PopLocations_ControlSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+}
+
+
+# =========
+# Add title
+# =========
 title <- ggdraw() + 
   draw_label(
     x$set_name,
@@ -457,6 +495,25 @@ ggplot() +
   theme(legend.position = c(0.91, 0.16),
         legend.background = element_rect(linewidth=0.3, color = "gray90"))
 ```
+
+
+For each GCM, we attribute the value `1` to the top five populations with the highest genomic offset and we attribute the value `0` to the other populations. We then count the number of `1` for each population, which gives the table and map below:
+
+```{r HighGoPopMap, fig.height=6,fig.width=6}
+source(here("scripts/functions/make_high_go_pop_maps.R"))
+
+high_go_pops <- make_high_go_pop_maps(pop_coord=pop_coord,
+                                      list_go = snp_sets$cand$go,
+                                      ggtitle="RDA",
+                                      nb_id_pop = 5) # number of selected populations
+
+saveRDS(high_go_pops, file = here("outputs/RDA/high_go_pops.rds"))
+
+high_go_pops[[1]] %>% kable_mydf
+
+high_go_pops[[2]]
+```
+
 
 ### Comparing GO predictions
 
@@ -632,7 +689,7 @@ if(method == "loadings"){
 }
 ```
 
-```{r GenerateGORasters, eval=F}
+```{r GenerateGORasters, eval=T}
 # For each snp set and each GCM, we generate a list of rasters with:
   # the projection of AI for reference_period and future climates
   # genomic offset predictions for each RDA axis 
@@ -716,6 +773,17 @@ go_maps$legend_maps <- legend_maps
 
 go_maps <-plot_grid(plotlist=go_maps)
 
+
+# We save the maps for the Supplementary Information
+# ==================================================
+if(x=="cand"){ 
+  ggsave(here("figs/RDA/GOMap_CandidateSNPs_SI.pdf"), go_maps, width=11,height=7, device="pdf")
+} else if(x=="control"){
+    ggsave(here("figs/RDA/GOMap_ControlSNPs_SI.pdf"), go_maps, width=11,height=7, device="pdf")
+}
+
+# Add title
+# =========
 title <- ggdraw() + 
   draw_label(
     snp_sets[[x]]$set_name,
@@ -729,12 +797,14 @@ plot_grid(title, go_maps, ncol = 1,rel_heights = c(0.1, 1))
   
 })
 
-# export maps pdf
+# We save the maps for the Github repository
+# ==========================================
 pdf(here("figs/RDA/GOmaps.pdf"), width=14,height=9.5)
 lapply(go_maps, function(x) x)
 dev.off()
 
-# show maps
+# Show GO maps
+# ============
 lapply(go_maps, function(x) x)
 ```
 
@@ -800,7 +870,9 @@ go_limits[[1]] <- 0
 
 
 # map genomic offset predictions in the NFI plots 
-lapply(snp_sets, function(x) make_go_map(
+lapply(snp_sets, function(x) {
+  
+p <- make_go_map(
   dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
   snp_set = x,
   type="NFI",
@@ -808,7 +880,23 @@ lapply(snp_sets, function(x) make_go_map(
   go_limits = go_limits,
   legend_position = c(0.85,0.15),
   legend_box_background = "gray80",
-  y_limits = c(35, 51)))
+  y_limits = c(35, 51))
+
+# Figure for the SI
+# =================
+if(x$set_code=="cand"){ 
+  p_SI <- p + theme(plot.title = element_blank())
+  ggsave(here("figs/RDA/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    p_SI <- p + theme(plot.title = element_blank())
+    ggsave(here("figs/RDA/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+    }
+
+# Show maps in the Quarto document
+# ================================
+p
+})
 ```
 
 We look at the correlation across the different genomic offset predictions in the NFI plots, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
@@ -901,4 +989,13 @@ Let's save the genomic offset predictions for comparison with the other methods.
 ```{r SaveGOpredictions}
 snp_sets %>% saveRDS(file=here("outputs/RDA/go_predictions.rds"))
 ```
+
+
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
+
 

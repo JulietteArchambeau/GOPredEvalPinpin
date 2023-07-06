@@ -99,7 +99,11 @@ clim_dfs <- generate_scaled_clim_datasets(clim_var,clim_ref_adj = FALSE)
 ```{r RunGF, message=F, results="hide"}
 snp_sets <- lapply(snp_sets, function(snp_set) {
 
-geno_sub <- geno %>% dplyr::select(all_of(snp_set$set_snps))
+
+# Warning! Important to sort the SNP names, otherwise
+  # the colors in the species (allele) cumulative plots 
+  # do not correspond to the right alleles
+geno_sub <- geno %>% dplyr::select(all_of(sort(snp_set$set_snps)))
 
 snp_set$gf_mod <- gradientForest(data.frame(clim_dfs$clim_ref[,-1], geno_sub), 
                                  predictor.vars=clim_var, 
@@ -111,6 +115,17 @@ snp_set$gf_mod <- gradientForest(data.frame(clim_dfs$clim_ref[,-1], geno_sub),
 return(snp_set)
 
 })
+```
+
+Number of alleles for which the climatic variables have some predictive power:
+
+```{r NbAllelesPredictivePower}
+lapply(snp_sets, function(x){
+  tibble("SNP set"=x$set_name,
+             "Nb of alleles with predictive power"=x$gf_mod$species.pos.rsq)
+}) %>% 
+  bind_rows() %>% 
+  kable_mydf()
 ```
 
 
@@ -129,46 +144,138 @@ We generate some plots to evaluate the GF models (stored in the files `GFplots_[
 The code to generate those plots comes from 'Example analysis of biodiversity survey data with R package `gradientForest`' by C. Roland Pitcher, Nick Ellis and Stephen J. Smith ([pdf available here](https://gradientforest.r-forge.r-project.org/biodiversity-survey.pdf)).
 
 ```{r GenerateGFplots, results="hide"}
+# ==============================
+# Functions to make the GF plots
+# ==============================
+
+# splits density plot
+make_split_density_plot <- function(x){
+
+  plot(x,plot.type="S",
+       imp.vars=names(importance(x)),
+       leg.posn="topright",
+       cex.legend=1,
+       cex.axis=1, 
+       cex.lab=1.2,
+       line.ylab=0.9,
+       par.args=list(mgp=c(1.5, 0.5,0),mar=c(3.1,1.5,0.1,1),omi = c(0.1, 0.3, 0.1, 0.1)))
+  
+  }
+
+# predictor cumulative plot
+make_predictor_cumulative_plot <- function(x){
+  
+  plot(x, plot.type="C",
+       imp.vars=names(importance(x)),
+       show.species=F,common.scale=T,
+       cex.axis=1, 
+       cex.lab=1.5,
+       line.ylab=1,
+       par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))}
+
+
+# species cumulative plot
+make_species_cumulative_plot <- function(x){
+  
+  plot(x,
+     plot.type="C",imp.vars=names(importance(x)), 
+     show.overall=F,legend=T,leg.posn="topleft", 
+     leg.nspecies=10,
+     cex.lab=1,
+     cex.legend=1, 
+     cex.axis=1,
+     line.ylab=1,
+     par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))
+  }
+
+
+# R2 measure of the fit of the random forest model for each species
+make_performance_plot <- function(x, horizontal=FALSE){
+
+    old.mar<-par()$mar
+    par(mfrow=c(1,1),mar=old.mar+c(0,0,0,0))
+    Ylab <- expression(R^2)
+
+    perf <- importance(x, type="Species")
+    n <- length(perf)
+    if (horizontal)
+      plot(perf, 1:n, las = 2, pch=19, axes=F, xlab="", ylab="")
+    else
+      plot(1:n, perf, las = 2, pch=19, axes=F, xlab="", ylab="")
+    axis(labels= names(perf),side=1+horizontal,at=1:n, cex.axis=0.7, padj=0,las=2)
+    axis(side=2-horizontal, cex.axis=1)
+    mtext(Ylab,side=2-horizontal,line=2)
+    title("Overall performance of random forests over loci")
+    abline(h = 0, lty = 2)
+    box()
+    par(mar=old.mar)
+
+}
+
+# ===============================================
+# Generate the GF plots for the Github repository
+# ===============================================
 lapply(snp_sets, function(snp_set){
 
-pdf(here(paste0("figs/GF/GFplots_",snp_set$set_code,".pdf")), width=10,height=8)
+pdf(here(paste0("figs/GF/GFplots_",snp_set$set_code,".pdf")), width=12,height=8)
 
 # Overall importance plot
 plot(snp_set$gf_mod, plot.type="Overall.Importance")
 
 # splits density plot
-plot(snp_set$gf_mod,plot.type="S",
-     imp.vars=names(importance(snp_set$gf_mod)),
-     leg.posn="topright",
-     cex.legend=0.6,cex.axis=0.6, 
-     cex.lab=0.7,line.ylab=0.9,par.args=list(mgp=c(1.5, 0.5,0),mar=c(3.1,1.5,0.1,1)))
+make_split_density_plot(x=snp_set$gf_mod)
 
 # species cumulative plot
-plot(snp_set$gf_mod,
-     plot.type="C",imp.vars=names(importance(snp_set$gf_mod)), 
-     show.overall=F,legend=T,leg.posn="topleft", 
-     leg.nspecies=14,cex.lab=0.7,cex.legend=0.6, 
-     cex.axis=0.6,line.ylab=0.9,
-     par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))
+make_species_cumulative_plot(x=snp_set$gf_mod)
 
 # predictor cumulative plot
-plot(snp_set$gf_mod,
-     plot.type="C",
-     imp.vars=names(importance(snp_set$gf_mod)),
-     show.species=F,common.scale=T,cex.axis=0.6, 
-     cex.lab=0.7,line.ylab=0.9,
-     par.args=list(mgp=c(1.5, 0.5,0),mar=c(2.5,1,0.1,0.5),omi=c(0, +0.3,0,0)))
+make_predictor_cumulative_plot(x=snp_set$gf_mod)
 
 # R2 measure of the fit of the random forest model for each species
-plot(snp_set$gf_mod,
-     plot.type="P",show.names=T,horizontal=F, 
-     cex.axis=1,cex.labels=0.7,line=2.5)
+make_performance_plot(x=snp_set$gf_mod)
 
 dev.off()
 
 })
-```
 
+# =======================================================
+# Generate the GF plots for the Supplementary Information
+# =======================================================
+lapply(snp_sets[c(1,3)], function(snp_set){
+
+# Overall importance plot
+pdf(here(paste0("figs/GF/GFplots_OverallImportance_",snp_set$set_code,"_SI.pdf")), width=8,height=5)
+plot(snp_set$gf_mod, plot.type="Overall.Importance")
+dev.off()
+
+# Splits density plot
+pdf(here(paste0("figs/GF/GFplots_SplitDensityPlot_",snp_set$set_code,"_SI.pdf")), width=8,height=5)
+make_split_density_plot(x=snp_set$gf_mod)
+dev.off()
+
+# Allele cumulative plot
+pdf(here(paste0("figs/GF/GFplots_AlleleCumulativePlot_",snp_set$set_code,"_SI.pdf")), width=7,height=7)
+make_species_cumulative_plot(x=snp_set$gf_mod)
+dev.off()
+
+# predictor cumulative plot
+pdf(here(paste0("figs/GF/GFplots_PredictorCumulativePlot_",snp_set$set_code,"_SI.pdf")), width=7,height=7)
+make_predictor_cumulative_plot(x=snp_set$gf_mod)
+dev.off()
+
+# R2 measure of the fit of the random forest model for each species
+p <- tibble(snp=names(sort(snp_set$gf_mod$result)),importance=sort(snp_set$gf_mod$result)) %>% 
+  ggplot() +
+  geom_point(aes(y=reorder(snp, importance),x=importance)) +
+  ylab("") +
+  xlab(expression(R^2)) +
+  theme_bw() 
+
+ggsave(p, filename = here(paste0("figs/GF/GFPlots_AlleleImportance_",snp_set$set_code,"_SI.pdf")), width=4, height=10)
+
+
+})
+```
 
 # GO predictions
 
@@ -290,6 +397,20 @@ go_maps$legend_maps <- legend_maps
 
 go_maps <-plot_grid(plotlist=go_maps)
 
+# =====================================================
+# We save the figures for the Supplementary Information
+# =====================================================
+if(x$set_code=="cand"){ 
+  ggsave(here("figs/GF/GOMaps_PopLocations_CandidateSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    ggsave(here("figs/GF/GOMaps_PopLocations_ControlSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+    }
+
+
+# =========
+# Add title
+# =========
 title <- ggdraw() + 
   draw_label(
     x$set_name,
@@ -306,6 +427,24 @@ plot_grid(
   rel_heights = c(0.1, 1))
 })
 ```
+
+For each GCM, we attribute the value `1` to the top five populations with the highest genomic offset and we attribute the value `0` to the other populations. We then count the number of `1` for each population, which gives the table and map below:
+
+```{r HighGoPopMap, fig.height=6,fig.width=6}
+source(here("scripts/functions/make_high_go_pop_maps.R"))
+
+high_go_pops <- make_high_go_pop_maps(pop_coord=pop_coord,
+                                      list_go = snp_sets$cand$go,
+                                      ggtitle="GF",
+                                      nb_id_pop = 5) # number of selected populations
+
+saveRDS(high_go_pops, file = here("outputs/GF/high_go_pops.rds"))
+
+high_go_pops[[1]] %>% kable_mydf
+
+high_go_pops[[2]]
+```
+
 
 # Validation - NFI plots
 
@@ -340,7 +479,9 @@ go_limits[[1]] <- 0
 
 
 # map genomic offset predictions in the NFI plots 
-lapply(snp_sets, function(x) make_go_map(
+lapply(snp_sets, function(x) {
+  
+  p <- make_go_map(
   dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
   snp_set = x,
   type="NFI",
@@ -348,7 +489,25 @@ lapply(snp_sets, function(x) make_go_map(
   go_limits = go_limits,
   legend_position = c(0.85,0.15),
   legend_box_background = "gray80",
-  y_limits = c(35, 51)))
+  y_limits = c(35, 51))
+  
+  
+# Figure for the SI
+# =================
+if(x$set_code=="cand"){ 
+  p_SI <- p + theme(plot.title = element_blank())
+  ggsave(here("figs/GF/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    p_SI <- p + theme(plot.title = element_blank())
+    ggsave(here("figs/GF/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+    }
+
+# Show maps in the Quarto document
+# ================================
+p
+  
+  })
 ```
 
 We look at the correlation across the different genomic offset predictions in the NFI plots, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
@@ -447,4 +606,12 @@ Let's save the genomic offset predictions for comparison with the other methods.
 ```{r SaveGOpredictions}
 snp_sets %>% saveRDS(file=here("outputs/GF/go_predictions.rds"))
 ```
+
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
+
 

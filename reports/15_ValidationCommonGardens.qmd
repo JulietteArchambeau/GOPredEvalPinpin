@@ -60,7 +60,7 @@ library(latex2exp)
 source(here("scripts/functions/kable_mydf.R"))
 ```
 
-In this report, we aim to evaluate the genomic offset predictions from the different GEA methods (LFMM, GF, GDM and RDA) with phenotypic data from five common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (Fundão) and France (Pierroton). For that, for each GEA method, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with the highest genomic offset in each common garden are expected to have a lower fitness in the common gardens. In this report, we use tree height and mortality in five common gardens as proxies of fitness.
+In this report, we aim to evaluate the genomic offset predictions from the different GEA methods (LFMM, GF, GDM and RDA) with phenotypic data from five clonal common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (Fundão) and France (Pierroton). For that, for each GEA method, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with the highest genomic offset in each common garden are expected to have a lower relative fitness in the common gardens. In this report, we use tree height and mortality in five common gardens as proxies of fitness.
 
 In comparison, we also estimate the climatic transfer distances (CTD) between the climate-of-origin of the populations and the climate of the common garden (i.e. the **absolute value** of the difference between the **climate of origin of the populations** and the **climate in the common garden** between the tree planting date and the measurement date) and we estimate the association between tree height and mortality and the climatic transfer distances. The climatic transfer distances are calculated for the same set of climatic variables as the one used to calculate the genomic offset (one CTD per climatic variable).
 
@@ -145,21 +145,26 @@ no_nas <- sapply(pheno_data, function(x) length(x)-sum(is.na(x)))
 
 list_pheno <- list()
 
-list_pheno$`Asturias (37 months)` <- table(pheno_data$site,pheno_data$AST_survmar14)["asturias",]
-list_pheno$`Bordeaux (85 months)` <- table(pheno_data$site,pheno_data$BDX_surv18)["bordeaux",]
-list_pheno$`Cáceres (8 months)` <- table(pheno_data$site,pheno_data$CAC_survdec11)["caceres",]
-list_pheno$`Madrid (13 months)` <- table(pheno_data$site,pheno_data$MAD_survdec11)["madrid",]
-list_pheno$`Fundão (27 months)` <- table(pheno_data$site,pheno_data$POR_survmay13)["portugal",]
+list_pheno$`Asturias, Spain (37 months)` <- table(pheno_data$site,pheno_data$AST_survmar14)["asturias",]
+list_pheno$`Bordeaux, France (85 months)` <- table(pheno_data$site,pheno_data$BDX_surv18)["bordeaux",]
+list_pheno$`Cáceres, Spain (8 months)` <- table(pheno_data$site,pheno_data$CAC_survdec11)["caceres",]
+list_pheno$`Madrid, Spain (13 months)` <- table(pheno_data$site,pheno_data$MAD_survdec11)["madrid",]
+list_pheno$`Fundão, Portugal (27 months)` <- table(pheno_data$site,pheno_data$POR_survmay13)["portugal",]
 
-list_pheno %>% 
+df_exp_design <- list_pheno %>% 
   bind_rows(.id="cg") %>% 
-  setNames(c("Common garden (tree age)","Nb of dead trees","Nb of trees alive")) %>% 
-  mutate("Nb of height measurements"=c(no_nas[["AST_htmar14"]],
-                                       no_nas[["BDX_htnov18"]],
-                                       no_nas[["CAC_htdec11"]],
-                                       no_nas[["MAD_htdec11"]],
-                                       no_nas[["POR_htmay13"]])) %>% 
-  kable_mydf
+  setNames(c("Common garden (tree age)",
+             "Number of dead trees",
+             "Number of trees alive")) %>% 
+  mutate("Number of height measurements"=c(no_nas[["AST_htmar14"]],
+                                           no_nas[["BDX_htnov18"]],
+                                           no_nas[["CAC_htdec11"]],
+                                           no_nas[["MAD_htdec11"]],
+                                           no_nas[["POR_htmay13"]]))
+
+saveRDS(df_exp_design, file = here("tables/ExpDesign_CG.rds"))
+
+df_exp_design  %>% kable_mydf
 ```
 
 Height and survival measurements in each common garden:
@@ -188,7 +193,7 @@ a_{p} &\sim \text{Binomial} (N_{p},p_{p}) \\
 \end{align*}
 
 
-with $a_{p}$ the count of individual that died in the population $p$, $N_{p}$ the total number of individuals in the population $p$ (=number of individuals that were initially planted in the common garden), $p_p$ is the estimated probability of mortality in the population $p$, $X_{p}$ is the genomic offset or climatic transfer distance for the population $p$ and $H_{p}$ is the BLUPs for height of the population $p$ [population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining]. $H_{p}$ is used as a proxy of the initial tree height.
+with $a_{p}$ the count of individuals that died in the population $p$, $N_{p}$ the total number of individuals in the population $p$ (=number of individuals that were initially planted in the common garden), $p_p$ is the estimated probability of mortality in the population $p$, $X_{p}$ is the genomic offset or climatic transfer distance for the population $p$ and $H_{p}$ is the BLUPs for height of the population $p$ [population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining]. $H_{p}$ is used as a proxy of the initial tree height.
 
 We used the following weakly informative priors:
 
@@ -242,7 +247,7 @@ print(stancode)
 
 We run the models for each common garden and each genomic offset predictions/climatic transfer distances, so a total of 5 * 15 = 75 models runs.
 
-```{r RunMortalityModels, eval=F}
+```{r RunMortalityModels, eval=T}
 coefftab <- lapply(unique(survival_data$site),function(site_i){
   
   
@@ -315,19 +320,22 @@ Below, we plot the 95% credible intervals of:
   - the $\beta_H$ coefficients, which stand for the association between the counts of dead trees and the BLUPs for height in the five common gardens, used as a proxy of the initial seedling height (a confounder in the model).
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
+colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
+
+
 coeff_match <- list(beta_H="$\\beta_{H}$ estimates (effect of initial tree height)",
-                    beta_X="$\\beta_{X}$ estimates")
+                    beta_X="Regression coefficients") #$\\beta_{X}$ estimates
   
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
 p <- coefftab %>% 
   filter(term==coeff) %>% 
   left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg=case_when(cg=="asturias"~"Asturias (37 months)",
-                      cg=="bordeaux"~"Bordeaux (85 months)",
-                      cg=="caceres"~"Cáceres (8 months)",
-                      cg=="madrid"~"Madrid (13 months)",
-                      cg=="portugal"~"Fundão (27 months)"),
+  mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
+                      cg=="bordeaux"~"Bordeaux, France (85 months)",
+                      cg=="caceres"~"Cáceres, Spain (8 months)",
+                      cg=="madrid"~"Madrid, Spain (13 months)",
+                      cg=="portugal"~"Fundão, Portugal (27 months)"),
          method_input=case_when(method_input=="all" ~ "All SNPs",
                                 method_input=="bio1" ~ "Mean annual temperature (°C)",
                                 method_input=="bio12" ~ "Annual precipitation (mm)",
@@ -337,15 +345,16 @@ p <- coefftab %>%
                                 method_input=="cand" ~ "Candidate SNPs",
                                 method_input=="control" ~ "Control SNPs",
                                 method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
-  mutate(method_input=factor(method_input, levels=c("Mean annual temperature (°C)",
+  mutate(method_input=factor(method_input, levels=c("All SNPs",
+                                                    "Candidate SNPs",
+                                                    "Control SNPs",
+                                                    "Mean annual temperature (°C)",
                                                     "Annual precipitation (mm)",
                                                     "Precipitation seasonality (index)",
                                                     "Isothermality (index)",
                                                     "Temperature seasonality (°C)",
-                                                    "Summer heat moisture index (°C/mm)",
-                                                    "All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs"))) %>% 
+                                                    "Summer heat moisture index (°C/mm)")),
+         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD"))) %>% 
     ggplot(aes(x = method_type,
                y = median,
                ymin = conf_low, 
@@ -353,11 +362,13 @@ p <- coefftab %>%
                color=method_input,
                shape=method_input)) +
   geom_hline(yintercept = 0,color="gray") +
-  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
+  geom_pointinterval(position = position_dodge(width = 0.6),
+                     point_size=3.5, size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
   ylab(TeX(coeff_match[[coeff]])) + xlab("") +
-  scale_color_paletteer_d("ggthemes::calc") +
-  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  scale_color_manual(values=colors_coeff)+
+  #paletteer::scale_color_paletteer_d("ggthemes::calc") +
+  scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
   theme_bw() +
   labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
@@ -375,7 +386,7 @@ p <- coefftab %>%
          shape = guide_legend(override.aes = list(size =2 )))
 
 
-
+p
 # save in pdf and png
 ggsave(p,file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,".pdf")),
        device="pdf",
@@ -395,9 +406,9 @@ p
 
 <span style="color: orange;">Interpretation</span>
 
-As expected, seedlings that were higher at the planting date had a higher probability of survival in Fundão, Cáceres and Madrid, the three common gardens in which mortality rates were considerable. In Bordeaux and Asturias, mortality rates were very low, and there was no association with the initial seedling height, so we may consider that mortality events in these two common gardens were more probably random events than due to climatic or other environmental conditions. So, to evaluate the association between genomic offset predictions/climatic transfer distances and the counts of dead trees, we only interpret the results in Fundão, Cáceres and Madrid.
+As expected, the association between mortality rates and the initial tree height was particularly strong in Madrid and Cáceres (Spain) where the seedlings experienced an extreme drought event the same year they were planted, resulting in very high mortality rates. More surprisingly, this association was also osberved in Fundão, Portugal. However, the initial tree height was not associated with mortality rates in Bordeaux (France) and Asturias (Spain), which benefit from the favorable climates of the Atlantic region and in which the mortality rates were very low.
 
-In Fundão, Cáceres and Madrid, for most genomic offset predictions, populations experiencing higher mortality rates were also those showing higher genomic offset. The most consistent associations across the three common gardens were obtained with:
+In Fundão, Cáceres and Madrid, for most genomic offset predictions, populations experiencing higher mortality rates also showed higher genomic offset. The most consistent associations across the three common gardens were obtained with:
 
   - <span style="color: orange;">**Gradient Forest (GF)** with both candidate and control SNPs.</span>
   
@@ -408,6 +419,9 @@ In Fundão, Cáceres and Madrid, for most genomic offset predictions, population
 
 Interestingly, climatic transfer distances generally explain mortality probability less well than genomic offset predictions, and none of them show a consistent association with the number of dead trees across the three common gardens. Note that it is almost the case for the climatic transfer distance calculated based on the temperature seasonality, which shows a positive association with the counts of dead trees in Madrid and Fundão, and almost in Cáceres.
 
+In Asturias, no association was detected between genomic offset predictions and mortality rates, which may be due to the favorable climatic conditions of this common garden and the associated low mortality rates (only 206 dead trees). Therefore, in this common garden, mortality events are likely to be mostly random events due to other factors than climate. However, we can note that an association was detected between mortality rates and isothermality: populations from areas with high isothermality tend to die more in the common garden of Asturias, Spain.
+
+In Bordeaux, there were even less dead trees than in Asturias (119 dead trees). However, the two nonparametric approach used to predict the genomic offset (GDM and GF) detected a positive association between mortality rates and the genomic offset predictions obtained with both the candidate and the control SNPs. A positive association was also detected with the genomic offset predictions obtained with candidate SNPs with the LFMM approach. On the other hand, none of the genomic offset predictions from the RDA approach were associated with the mortality rates. Interestingly, the only association with a climatic transfer distance was with the temperature seasonality (`bio4`), which was the most important variable to explain the turnover in allele frequency in the GF and GDM approaches.
 
 ## Experimental design
 
@@ -430,11 +444,21 @@ survival_data %>%
   pivot_wider(names_from=cg,values_from = c(nb_dead, nb_tot,prop_dead),names_sep="_") %>% 
   dplyr::select(pop,contains("asturias"),contains("bordeaux"),contains("caceres"),contains("madrid"),contains("portugal"))
 
-# Generate the latex table for the Supplementary Information
-print(xtable(ExpDesignTab, type = "latex",digits=2), 
-      file = paste0(here("tables/ExperimentalDesignTablesSurvivalCommonGarden.tex")), 
-      include.rownames=FALSE)
+# To generate a latex table
+# =========================
+# print(xtable(ExpDesignTab, type = "latex",digits=2), 
+#       file = paste0(here("tables/ExpDesignMortalityModelsPerPopCG.tex")), 
+#       include.rownames=FALSE)
 
+# Export the table for the Supplemetary Information
+# =================================================
+ExpDesignTab %>% 
+  dplyr::select(-contains("prop_dead")) %>% 
+  saveRDS(here("tables/ExpDesignMortalityModelsPerPopCG.rds"))
+
+
+# Show table
+# ==========
 ExpDesignTab %>% kable_mydf()
 
 # Information used in the manuscript
@@ -459,7 +483,7 @@ Y_{ipb}  &\sim \mathcal{N}(\mu_{p},\sigma^{2}_{r}) \\
 \mu_{p} &= B_b + \beta_{X1}X_{p} + \beta_{X2}X^{2}_{p}\\
 \end{align*}
 
-with $Y_ipb$ is the height of the individual $i$ in the population $p$ in the block $b$ and $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+with $Y_{ipb}$ is the height of the individual $i$ in the population $p$ in the block $b$ and $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
 
 
 ```{r CompileHeightModel,message=F,warning=F}
@@ -478,7 +502,7 @@ height_data <- pheno_data %>%
 height_data[1:5,] %>% kable_mydf
 ```
 
-```{r RunHeightyModels, eval=F}
+```{r RunHeightyModels, eval=T}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
@@ -538,19 +562,19 @@ generate_interval_plots <- function(confounder="withoutconfounder"){
 
 coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",confounder,".rds")))
   
-coeff_match <- list(beta_X1="$\\beta_{X_1}$ estimates",
-                    beta_X2="$\\beta_{X_2}$ estimates")
+coeff_match <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
+                    beta_X2="Regression coefficients $\\beta_{X_2}$")
   
 p <- lapply(c("beta_X1","beta_X2"), function(coeff){
   
 p <- coefftab %>% 
   filter(term==coeff) %>% 
   left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg=case_when(cg=="asturias"~"Asturias (37 months)",
-                      cg=="bordeaux"~"Bordeaux (85 months)",
-                      cg=="caceres"~"Cáceres (8 months)",
-                      cg=="madrid"~"Madrid (13 months)",
-                      cg=="portugal"~"Fundão (27 months)"),
+  mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
+                      cg=="bordeaux"~"Bordeaux, France (85 months)",
+                      cg=="caceres"~"Cáceres, Spain (8 months)",
+                      cg=="madrid"~"Madrid, Spain (13 months)",
+                      cg=="portugal"~"Fundão, Portugal (27 months)"),
          method_input=case_when(method_input=="all" ~ "All SNPs",
                                 method_input=="bio1" ~ "Mean annual temperature (°C)",
                                 method_input=="bio12" ~ "Annual precipitation (mm)",
@@ -560,15 +584,17 @@ p <- coefftab %>%
                                 method_input=="cand" ~ "Candidate SNPs",
                                 method_input=="control" ~ "Control SNPs",
                                 method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
-  mutate(method_input=factor(method_input, levels=c("Mean annual temperature (°C)",
+  mutate(method_input=factor(method_input, levels=c("All SNPs",
+                                                    "Candidate SNPs",
+                                                    "Control SNPs",
+                                                    "Mean annual temperature (°C)",
                                                     "Annual precipitation (mm)",
                                                     "Precipitation seasonality (index)",
                                                     "Isothermality (index)",
                                                     "Temperature seasonality (°C)",
-                                                    "Summer heat moisture index (°C/mm)",
-                                                    "All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs"))) %>% 
+                                                    "Summer heat moisture index (°C/mm)")),
+         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD"))) %>% 
+  
     ggplot(aes(x = method_type,
                y = median,
                ymin = conf_low, 
@@ -579,7 +605,7 @@ p <- coefftab %>%
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
   ylab(TeX(coeff_match[[coeff]])) + xlab("") +
-  scale_color_paletteer_d("ggthemes::calc") +
+  scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
   labs(color="",shape="") +
@@ -620,7 +646,7 @@ generate_interval_plots()
 ```
 
 
-```{r MakePolyPlots, fig.width=14, fig.height=8, eval=T}
+```{r MakePolyPlots, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots <- function(confounder="withoutconfounder"){
 
   
@@ -632,7 +658,7 @@ poly_function <- function(a,b,x) {a * x^2 + b * x}
 ggtab <- coefftab %>% 
   filter(term %in% c("beta_X1","beta_X2")) %>% 
   left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg=case_when(cg=="asturias"~"Asturias (37 months)",
+  mutate(cg_legend =case_when(cg=="asturias"~"Asturias (37 months)",
                       cg=="bordeaux"~"Bordeaux (85 months)",
                       cg=="caceres"~"Cáceres (8 months)",
                       cg=="madrid"~"Madrid (13 months)",
@@ -667,6 +693,7 @@ lapply(unique(ggtab$method), function(method_i){
   left_join(ggtab[,c("method","method_type", "method_input")] %>% distinct(), by="method")
   
 
+# Below, you can use unique(ggtab$cg) or unique(ggtab$cg_legend)
 ggplots <- lapply(unique(ggtab$cg), function(cg_i){
   
 p_go <- ggtab %>%
@@ -675,10 +702,11 @@ p_go <- ggtab %>%
   ggplot(aes(x=x_axis,y=predictions,col=method_type,linetype=method_input)) +
   geom_hline(yintercept=0,color="black") +
   geom_line(linewidth=1) +
-  ylab(paste0('Standardized height - ',cg_i)) + 
+  ylab('Standardized tree height') + 
+  #ylab(paste0('Standardized tree height - ',cg_i)) + 
   xlab(TeX("Standardized $X$")) +
   ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
-  scale_color_manual(values=c("#FCA315FF", "#1BB6AFFF","#172869FF", "#D9565CFF"), name = "GEA method") +
+  scale_color_manual(values=c("#FCA315FF", "#00FF00FF","#172869FF", "#FF00FFFF"), name = "GEA method") +
   scale_linetype_manual(values=c("solid","dashed","dotted"), name = "SNP set") +
   theme_bw() + 
   theme(axis.text.x = element_text(size=13),
@@ -689,7 +717,7 @@ p_go <- ggtab %>%
         legend.background = element_blank(),
         legend.box.background = element_blank(),
         legend.key = element_blank(),
-        legend.position = c(0.75,0.91)) + 
+        legend.position = c(0.73,0.89)) + 
   guides(color=guide_legend(ncol=1))
 
 #if(!cg_i==unique(ggtab$cg)[1])  p_go <- p_go + theme(legend.position = "none")
@@ -700,11 +728,11 @@ p_ctd <- ggtab %>%
   ggplot(aes(x=x_axis,y=predictions,col=method_input)) +
   geom_hline(yintercept=0,color="black") +
   #geom_segment(aes(x = min(x_axis), y = 0, xend = max(x_axis), yend = 0), color="black") +
-  geom_line(linewidth=1) +
+  geom_line(linewidth=1.2) +
   ylab('') + 
   xlab(TeX("Standardized $X$")) +
   ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
-  scale_color_manual(values=c("#009392FF", "#66E5FFFF", "#9CCB86FF", "#FFC34CFF", "#ED3F39FF", "#FF8000FF"), 
+  scale_color_manual(values=colors_coeff[4:length((colors_coeff))], 
                      name = "Climatic transfer distance") +
     theme_bw() + 
     theme(axis.text.x = element_text(size=13),
@@ -714,17 +742,19 @@ p_ctd <- ggtab %>%
           legend.background = element_blank(),
           legend.box.background = element_blank(),
           legend.key = element_blank(),
-          legend.position = c(0.55,0.92)) + 
+          legend.position = c(0.55,0.91)) + 
   guides(color=guide_legend(ncol=2))
 
 #if(!cg_i==unique(ggtab$cg)[1])  p_ctd <- p_ctd + theme(legend.position = "none")
 #if(!cg_i==unique(ggtab$cg)[length(unique(ggtab$cg))])  p_ctd <- p_ctd + xlab("")
 
-plot_grid(p_go,p_ctd)})
+pp <- plot_grid(p_go,p_ctd)
 
-pdf(here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_",confounder,".pdf")), width=14,height=8)
-lapply(ggplots, function(x) x)
-dev.off()
+ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_",confounder,"_",cg_i,".pdf")), device="pdf", width=12,height=7)
+
+pp
+
+})
 
 return(ggplots)
 }
@@ -765,7 +795,7 @@ print(stancode)
 ```
 
 
-```{r RunHeightyModelsConfounder, eval=F}
+```{r RunHeightyModelsConfounder, eval=T}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
@@ -824,7 +854,13 @@ generate_interval_plots(confounder="withconfounder")
 ```
 
 
-```{r PolyPlotsWithConfounder, fig.width=14, fig.height=8}
+```{r PolyPlotsWithConfounder, fig.width=12, fig.height=7}
 generate_poly_plots(confounder="withconfounder")
+```
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
 ```
 

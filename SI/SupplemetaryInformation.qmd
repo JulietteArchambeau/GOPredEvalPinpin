@@ -39,6 +39,7 @@ library(here)
 library(magrittr)
 library(readxl)
 library(formatdown)
+library(ggVennDiagram)
 
 # My function to build tables
 # ---------------------------
@@ -71,7 +72,7 @@ geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequenc
 ```
 
 
-The population neutral genetic structure was inferred with a principal component analysis (PCA) on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs including SNPs with minor allele frequencies (@fig-PCA). We did not remove SNPs with minor allele frequencies because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). We retained the first three PCs of the PCA as proxy of population evolutionary history in the Redundancy analyses (RDA).
+The population neutral genetic structure was inferred with a principal component analysis (PCA) on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs including SNPs with minor allele frequencies (Figure Figure S[-@fig-PCA]). We did not remove SNPs with minor allele frequencies because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). We retained the first three PCs of the PCA as proxy of population evolutionary history in the Redundancy analyses (RDA).
 
 ![Principal component analysis of the genomic data with minor allele frequencies. Each point correspond to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
 
@@ -79,11 +80,11 @@ The population neutral genetic structure was inferred with a principal component
 
 # Selection of the climatic variables
 
-We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the [B4EST project](https://b4est.eu/). We used the time period 1901-1950 as reference period,
+We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the [B4EST project](https://b4est.eu/). We used the time period 1901-1950 as reference period, i.e. which is expected to capture the climatic conditions under which the populations evolved and are currently locally adapted. We used predictions of future climates for the period 2041-2060 under the shared socio-economic pathway 3-7.0 (SSP3-7.0) and from five different global climate models (GCMs).
 
 ## Preselection step 
 
-In a preselection step, we removed climatic variables that (i) had reduced biological interest for the study goals, (ii) were too highly correlated with any other variable ($\rho > 0.95$), or (iii) that had no meta-information on the ClimateDT website. The remaining climatic variables are described in @tbl-PreselectedClimaticVariableInformation.
+In a preselection step, we removed climatic variables that (i) had reduced biological interest for the study goals, (ii) were too highly correlated with any other variable ($\rho > 0.95$), or (iii) that had no meta-information on the ClimateDT website. The remaining climatic variables are described in Table S[-@tbl-PreselectedClimaticVariableInformation].
 
 ```{r}
 #| label: tbl-PreselectedClimaticVariableInformation
@@ -100,11 +101,11 @@ extract_climatedt_metadata() %>%
 ```
 
 
-![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three PC axes of the PCA based on the genomic data (@fig-PCA). MEM1, MEM2, MEM3 and MEM4 correspond to the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
+![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three PC axes of the PCA based on the genomic data (Figure S[-@fig-PCA]). MEM1, MEM2, MEM3 and MEM4 correspond to the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
 
 ## Selection of the climatic variables
 
-Based on the reduced set of climatic variables from @tbl-PreselectedClimaticVariableInformation, we then selected the final set of climatic variables based on three criteria: 
+Based on the reduced set of climatic variables from Table S[-@tbl-PreselectedClimaticVariableInformation], we then selected the final set of climatic variables based on three criteria: 
 
   1. biological relevance
 
@@ -112,7 +113,7 @@ Based on the reduced set of climatic variables from @tbl-PreselectedClimaticVari
   
   3. magnitude of the differences between the current and future values of the climatic variables.
 
-The final set of climatic variables is shown in @tbl-SelectedClimaticVariableInformation and their distributions are shown in @fig-DistributionSelectedClimaticVariables.
+The final set of climatic variables is shown in Table S[-@tbl-SelectedClimaticVariableInformation] and their distributions are shown in Figure S[-@fig-DistributionSelectedClimaticVariables].
 
 ```{r}
 #| label: tbl-SelectedClimaticVariableInformation
@@ -145,11 +146,11 @@ We used a RDA-based stepwise selection procedure to identify the set of climatic
 
   - a *null* model where genomic variation is explained only by an intercept.
 
-  - a *full* model including as predictors all the climatic variables shown in @tbl-PreselectedClimaticVariableInformation.
+  - a *full* model including as predictors all the climatic variables shown in Table S[-@tbl-PreselectedClimaticVariableInformation].
 
 For including new variables during the selection procedure, we used the default stopping criteria of the `ordi2step` function: variable significance of p < 0.01 using 1000 permutations and the comparison of adjusted variation ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. This selection criteria means that if the new variable is not significant or the $R^2_{adj}$ of the model including the new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
 
-We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected. The results are reported in @tbl-StepwiseSelection.
+We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected. The results are reported in Table S[-@tbl-StepwiseSelection].
 
 ```{r TableStepwiseSelection}
 #| label: tbl-StepwiseSelection
@@ -170,7 +171,7 @@ where $\mu_{ref}$ is the average of the climatic variable of interest over the r
 
 # Variance partitioning
 
-Following @capblancq2021redundancy, we used a partial redundancy analysis (pRDA) to identify the relative contribution of climate, neutral population structure and geography in explaining genetic variation. The climate was captured by the six climatic variables that were then used to identify the loci potentially involved in local adaptation (.i.e. gene-environment association analyses) and to make genomic offset predictions (@fig-DistributionSelectedClimaticVariables). The neutral population genetic structure was accounted for with the first three PCs of a PCA based on the genomic data not filtered for MAF (@fig-PCA). The geography was either accounted for with the geographical coordinates of the populations or with the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].
+Following @capblancq2021redundancy, we used a partial redundancy analysis (pRDA) to identify the relative contribution of climate, neutral population structure and geography in explaining genetic variation. The climate was captured by the six climatic variables that were then used to identify the loci potentially involved in local adaptation (.i.e. gene-environment association analyses) and to make genomic offset predictions (Figure S[-@fig-DistributionSelectedClimaticVariables]). The neutral population genetic structure was accounted for with the first three PCs of a PCA based on the genomic data not filtered for MAF (Figure S[-@fig-PCA]). The geography was either accounted for with the geographical coordinates of the populations or with the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].
 
 
 ```{r}
@@ -191,11 +192,548 @@ kable_mydf(boldfirstcolumn = T, font_size = 8)
 ```
 
 
-In @tbl-VarPartGeo and @tbl-VarPartMEMs, `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography.
+In Tables S[-@tbl-VarPartGeo] and S[-@tbl-VarPartMEMs], `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography.
 
 # Gene-environment association methods
 
 
-RDA was performed with the `vegan` R package v`r packageVersion("vegan")`.
+
+## Redundancy analysis (RDA)
+
+RDA was performed with the `vegan` R package v`r packageVersion("vegan")` [@vegan]. We identify the outlier SNPs based on:
+
+  - a RDA not corrected for population structure, hereafter referred as *RDA*.
+  
+  - a partial RDA corrected for population structure (using the first three PC scores, see Figure S[-@fig-PCA]), hereafter referred as *pRDA*.
+  
+Following @capblancqEvaluationRedundancyAnalysis2018, outlier SNPs were identified based on their extremeness along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using the first two RDA axes, i.e. the two axes that retain most of the genetic variation in our study. The $p$-values and $q$-values of the Mahalonobis distances were calculated using the `radapt` function from the [Github repository](https://github.com/Capblancq/RDA-landscape-genomics) associated with @capblancq2021redundancy. The `radapt` function relies on the `covRob` function from the `robust` R package v`r packageVersion("robust")` . [@robust] and the `qvalue` function from the `qvalue` R package [@qvalue]. We used a false discovery threshold (FDR) of 5% to identify the outliers, which means that 5% or less of the identified outliers may be false positives.
+
+
+::: {#fig-SIoutlierPlotsRDAs layout-nrow=2, fig-pos='H'}
+
+![RDA](../figs/RDA/SI_outlier_plots_RDA.pdf){#fig-SIoutlierPlotsRDA1}
+
+![pRDA](../figs/RDA/SI_outlier_plots_pRDA.pdf){#fig-SIoutlierPlotsRDA2}
+
+Visualization of the outlier SNPs identified with the RDA. Left panels: RDA space. Right panels: Manhattan plots. The gray line in the Manhattan plots corresponds to the Bonferroni threshold, i.e. SNPs with $p$-values < 0.01 / number of SNPs.
+:::
+
+## Gradient Forest (GF)
+
+We identified outlier SNPs with the Gradient Forest (GF) algorithm following @fitzpatrick2021experimental and @capblancq2023common. GF models were fitted to each locus individually. We then compared the importance ($R^2$) value of each locus to the $R^2$ distribution of 2000 randomly selected SNPs (sampled among  the entire set of SNPs, except the SNPs identified as candidate SNPs). For that, as described in @lotterhos2014evaluation, we calculated the empirical $p$-value $\hat{p}$ of each locus $l$ such as:
+
+$$\hat{p}_l = 1 - (r_l / 2000)$$
+
+with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the 2000 randomly selected SNPs. 
+
+The 0.5% SNPs with the lowest empirical $p$-values were considered as outliers.
+
+**Comment:** To our knowledge, GF has only been used once as a genome scan (@capblancq2023common) and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. We performed several runs of GF models as a genome scan and there was little overlap in the outliers identified across runs. This is in part why we only considered SNPs as outliers if they were identified by at least two GEA methods. Like that, if a SNP was identified as an outlier only with the GF algorithm, it was not included in the set of outliers used to estimate the genomic offset.
+
+GF models were implemented with the `gradientForest` R package (@gradientForest) and the scripts available from the [Github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental.
+
+## Latent factor mixed models (LFMM)
+
+A latent factor mixed model (LFMM) is a multivariate mixed regression model that estimates simultaneously the effects of environmental variables (fixed effects) and unobserved confounders called latent factors [@frichot2013testing; @caye2019lfmm]. We used the function `lfmm2` of the `lea` R package to run LFMM and we set the number of latent factors $K$ to 6 as the sampled populations derive from six gene pools (Figure S[-@fig-CrossEntropyPlot]; @jaramillo2015molecular).
+
+![Cross-entropy criterion based on the genomic data not filtered for minor allele frequencies (MAF).](../figs/LFMM/CrossEntropyPlot.pdf){#fig-CrossEntropyPlot}
+
+We used the function `lfmm2.test` to calculate the $p$-values with the default options `genomic.control=TRUE` (i.e. $p$-values are recalibrated after correction for confounding) and `full=TRUE` (i.e. $p$-values are calculated for the full set of climatic variables using Fisher tests).
+Outlier SNPs were then identified with a FDR threshold of 5% ().
+
+![Manhattan plot showing the outlier SNPs identified with LFMM (SNPs with a red circle). The orange line corresponds to the Bonferroni threshold.](../figs/LFMM/SI_ManhattanPlot.pdf){#fig-ManhattanPlotLFMM}
+
+
+## BayPass
+
+We identified candidate SNPs with the <span style="font-variant:small-caps;">BayPass</span> software, using the standard covariate model and the Important Sampling (IS) approximation. 
+
+Using the core model without covariate from <span style="font-variant:small-caps;">BayPass</span>, we first estimated the population covariance matrix with a genomic dataset not filtered for minor allele frequencies, as the latter can be particularly informative to infer the population neutral genetic structure.
+
+![Heatmap of the population covariance matrix estimated with <span style="font-variant:small-caps;">BayPass</span>](../figs/BayPass/SI_Heatmap.pdf){#fig-Heatmap}
+
+
+# Set of control and candidate SNPs
+
+```{r Outliers}
+outliers <- list(RDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[3]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                 pRDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[4]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
+                 GF = readRDS(here::here("outputs/GF/gf_outliers.rds"))$gf_raw$outliers_rank005,
+                 LFMM = readRDS(here::here("outputs/LFMM/candidates.rds")),
+                 BayPass = readRDS(here("outputs/BayPass/baypass_outliers.rds")))
+
+
+common_cand <- outliers[c("RDA","pRDA","LFMM","BayPass", "GF")] %>% unlist() %>% .[duplicated(.)] %>% unique()
+
+# Final set of outlier SNPs (after filtering for the genomic position)
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+
+```
+
+Common outliers across GEAs:
+
+- `r length(outliers$RDA)` outliers were identified with the RDA.
+
+- `r length(outliers$pRDA)` outliers were identified with the pRDA.
+
+- `r length(outliers$GF)` outliers were identified with GF.
+
+- `r length(outliers$LFMM)` outliers were identified with LFMM.
+
+- `r length(outliers$BayPass)` outliers were identified with BayPass.
+
+
+```{r VennDiagram, fig.width=6, fig.height=6}
+#| label: fig-CommonOutliers
+#| fig-cap: Venn diagram of the number of outlier SNPs in common across the different GEAs.
+#| out-width: "70%"
+
+outliers %>% 
+  ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
+  scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
+  scale_color_manual(values = rep("darkgoldenrod1",6)) + 
+  guides(fill = "none") + 
+  labs(caption="") + 
+  ggtitle("") +
+  theme(text = element_text(size=12),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+```
+
+For the following analyses, we kept the `r length(common_cand)` outlier SNPs identified by at least two GEAs. Our goal was to get a set of candidate SNPs enriched for loci involved in adaptation to climate, with a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). Selecting SNPs identified by at least two GEAs also allowed us to select candidate SNPs that can only be identified with GEAs that correct for population structure (pRDA, LFMM, BayPass), or candidate SNPs that can only be identified with methods that do not correct for population structure (RDA and GF).
+
+Among the `r length(common_cand)` outlier SNPs, we identified outlier SNPs located on the same scaffold (i.e. set of contigs separated by gaps and for which the relative orientation and distance is known). If two (or more) outlier SNPs were located on the same scaffold, we keep the SNPs with the lowest $p$-value in the RDA.
+
+After this filtering step, there were `r length(snp_sets$cand$set_snps)` candidate SNPs left.
+
+Last, we randomly sampled a set of control SNPs (with the same number as the candidate SNPs) from SNPs that were not identified by any of the GEA methods. 
+
+# Genomic offset predictions
+
+We predicted the genomic offset with four methods: Redundancy analysis (RDA), Gradient Forest (GF), latent factor mixed models (LFMM) and Generalized Dissimilarity Modelling (GDM). For each method, genomic offset predictions were generated at the locations of the maritime pine populations using the period 1901-1950 as reference period (i.e. past climates under which the populations evolved) and the predictions of five GCMs under the period 2041-2060 for the future climates (SSP3.7-0). The five GCMs used were GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL.
+
+
+## Redundancy analysis (RDA)
+
+The RDA-based genomic offset predictions are mostly based on @capblancq2023common and @capblancq2021redundancy (and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics)).
+
+For each set of candidate and control SNPs, a RDA was performed with the set of SNPs as multivariate response and the set of climatic variables as explanatory variables. For the set of candidate SNPs, the RDA space resulting from this analysis can be considered as an 'adaptively enriched genetic space' [@capblancq2021redundancy; @capblancq2023common].
+
+![RDA biplot showing the association between the selected SNPs (i.e. candidate SNPs for adaptation to climate or control SNPs) and the set of climatic variables in the RDA space. The full name and units of the climatic variables can be found in Table S[-@tbl-SelectedClimaticVariableInformation].](../figs/RDA/RDAbiplots_SNPsets_SI.pdf){#fig-RDAbiplots}
+
+We used the scores of the climatic variables along the RDA axes to calculate a genetic-based index for each pixel of the landscape. For each RDA axis, the index is calculated as follows:
+
+$$\sum_{i=1}^{n}a_ib_i$$
+
+where $i$ is one of the $n$ climatic variables used in the RDA model, $a$ is the score of the climatic variable $i$ along the RDA axis and $b$ is the standardized value for the climatic variable $i$ at the focal pixel.
+
+
+When calculating based on the set of candidate SNPs, this index can be considered as an adaptive index that provides an estimate of the adaptive genetic similarity or difference of all pixels on the landscape as a function of the values of the climatic predictors at that location. 
+
+::: {#fig-AImaps layout-nrow=2, fig-pos='H'}
+
+![Candidate SNPs.](../figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.pdf){#fig-AImapCandidates}
+
+![Control SNPs.](../figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.pdf){#fig-AImapControl}
+
+Spatial projection of the genetic turnover through extrapolation of the RDA model across maritime pine range. Pixels with similar colors are expected to have a similar genetic composition based on the set of SNPs used to fit the RDA model.
+:::
+
+We then used the RDA models to predict the disruption of the past gene-climate relationships under climate change. For that, an optimal genetic index (adaptive index for the set of candidate SNPs) was calculated for each pixel of interest (i.e. each pixel within the maritime pine range) under past and future climates. The difference between the two indexes, calculated respectively under current and future climates, provides an estimate of the evolutionary shift required to track climate change, an index referred as 'genomic offset' (@fitzpatrick2015ecological; @capblancq2020genomic).
+
+If the gene-climate relationships were estimated with a set of potential candidate SNPs for adaptation to climate, the predicted disruption of the current gene-climate relationships may capture a shift in the adaptive optimum induced by climate change, and thus the adaptive change required to track climate change.
+
+
+:::{#fig-RDAGOmapsPopLocations layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/RDA/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-RDAGOmapsPopLocationsCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/RDA/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-RDAGOmapsPopLocationsControl height=3in width=6in}
+
+RDA-based genomic offset predictions.
+:::
+
+
+
+
+:::{#fig-RDAGOmaps layout-nrow=2 fig-pos='H' }
+
+![Candidate SNPs.](../figs/RDA/GOmap_CandidateSNPs_SI.pdf){#fig-RDAGOmapsCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/RDA/GOmap_ControlSNPs_SI.pdf){#fig-RDAGOmapsControl height=3in width=6in}
+
+RDA-based predicted genomic offset across the maritime pine range using the period 1901-1950 as reference period (i.e. past climates under which the populations evolved) and the predictions of five GCMs (one per panel) under the period 2041-2060 for the future climates (SSP3.7-0).
+:::
+
+
+
+## Gradient Forest (GF)
+
+The GF-based genomic offset predictions are mostly based on [the Github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
+
+### Evaluation of the GF models
+
+
+We generate a set of plots to evaluate the GF models:
+
+  - **Predictor overall importance plots**. These plots show the mean accuracy importance of the climatic variables (left panel) and their mean importance weighted by SNPs $\mathcal{R}^2$ (right panel).
+  
+  - **Splits density plots**. These plots show the binned split importance and location on each gradient (spikes), kernel density of splits (black lines), of observations (red lines) and of splits standardised by observations density (blue lines). Each distribution integrates to the importance of the climatic variable. These plots capture the rate of change in allele frequency along each climatic gradient, i.e. where important frequency changes of multiple alleles are occurring along the gradient.
+
+  - **Allele cumulative plots**. These plots show, for each SNPs, the cumulative importance distributions of splits improvement scaled by $\mathcal{R}^2$ weighted importance, and standardised by density of observations. These turnover functions are expected to show the cumulative change in allele frequency for each SNP along each climatic gradient and therefore to identify where the allele frequency changes are the most important along the gradient (@fitzpatrick2015ecological).
+  
+  - **Predictor cumulative plots**. These plots show, for each climatic variable, the cumulative importance distributions of splits improvement scaled by $\mathcal{R}^2$ weighted importance, and standardised by density of observations, averaged over all SNPs. These turnover functions are expected to show the cumulative change in overall allelic composition along a given climatic gradient. The maximum height of each curve should indicate the total amount of turnover in allele frequencies associated with the
+climatic variable considered, and by extension, the relative importance of that variable in explaining changes in allele frequency, holding all other variables constant (@fitzpatrick2015ecological). The shape of each turnover function should capture how the rate of change in allele frequencies varies along the climatic gradient, and could therefore be useful to identify and where the most important changes in genetic composition occur on the gradient (@fitzpatrick2015ecological). However, this interpretation was questioned in @laruson2022seeing, who found with simulations that for linear allele frequency clines, the steepness of the turnover function does not reflect the rate of allele frequency change.
+  
+  - $\mathcal{R}^2$ **measure of the fit** of the random forest model for each SNPs.
+  
+The code to generate those plots comes from 'Example analysis of biodiversity survey data with R package `gradientForest`' by C. Roland Pitcher, Nick Ellis and Stephen J. Smith ([pdf available here](https://gradientforest.r-forge.r-project.org/biodiversity-survey.pdf)).
+
+
+:::{#fig-GFplotsOverallImportance layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/GF/GFplots_OverallImportance_cand_SI.pdf){#fig-GFplotsOverallImportanceCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/GF/GFplots_OverallImportance_control_SI.pdf){#fig-GFplotsOverallImportanceControl height=3in width=6in}
+
+Predictor overall importance plots.
+:::
+
+
+
+:::{#fig-GFSplitDensityPlots layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/GF/GFplots_SplitDensityPlot_cand_SI.pdf){#fig-GFSplitDensityPlotsCandidates height=3in width=5.8in}
+
+![Control SNPs.](../figs/GF/GFplots_SplitDensityPlot_control_SI.pdf){#fig-GFSplitDensityPlotsControl height=3in width=5.8in}
+
+Splits density plots.
+:::
+
+
+![Allele cumulative plots for the candidate SNPs.](../figs/GF/GFplots_AlleleCumulativePlot_cand_SI.pdf){#fig-GFAlleleCumulativePlotsCandidates}
+
+![Allele cumulative plots for the control SNPs.](../figs/GF/GFplots_AlleleCumulativePlot_control_SI.pdf){#fig-GFAlleleCumulativePlotsControl}
+
+
+![Predictor cumulative plots for candidate SNPs.](../figs/GF/GFplots_PredictorCumulativePlot_cand_SI.pdf){#fig-GFPredictorCumulativePlotsCandidates}
+
+![Predictor cumulative plots for control SNPs.](../figs/GF/GFplots_PredictorCumulativePlot_control_SI.pdf){#fig-GFPredictorCumulativePlotsControl}
+
+
+:::{#fig-GFAlleleImportancePlots layout-ncol=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/GF/GFPlots_AlleleImportance_cand_SI.pdf){#fig-GFAlleleImportancePlotsCandidates}
+
+![Control SNPs.](../figs/GF/GFPlots_AlleleImportance_control_SI.pdf){#fig-GFAlleleImportancePlotsControl}
+
+$\mathcal{R}^2$  measure of the fit of the random forest model for each SNPs.
+:::
+
+
+### Genomic offset predictions
+
+:::{#fig-GFGOmapsPopLocations layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/GF/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-GFGOmapsPopLocationsCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/GF/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-GFGOmapsPopLocationsControl height=3in width=6in}
+
+GF-based genomic offset predictions.
+:::
+
+
+## Latent factor mixed models (LFMM) 
+
+![LFMM-based genomic offset predictions using all SNPs.](../figs/LFMM/GOMaps_PopLocations_AllSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsAllSNPs}
+
+:::{#fig-LFMMGOmapsPopLocations layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/LFMM/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsControl height=3in width=6in}
+
+LFMM-based genomic offset predictions for the two set of SNPs.
+:::
+
+
+## Generalized Dissimilarity Modelling (GDM)
+
+
+GDM analyses are based on @ferrier2007using, @mokany2022working, @fitzpatrick2015ecological, the [GDM website](https://mfitzpatrick.al.umces.edu/gdm/) and the [GDM Github](https://github.com/fitzLab-AL/gdm).
+
+![Observed genetic distance against predicted climatic distance.](../figs/GDM/PredictedClimaticDistancevsObservedGeneticDistancePlots_SI.pdf){#fig-GDMPredictedClimaticDistanceVsObservededGeneticDistancePlots}
+
+![Predicted vs observed genetic distance.](../figs/GDM/PredictedvsObservedGeneticDistancePlots_SI.pdf){#fig-GDMObservedVsPredictedGeneticDistancePlots}
+
+The fitted I-splines in @fig-GDMIsplinePlotCandidates and @fig-GDMIsplinePlotControl show how population genetic composition changes along each climatic gradient. They are only showed for climatic variables with non-zero coefficients, i.e. with a relationship with the genetic distance.
+
+Similarly to the interpretation of the GF turnover functions, @fitzpatrick2015ecological suggests that:
+
+  - the maximum height of each I-spline should indicate the magnitude of total genetic change along the climatic gradient and thereby should capture the relative importance of the corresponding climatic variable in contributing to allelic turnover while holding all other variables constant (i.e. a partial climatic distance).
+  
+  - the spline’s shape is expected to capture how the rate of genetic change varies with position along the climatic gradient, and thus should provide insight into where along the climatic gradient the genetic changes are the most pronounced.
+
+
+![I-spline plots of the GDM models based on the candidate SNPs.](../figs/GDM/IsplinePlot_CandidateSNPs_SI.pdf){#fig-GDMIsplinePlotCandidates}
+
+![I-spline plots of the GDM models based on the control SNPs.](../figs/GDM/IsplinePlot_ControlSNPs_SI.pdf){#fig-GDMIsplinePlotControl}
+
+:::{#fig-GDMGOmapsPopLocations layout-nrow=2 fig-pos='H'}
+
+![Candidate SNPs.](../figs/GDM/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-GDMGOmapsPopLocationsCandidates height=3in width=6in}
+
+![Control SNPs.](../figs/GDM/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-GDMGOmapsPopLocationsControl height=3in width=6in}
+
+GDM-based genomic offset predictions for the two set of SNPs.
+:::
+
+
+# Validation in the NFI plots
+
+## Genomic offset predictions at the location of the NFI plots
+
+To make genomic offset predictions at the location of the NFI plots, we used:
+
+  - the average climates under the time period 1901-1950, which are expected to represent the past climates under which the populations evolved. The time period 1901-1950 is the same reference period as the one used to predict the genomic offset at the location of the populations.
+  
+  - the average climates for the period during which mortality rates were recorded in the NFI plots and the five preceding years (to account for potential lag climatic effects on tree death). In the French NFI, a tree was considered dead if its death was estimated within the five years preceding the inventory date. Consequently, for the French inventory, the period used to make genomic offset predictions covered the ten years preceding the inventory date. For the Spanish inventory, the period used to make genomic offset predictions covered the five years preceding the first inventory date and the period between the two inventories.
+  
+### RDA-based predictions
+
+
+![RDA-based genomic offset predictions using candidate SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-RDAGOpredictionsNFIplotsCandidates}
+
+![RDA-based genomic offset predictions using control SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_ControlSNPs_SI.pdf){#fig-RDAGOpredictionsNFIplotsControl}
+  
+  
+### GF-based predictions
+
+![GF-based genomic offset predictions using candidate SNPs at the location of the NFI plots.](../figs/GF/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-GFGOpredictionsNFIplotsCandidates}
+
+![GF-based genomic offset predictions using control SNPs at the location of the NFI plots.](../figs/GF/NFI_GOmap_ControlSNPs_SI.pdf){#fig-RGFGOpredictionsNFIplotsControl}
+
+### LFMM-based predictions
+
+![LFMM-based genomic offset predictions using all SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_AllSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsAllSNPs}
+
+![LFMM-based genomic offset predictions using candidate SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsCandidates}
+
+![LFMM-based genomic offset predictions using control SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_ControlSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsControl}
+
+### GDM-based predictions
+
+![GDM-based genomic offset predictions using candidate SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-GDMGOpredictionsNFIplotsCandidates}
+
+![GDM-based genomic offset predictions using control SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_ControlSNPs_SI.pdf){#fig-GDMGOpredictionsNFIplotsControl}
+
+## Modelling approach
+
+The goal of the present validation step was to estimate the association between the genomic offset predictions and mortality rates in natural populations, used as a proxy of the absolute fitness of the populations. A positive association between the genomic offset predictions and the mortality rates would suggest that the genomic offset captures maladaptation in the face of demographic complexity (i.e. the effects of other processes on the spatial patterns in allele frequencies, such as demographic history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G$\times$E interactions, non-additive genetic variance). For that, we used mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French inventory data consists of temporary plots sampled between 2005 and 2014 while the Spanish inventory data consists of permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
+
+In order to account for the different census intervals between inventories, we modeled the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot $i$, as follows:
+
+
+\begin{align*}
+m_i &\sim \text{Binomial}(N_i,p_i)\\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C} C_i + \beta_{GO} GO_i + \text{log}(\Delta_i) \\
+\end{align*}
+
+
+  - $N_{i}$ is the total number of maritime pines in the plot $i$,
+  
+  - $m_{i}$ is the number of maritime pines that died during the census interval $\Delta_{i}$ in the plot $i$, 
+  
+  - $C_{i}$ is the basal area of all tree species confounded in the plot $i$ (to account for the competition among trees), see Figure S[-@fig-ValNFIBetaC],
+  
+  - $GO_{i}$ is the estimated genomic offset in the plot $i$. 
+  
+  - $\beta_{0,c}$ are country-specific intercepts that account for the methodological differences between the French and Spanish inventories that may bias the estimations.
+
+We used the following weakly informative priors:
+
+$$\begin{bmatrix}  \beta_{0,c} \\ \beta_{C} \\ \beta_{GO} \end{bmatrix} \sim \text{Normal}(0,1)$$
+
+![Regression coefficients $\beta_{C}$ standing for the association between mortality rates and genomic offset predictions. The mean and 95\% credible intervals are shown.](../figs/ValidationNFI/beta_C_IntervalPlots.pdf){#fig-ValNFIBetaC}
+
+# Validation in the common gardens 
+
+
+## Genomic offset predictions
+
+To make genomic offset predictions at the location of the common gardens, we used:
+
+  - the average climates under the time period 1901-1950, which are expected to represent the past climates under which the populations evolved. The time period 1901-1950 is the same reference period as the one used to predict the genomic offset at the location of the populations and the NFI plots.
+  
+  - the average climates between the planting date and the measurement date (i.e. height and mortality measurements) at the location of each common garden.
+
+Time period between the planting date and the measurement date in each common garden:
+  
+  - in Asturias (Spain), trees were planted in February 2011 and measured in March 2014 when the trees were 37 month-old.
+
+  - in Bordeaux (France), trees were planted in October 2011 and measured in November 2018 when the trees were 85 month-old.
+  
+  - in Cáceres (Spain) trees were planted in April 2011 and measured in December 2011 when the trees were 8 month-old. Note that for this common garden, we calculated the climatic variables for the entire year 2011 (instead of calculating the variables only for months between April and December). Indeed, the calculation of the annual climatic variables would be wrong if we do not account for some months, e.g. the mean annual temperature will the overestimated because we do not account for some of the winter months.
+  
+  - in Madrid (Spain), trees were planted in November 2010 and measured in December 2011 when the trees were 13 month-old.
+  
+  - in Fundão (Portugal), trees were planted in February 2011 and measured in May 2013 when the trees were 27 month-old.
+  
+In the graphs below, the points correspond the sampled populations of maritime pine and the black asterisk corresponds to the location of the common garden for which the genomic offset was predicted.
+
+:::{#fig-LFMMGOmapsAllSNPsCGs layout-nrow=2 fig-pos='H'}
+
+![Madrid (Spain)](../figs/LFMM/GOmap_allSNPs_madrid_SI.pdf){#fig-LFMMGOmapAllSNPsAsturias}
+
+![Fundão (Portugal)](../figs/LFMM/GOmap_allSNPs_portugal_SI.pdf){#fig-LFMMGOmapAllSNPsPortugal}
+
+![Bordeaux (France)](../figs/LFMM/GOmap_allSNPs_bordeaux_SI.pdf){#fig-LFMMGOmapAllSNPsBordeaux}
+
+![Cáceres (Spain)](../figs/LFMM/GOmap_allSNPs_caceres_SI.pdf){#fig-LFMMGOmapAllSNPsCaceres}
+
+![Asturias (Spain)](../figs/LFMM/GOmap_allSNPs_asturias_SI.pdf){#fig-LFMMGOmapAllSNPsAsturias}
+
+LFMM-based genomic offset predictions using all SNPs for the five common gardens.
+:::
+
+:::{#fig-LFMMGOmapsAsturias layout="[[41.6,58.4]]" fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_asturias_SI.pdf){#fig-LFMMGOmapsAsturiasCandidates}
+
+![Control SNPs.](../figs/LFMM/GOmap_control_asturias_SI.pdf){#fig-LFMMGOmapsAsturiasControl}
+
+LFMM-based genomic offset predictions for the two sets of SNPs in the common garden in Asturias, Spain (black asterisk).
+:::
+
+
+:::{#fig-LFMMGOmapsBordeaux layout="[[41.6,58.4]]" fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_bordeaux_SI.pdf){#fig-LFMMGOmapsBordeauxCandidates}
+
+![Control SNPs.](../figs/LFMM/GOmap_control_bordeaux_SI.pdf){#fig-LFMMGOmapsBordeauxControl}
+
+LFMM-based genomic offset predictions for the two sets of SNPs in the common garden of Bordeaux, France (black asterisk).
+:::
+
+:::{#fig-LFMMGOmapsCaceres layout="[[41.6,58.4]]" fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_caceres_SI.pdf){#fig-LFMMGOmapsCaceresCandidates}
+
+![Control SNPs.](../figs/LFMM/GOmap_control_caceres_SI.pdf){#fig-LFMMGOmapsCaceresControl}
+
+LFMM-based genomic offset predictions for the two sets of SNPs in the common garden of Cáceres, Spain (black asterisk).
+:::
+
+:::{#fig-LFMMGOmapsMadrid layout="[[41.6,58.4]]" fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_madrid_SI.pdf){#fig-LFMMGOmapsMadridCandidates}
+
+![Control SNPs.](../figs/LFMM/GOmap_control_madrid_SI.pdf){#fig-LFMMGOmapsMadridControl}
+
+LFMM-based genomic offset predictions for the two sets of SNPs in the common garden of Madrid, Spain (black asterisk).
+:::
+
+:::{#fig-LFMMGOmapsPortugal layout="[[41.6,58.4]]" fig-pos='H'}
+
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_portugal_SI.pdf){#fig-LFMMGOmapsPortugalCandidates}
+
+![Control SNPs.](../figs/LFMM/GOmap_control_portugal_SI.pdf){#fig-LFMMGOmapsPortugalControl}
+
+LFMM-based genomic offset predictions for the two sets of SNPs in the common garden of Fundão, Portugal (black asterisk).
+:::
+
+
+
+
+## Sample size
+
+
+```{r}
+#| label: tbl-ExpDesignCG
+#| tbl-cap: Sample sizes in the five common gardens.
+
+readRDS(file=here("tables/ExpDesign_CG.rds")) %>%
+kable_mydf(font_size = 8)
+```
+
+
+
+```{r}
+#| label: tbl-ExpDesignMortalityModelsPerPopCG
+#| tbl-cap: Number of dead and alive trees (dead / alive) per population in the five common gardens.
+
+readRDS(file=here("tables/ExpDesignMortalityModelsPerPopCG.rds")) %>%
+  mutate(Asturias = paste0(nb_dead_asturias," / ", nb_tot_asturias),
+         Bordeaux = paste0(nb_dead_bordeaux," / ", nb_tot_bordeaux),
+         "Cáceres" = paste0(nb_dead_caceres," / ", nb_tot_caceres),
+         Madrid = paste0(nb_dead_madrid," / ", nb_tot_madrid),
+         "Fundão" = paste0(nb_dead_portugal," / ", nb_tot_portugal)) %>% 
+  dplyr::select(-contains("nb_dead"), -contains("nb_tot")) %>% 
+  dplyr::rename(Population=pop) %>% 
+kable_mydf(font_size = 8)
+```
+
+## Modelling approach
+
+### Mortality models
+
+Here is the mathematical model that we used to estimate the association between genomic offset (GO) predictions or climate transfer distances (CTD) and the proportion of dead trees in the populations, independently in the five common gardens:
+  
+\begin{align*} 
+a_{p} &\sim \text{Binomial} (N_{p},p_{p}) \\
+\text{logit}(p_{p}) &= \beta_{0} +  \beta_{H}H_{p} + \beta_{X}X_{p}\\
+\end{align*}
+
+
+  - $a_{p}$ is the count of individuals that died in the population $p$
+
+  - $N_{p}$ is the total number of individuals in the population $p$ (=number of individuals that were initially planted in the common garden)
+    
+  - $p_p$ is the estimated probability of mortality in the population $p$
+    
+  - $X_{p}$ is the genomic offset or climatic transfer distance for the population $p$ and $\beta_X$ its associated coefficient (see Figure X of the manuscript).
+    
+  - $H_{p}$ is the BLUPs for height of the population $p$, i.e. the population varying intercept estimated across all common gardens in the model 1 of @archambeau2022combining. $H_{p}$ is used as a proxy of the initial tree height. Indeed, tree height acts as a confounder in the experiment: trees that were higher at the time of planting were more likely to survive. As expected, this association was particularly strong in Madrid and Cáceres (Spain) where the seedlings experienced an extreme drought event the same year they were planted, resulting in very high mortality rates (Figure S[-@fig-ValCGMortalityModels]). More surprisingly, this association was also observed in Fundão, Portugal (Figure S[-@fig-ValCGMortalityModels]). However, the initial tree height was not associated with mortality rates in Bordeaux (France) and Asturias (Spain), which benefit from the favorable climates of the Atlantic region and in which the mortality rates were very low (Figure S[-@fig-ValCGMortalityModels]).
+
+We used the following weakly informative priors:
+
+  
+\begin{align*} 
+\begin{bmatrix}  \beta_{0,c} \\ \beta_{H} \\ \beta_{X} \end{bmatrix} &\sim \mathcal{N}(0,5)
+\end{align*}
+
+
+
+![Regression coefficients $\beta_{H}$ standing for the association between mortality rates and genomic offset predictions or climatic transfer distances (CTD). The mean and 95\% credible intervals are shown.](../figs/ValidationCommonGarden/MortalityModels/beta_H.pdf){#fig-ValCGMortalityModels}
+
+### Height models
+
+Here is the mathematical model that we used to estimate the association between tree height and genomic offset predictions or climatic transfer distances (CTD), independently in the five common gardens:
+  
+\begin{align*}
+Y_{ipb}  &\sim \mathcal{N}(\mu_{p},\sigma^{2}_{r}) \\
+\mu_{p} &= B_b + \beta_{X1}X_{p} + \beta_{X2}X^{2}_{p}\\
+\end{align*}
+
+  - $Y_{ipb}$ is the height of the individual $i$ in the population $p$ and in the block $b$
+  
+  - $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, as done for instance in @fitzpatrick2021experimental.
+
+![Regression coefficients $\beta_{X_1}$ standing for the association between tree height and genomic offset predictions or climatic transfer distances (CTD) in the five common gardens. The mean and 95\% credible intervals are shown.](../figs/ValidationCommonGarden/HeightModels/beta_X1_withoutconfounder.pdf){#fig-ValCGHeightModelsBetaX1}
+
+![Regression coefficients $\beta_{X_2}$ standing for the association between tree height and genomic offset predictions or climatic transfer distances (CTD). The mean and 95\% credible intervals are shown.](../figs/ValidationCommonGarden/HeightModels/beta_X2_withoutconfounder.pdf){#fig-ValCGHeightModelsBetaX2}
+
+
+![Estimated mean relationship between tree height and the genomic offset predictions or the climatic transfer distances in Asturias, Spain. Tree height and $X_p$ were mean-centered and divided by their standard deviation.](../figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_withoutconfounder_asturias.pdf){#fig-ScatterPlotsCGAsturias}
+
+![Estimated mean relationship between tree height and the genomic offset predictions or the climatic transfer distances in Bordeaux, France. Tree height and $X_p$ were mean-centered and divided by their standard deviation.](../figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_withoutconfounder_bordeaux.pdf){#fig-ScatterPlotsCGBordeaux}
+
+![Estimated mean relationship between tree height and the genomic offset predictions or the climatic transfer distances in Cáceres, Spain. Tree height and $X_p$ were mean-centered and divided by their standard deviation.](../figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_withoutconfounder_caceres.pdf){#fig-ScatterPlotsCGCaceres}
+
+![Estimated mean relationship between tree height and the genomic offset predictions or the climatic transfer distances in Madrid, Spain. Tree height and $X_p$ were mean-centered and divided by their standard deviation.](../figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_withoutconfounder_madrid.pdf){#fig-ScatterPlotsCGMadrid}
+
+![Estimated mean relationship between tree height and the genomic offset predictions or the climatic transfer distances in Fundão, Portugal. Tree height and $X_p$ were mean-centered and divided by their standard deviation.](../figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_withoutconfounder_portugal.pdf){#fig-ScatterPlotsCGFundao}
+
+
 
 # References

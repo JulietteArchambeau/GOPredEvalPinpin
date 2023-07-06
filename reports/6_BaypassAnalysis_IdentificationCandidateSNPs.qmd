@@ -188,7 +188,7 @@ We estimate the population covariance matrix using the genomic dataset not filte
 
 We visualize the matrix.
 
-```{r VisualizeOmega, fig.height=8,fig.width=10, eval=F}
+```{r VisualizeOmega, fig.height=7,fig.width=7, eval=T, results="hide"}
 # Upload the estimated Omega matrix
 omega <- as.matrix(read.table(here("data/BayPassAnalysis/outputs/anacore_mat_omega.out")))
 pop_names <- clim_ref$pop
@@ -200,13 +200,18 @@ plot.omega(omega=omega,pop.names=pop_names)
 
 # as a correlation plot
 cor_mat=cov2cor(omega)
-corrplot(cor_mat,method="color",mar=c(2,1,2,2)+0.1,
-main=expression("Correlation map based on"~hat(Omega)))
+# corrplot(cor_mat,method="color",mar=c(2,1,2,2)+0.1,
+# main=expression("Correlation map based on"~hat(Omega)))
 
 # as a heatmap and hierarchical clustering tree (using the average agglomeration method)
 hclust_ave <- function(x) hclust(x, method="average")
 heatmap(1-cor_mat,hclustfun = hclust_ave,
 main=expression("Heatmap of "~hat(Omega)~"("*d[ij]*"=1-"*rho[ij]*")"))
+
+# We save the heatmap for the Supplementary Information
+pdf(width = 6, height = 6, here("figs/BayPass/SI_Heatmap.pdf"))
+heatmap(1-cor_mat,hclustfun = hclust_ave)
+dev.off()
 ```
 
 

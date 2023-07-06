@@ -6,7 +6,7 @@
 
 # https://github.com/Capblancq/RDA-landscape-genomics/blob/main/src/rdadapt.R 
 
-# required library: library(robust)
+# required libraries: library(robust) and library(qvalue)
 
 rdadapt <- function(rda,K)
 {

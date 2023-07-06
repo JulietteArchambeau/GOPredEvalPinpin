@@ -56,6 +56,8 @@ We compare the genomic offset predictions from the four following methods:
   
   - Redundancy analysis (RDA). See report `11_RedundancyAnalysis_GenomicOffsetPredictions.html`.
   
+  
+# Correlations
 
 ```{r BuildDataframeGOpredictions}
 # Method names
@@ -105,5 +107,26 @@ go_df %>%
   })
 })
 ```
+
+# Maps
+
+```{r}
+list_highpops <- list(LFMM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
+                      RDA = readRDS(here("outputs/RDA/high_go_pops.rds"))[[2]],
+                      GDM = readRDS(here("outputs/GDM/high_go_pops.rds"))[[2]],
+                      GF = readRDS(here("outputs/GF/high_go_pops.rds"))[[2]])
+
+list_highpops <- list(LFMM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
+                      RDA = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
+                      GDM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
+                      GF = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]])
+
+list_highpops[[1]] <- list_highpops[[1]] + theme(legend.position = "none")
+list_highpops[[2]] <- list_highpops[[2]] + theme(legend.position = "none")
+list_highpops[[3]] <- list_highpops[[3]] + theme(legend.position = "none")
+
+plot_grid(plotlist = list_highpops, nrow=2)
+```
+
 
 

@@ -351,6 +351,10 @@ tibble(clim=x$gdm_mod$ecological,
   
 })
 
+# We save a figure for the Supplementary Information
+plot_grid(plotlist = plots[c(1,3)], nrow=1) %>% 
+  ggsave(filename = here("figs/GDM/PredictedClimaticDistancevsObservedGeneticDistancePlots_SI.pdf"), device="pdf", width=10, height=6)
+
 plot_grid(plotlist=plots, nrow=1)
 ```
 
@@ -371,6 +375,10 @@ tibble(obs=x$gdm_mod$observed, # can also be extracted with x$gdm_tab$distance
   theme_bw()
   
 })
+
+# We save a figure for the Supplementary Information
+plot_grid(plotlist = plots[c(1,3)], nrow=1) %>% 
+  ggsave(filename = here("figs/GDM/PredictedvsObservedGeneticDistancePlots_SI.pdf"), device="pdf", width=10, height=6)
 
 plot_grid(plotlist=plots, nrow=1)
 ```
@@ -411,6 +419,7 @@ tibble(x=spline_data$x[,predictor],
   ylim(c(0,1.3)) + 
   ylab("Partial genetic distance") +
   xlab(predictor_name) +
+  theme(axis.title.x = element_text(size=9)) +
   theme_bw() 
   
 })
@@ -425,6 +434,16 @@ title <- ggdraw() +
 
 # merge plots
 p <- plot_grid(plotlist=plots)
+
+# =====================================================
+# We save the figures for the Supplementary Information
+# =====================================================
+if(x$set_code=="cand"){ 
+  ggsave(here("figs/GDM/IsplinePlot_CandidateSNPs_SI.pdf"), p, width=13,height=9, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    ggsave(here("figs/GDM/IsplinePlot_ControlSNPs_SI.pdf"), p, width=13,height=9, device="pdf")
+    }
 
 # merge plots + title
 plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1)
@@ -566,6 +585,21 @@ go_maps$legend_maps <- legend_maps
 
 go_maps <-plot_grid(plotlist=go_maps)
 
+
+# =====================================================
+# We save the figures for the Supplementary Information
+# =====================================================
+if(x$set_code=="cand"){ 
+  ggsave(here("figs/GDM/GOMaps_PopLocations_CandidateSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    ggsave(here("figs/GDM/GOMaps_PopLocations_ControlSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+    }
+
+
+# =========
+# Add title
+# =========
 title <- ggdraw() + 
   draw_label(
     x$set_name,
@@ -583,6 +617,24 @@ plot_grid(
 
   })
 ```
+
+For each GCM, we attribute the value `1` to the top five populations with the highest genomic offset and we attribute the value `0` to the other populations. We then count the number of `1` for each population, which gives the table and map below:
+
+```{r HighGoPopMap, fig.height=6,fig.width=6}
+source(here("scripts/functions/make_high_go_pop_maps.R"))
+
+high_go_pops <- make_high_go_pop_maps(popcoord=pop_coord,
+                                      list_go = snp_sets$cand$go,
+                                      ggtitle="GDM",
+                                      nb_id_pop = 5) # number of selected populations
+
+saveRDS(high_go_pops, file = here("outputs/GDM/high_go_pops.rds"))
+
+high_go_pops[[1]] %>% kable_mydf
+
+high_go_pops[[2]]
+```
+
 
 #### Comparing GO predictions
 
@@ -608,7 +660,7 @@ lapply(snp_sets, function(x) x$go[[gcm]]) %>%
 
 ### Using rasters
 
-```{r PredictGOpopWithRasters, eval=F}
+```{r PredictGOpopWithRasters, eval=T}
 # Past rasters
 path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
 tif_paths <- lapply(clim_var, function(x) paste0(path,"/",x,".tif"))
@@ -741,7 +793,9 @@ go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_nfi) %>%  unlist() %>
 # The minimum GO value is very very small, almost zero, so we fix it to zero.
 go_limits[[1]] <- 0
 
-lapply(snp_sets, function(x) make_go_map(
+lapply(snp_sets, function(x) {
+  
+p <- make_go_map(
   dfcoord= readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))[[1]] %>% dplyr::select(contains("ude")), 
   snp_set = x,
   type="NFI",
@@ -749,7 +803,24 @@ lapply(snp_sets, function(x) make_go_map(
   go_limits = go_limits,
   legend_position = c(0.85,0.15),
   legend_box_background = "gray80",
-  y_limits = c(35, 51)))
+  y_limits = c(35, 51))
+  
+  
+# Figure for the SI
+# =================
+if(x$set_code=="cand"){ 
+  p_SI <- p + theme(plot.title = element_blank())
+  ggsave(here("figs/GDM/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+  
+  } else if(x$set_code=="control"){
+    p_SI <- p + theme(plot.title = element_blank())
+    ggsave(here("figs/GDM/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+    }
+
+# Show maps in the Quarto document
+# ================================
+p  
+  })
 ```
 
 We look at the correlation across the different genomic offset predictions in the NFI plots, i.e. those based on all SNPs and those based on sets of candidates or control SNPs.
@@ -862,5 +933,11 @@ Let's save the genomic offset predictions for comparison with the other methods.
 
 ```{r SaveGOpredictions}
 snp_sets %>% saveRDS(file=here("outputs/GDM/go_predictions.rds"))
+```
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
 ```
 

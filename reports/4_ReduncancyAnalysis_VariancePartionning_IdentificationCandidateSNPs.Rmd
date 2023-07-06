@@ -19,18 +19,18 @@ bibliography: references.bib
 always_allow_html: true
 ---
 
-<!-- ```{css, echo=FALSE} -->
-<!-- pre { -->
-<!--   max-height: 150px; -->
-<!--   overflow-y: auto; -->
-<!--   overflow-x: auto; -->
-<!--   font-size: 10px; -->
-<!-- } -->
+```{css, echo=FALSE}
+pre {
+  max-height: 150px;
+  overflow-y: auto;
+  overflow-x: auto;
+  font-size: 10px;
+}
 
-<!-- body{ -->
-<!--   font-size: 12px; -->
-<!-- } -->
-<!-- ``` -->
+body{
+  font-size: 12px;
+}
+```
 
 
 ```{r setup, include=FALSE}
@@ -150,6 +150,8 @@ Most analyses conducted in this document are based on:
   - @forester2018comparing and the associated [vignette](https://popgen.nescent.org/2018-03-27_RDA_GEA.html). 
   
   - @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
+  
+  - @capblancqEvaluationRedundancyAnalysis2018
   
 
 RDA can either be performed on *individual-based genotypes* (i.e. allele counts 0, 1 or 2) or *population-based allele frequencies*. @forester2018comparing suggests to use individual-based allele counts when most samples have individual coordinates and individual environment data (which depends on the resolution of the environmental data across the study area). 
@@ -1200,13 +1202,13 @@ dev.off()
 
 Two methods can be used to identify the outliers with the RDA.
 
-Outliers can be identified based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using a certain number of axes (K). The Mahalanobis distances are calculated with the `rdadapt` function from @capblancq2021redundancy, which returns $p$-values and $q$-values for each SNP. Different thresholds can then be used to identify the outliers:
+Outliers can be identified based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using K number of axes [@capblancqEvaluationRedundancyAnalysis2018]. The number of axes used (K) is determined by looking at the amount of information retained on the different axes of the RDA [@capblancqEvaluationRedundancyAnalysis2018]. In our study, we used K=2. The Mahalanobis distances are calculated with the `rdadapt` function from @capblancq2021redundancy, which returns $p$-values and $q$-values for each SNP. Different thresholds can then be used to identify the outliers:
 
   -  @capblancq2020climate uses a $p$-value threshold with a Bonferroni correction to account for multiple testing: $p$-value < 0.01 / number of SNPs (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)). In our study, this threshold results in selecting 16 SNPs with the RDA model, and 5 with the pRDA model (and 1 in common between the two methods). 
 
   - @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)) rank-ordered the SNPs based on their $p$-values (the $p$-value of a given SNP captures how far its Mahalanobis distance is from the distribution of Mahalanobis distances of all SNPs) and identified the 0.2% or 0.5% of the SNPs with the lowest $p$-values. In our study, this threshold results in selecting 19 SNPs (0.002 * `r dim(geno_pop)[[2]]`=`r 0.002*dim(geno_pop)[[2]]`) or 48 SNPs (0.005 * `r dim(geno_pop)[[2]]`=`r 0.005*dim(geno_pop)[[2]]`). We will use this threshold in the following analyses.
   
-  - we can also use a FDR (False Discovery Rate) threshold of 5% or 10% to identify outliers as the `rdadapt` function returns both $p$-values and $q$-values (see @franccois2016controlling).
+  - we can also use a FDR (False Discovery Rate) threshold of 5% or 10% to identify outliers as the `rdadapt` function returns both $p$-values and $q$-values [see @franccois2016controlling].
 
 Outliers can also been identified based on the *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html), in which a 3 standard deviation cutoff is used (two-tailed $p$-value = 0.0027). We also use a 3 standard deviation cutoff in the following analyses. 
   
@@ -1466,7 +1468,6 @@ dev.off()
 
 We visualize the outliers with RDA and Manhattan plots following @capblancq2021redundancy ([code](https://github.com/Capblancq/RDA-landscape-genomics)). Figures are stored in `RDAplots_outliers_2.pdf`.
 
-
 ```{r FunctionToGGPlotRDAoutliers}
 make_rda_ggplot <- function(data_plots,TAB_var){ 
 
@@ -1527,7 +1528,8 @@ list_data_plots <- list(clim=list(), # options/data specific to plots with color
 nooutliers_bg <- "gray90"
 nooutliers_legend <- "No detection"
 
-locus_scores <- scores(rda_out$rda_model$mod_rda, choices=c(1:2), 
+locus_scores <- scores(rda_out$rda_model$mod_rda, 
+                       choices=c(1:2), # we use K=2 number of axes
                        display="species", # 'species' in the vegan package correspond to the loci
                        scaling="none") %>% 
   as.data.frame() %>% 
@@ -1618,6 +1620,100 @@ pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_2.pdf")
 lapply(rda_outliers, function(x) combine_rda_outlier_ggplots(rda_out = x, color_clim_var=color_clim_var))
 dev.off()
 ```
+
+
+We also generate some figures for the Supplementary Information. These figures are only generated for the RDA models that are further used to identify the candidate SNPs, i.e. the RDA models fitted on the set 2 of climatic variables. We call *RDA* the model fitted on the set 2 without correcting for population structure and *pRDA* the model fitted on the set 2 with correcting for population structure
+
+```{r GenerateSIoutlierplots}
+# =========================================
+# Function to generate the SI outlier plots
+# =========================================
+generate_SI_outlier_plots <- function(rda_out){
+  
+  
+locus_scores <- scores(rda_out$rda_model$mod_rda, 
+                       choices=c(1:2), # we use K=2 number of axes
+                       display="species", # 'species' in the vegan package correspond to the loci
+                       scaling="none") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("snp") %>% 
+  as_tibble() %>% 
+  inner_join(rda_out$GSout, by="snp") %>% 
+  mutate(pos=seq(1:nrow(.)))
+
+TAB_var <- as.data.frame(scores(rda_out$rda_model$mod_rda, choices=c(1,2), display="bp"))
+
+# Legend options
+legend_colors <- c("gray90",'#CD24B2')
+legend_names <- c("Non-outliers","Outliers")
+legend_title <- 'Outlier detection'
+
+
+tab <-   locus_scores %>% 
+  left_join(rda_out$outliers[,c("snp", "maha_meth")],by="snp") %>%  
+  mutate(snp_type = case_when(maha_meth == TRUE ~  legend_names[[2]],
+                              is.na(maha_meth) | maha_meth==FALSE ~ legend_names[[1]])) %>% 
+  mutate(snp_type=factor(snp_type,levels=legend_names)) 
+
+
+# Plot with RDA space
+# ===================
+p1 <- tab[order(tab$snp_type),] %>% 
+  ggplot() +
+  geom_hline(yintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_vline(xintercept=0, linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(aes(x=RDA1*20, y=RDA2*20, colour = snp_type), size = 1.4) +
+  scale_color_manual(values = legend_colors) +
+  geom_segment(data = TAB_var, aes(xend=RDA1, yend=RDA2, x=0, y=0), 
+               colour="black", linewidth=0.15, linetype=1, arrow=arrow(length = unit(0.02, "npc"))) +
+  geom_text(data = TAB_var, aes(x=1.1*RDA1, y=1.1*RDA2, label = row.names(TAB_var)), size = 2.5) +
+  xlab("RDA 1") + ylab("RDA 2") +
+  facet_wrap(~"RDA space") +
+  theme_bw(base_size = 11) +
+  theme(panel.background = element_blank(), 
+        legend.position = "none",
+        legend.background = element_blank(), 
+        panel.grid = element_blank(), 
+        plot.background = element_blank(), 
+        legend.text=element_text(size=rel(.8)), 
+        strip.text = element_text(size=11))
+
+
+# Manhattan plot
+# ==============
+p2 <- tab[order(tab$snp_type),] %>% 
+ggplot() +
+  geom_hline(yintercept=-log10(0.01/length(tab$pvalues)), linetype="dashed", color = gray(.80), linewidth=0.6) +
+  geom_point(aes(x=pos, y=-log10(pvalues), col = snp_type), size=1.4) +
+  scale_color_manual(values = legend_colors) +
+  xlab("Loci") + ylab("-log10(p-values)") +
+  facet_wrap(~"Manhattan plot", nrow = 3) +
+  theme_bw(base_size = 11)  +
+  theme(legend.position="right",  
+        panel.grid = element_blank(), 
+        legend.title=element_blank(),
+        legend.box.background = element_blank(), plot.background = element_blank(), panel.background = element_blank(), legend.text=element_text(size=rel(.8)), strip.text = element_text(size=11))
+
+
+# Merge the two plots
+# ===================
+p2_legend <- get_legend(p2)
+p2 <- p2 + theme(legend.position = "none")
+plot_row <- plot_grid(p1,p2, ncol=2)
+plot_row <- plot_grid(plot_row, p2_legend, ncol=2,rel_widths = c(1, 0.1))
+
+
+# Save the plots as pdf
+# =====================
+if(grepl("Condition",rda_out$rda_model$form_rda)==TRUE){rda_name <- "pRDA"} else { rda_name <- "RDA"}
+ggsave(plot_row, device = "pdf", filename = paste0("figs/RDA/SI_outlier_plots_",rda_name,".pdf"), width=12, height=5)
+}
+
+
+# Run the function for the RDA models fitted on the set 2 of climatic variables
+lapply(rda_outliers[3:4], function(x) generate_SI_outlier_plots(rda_out = x))
+```
+
 
 
 ## Common outliers

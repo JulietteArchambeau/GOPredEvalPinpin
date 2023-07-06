@@ -223,9 +223,9 @@ common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)",
 
   1. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
 
-  2. SNPs that were identified by at least one GEA method **not correcting for population structure**, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  2. SNPs that were identified by at least one GEA method not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
   
-  3. SNPs that were identified by at least one GEA method **correcting for population structure**, namely *pRDA*, *GF-X*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  3. SNPs that were identified by at least one GEA method correcting for population structure, namely *pRDA*, *GF-X*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
   
   4. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
   
@@ -235,13 +235,13 @@ common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)",
   
   7. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
   
-  8. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs.</span>.
+  8. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs.</span>
 
 <span style="color: OrangeRed;">`r length(intersect(common_cand_corrected,common_cand_notcorrected))` SNPs</span> are in common between the sets 2 and 3.
 
 > Our choice
 
-We will use the set with SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF* (`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (and choosing for instance a set of SNPs with SNPs in common across all methods) and not including too many false positives (eg, by selecting SNPs identified by at least by two methods). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF). 
+In the following analyses, we use **the set with SNPs identified by at least two methods** among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF* (**`r common_cand_RDA_LFMM_BayPass_GFraw %>% length()` SNPs**). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF). 
 
 ```{r VennDiagrammSelectedMethods,fig.height=7,fig.width=7}
 make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")],
@@ -286,10 +286,11 @@ snppos %>%
   kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
+**Comment:** a scaffold is a set of contigs separated by gaps and for which the relative orientation and distance is known.
 
 If we keep only one SNP per scaffold, we will have:
 
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_RDA_LFMM_BayPass_GFraw) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF-X*.
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_RDA_LFMM_BayPass_GFraw) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
 
   - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_notcorrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method not correcting for population structure (*RDA* and *GF*).
   
@@ -357,6 +358,14 @@ snp_sets <- list(cand = list(set_code = "cand",
                                 set_snps = control_snps))
 
 saveRDS(snp_sets,here("outputs/list_snp_sets.rds"))
+```
+
+
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
 ```
 
   

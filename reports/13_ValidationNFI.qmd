@@ -400,7 +400,7 @@ return(list_snps)
 Stan code of the model:
 
 ```{r CompileMortalityModel, message=F,warning=F}
-stancode = stan_model(here("scripts/StanModels/simulations/m3.stan"))
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m3.stan"))
 print(stancode)
 ```
 
@@ -431,7 +431,8 @@ mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4,in
 # Save coefficients
     broom.mixed::tidyMCMC(mod,
                   droppars = NULL,
-                  estimate.method = "median",
+                  estimate.method = "median", # does not work, the mean is estimated, not the median
+                                              # to get the median, robust = TRUE
                   ess = F,
                   rhat = F,
                   conf.int = T,
@@ -462,10 +463,13 @@ Below, we plot the 95% credible intervals of:
 
 
 ```{r CoeffPlotsHeightModels, fig.height=6, fig.width=7, eval=T, results="hide"}
+colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
+
 
 coefftab <- readRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
   
-coeff_match <- list(beta_GO="$\\beta_{GO}$ estimates",beta_C="$\\beta_C$ estimates")
+coeff_match <- list(beta_GO="Regression coefficients $\\beta_{GO}$",#"$\\beta_{GO}$ estimates",
+                    beta_C="Regression coefficients $\\beta_C$")
 
 p <- lapply(c("beta_GO","beta_C"), function(coeff){
   
@@ -487,10 +491,10 @@ p <- coefftab %>%
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
   ylab(TeX(coeff_match[[coeff]])) + xlab("") +
   ylim(c(-0.1,0.2)) +
-  scale_color_paletteer_d("ggthemes::calc") +
+  scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
-  labs(color="",shape="") +
+  labs(color="SNP set",shape="SNP set") +
   theme(axis.text.x =  element_text(size=13),
         axis.text.y = element_text(size=13),
         axis.title.y = element_text(size=16),
@@ -498,7 +502,7 @@ p <- coefftab %>%
         legend.title=element_text(size=13), 
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
-        legend.position = c(0.8,0.15),
+        legend.position = "right",
         legend.text=element_text(size=12),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
@@ -508,7 +512,7 @@ p <- coefftab %>%
 # save in pdf and png
 ggsave(p,file=here(paste0("figs/ValidationNFI/",coeff,"_IntervalPlots.pdf")),
        device="pdf",
-       height=7,
+       height=5,
        width=7)
 
 return(p)
@@ -525,3 +529,12 @@ As expected, the basal area is positively associated with mortality rates.
 **For the four methods (GDM, LFMM, GF and RDA), populations with higher genomic offset based on the candidate SNPs (and all SNPs for LFMM) had higher mortality rates in the NFI plots**. Interestingly, this was not the case with genomic offset predictions based on the control SNPs: for GF and LFMM, populations with higher genomic offset based on the control SNPs also shoed higher mortality rates but for GDM and RDA, populations with higher genomic offset showed lower mortality rates in the NFI plots. This confirms the importance of selecting a set of alleles potentially under selection before using the genomic offset predictions to predict maladaptation in natural populations (or using all SNPs with the LFMM approach). 
 
 We can also note the very high association between mortality rates and the genomic offset predictions based on candidate SNPs and from the GF and GDM methods.
+
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
+
+
