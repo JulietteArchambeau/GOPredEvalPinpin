@@ -70,7 +70,7 @@ To this goal, we will apply the GF algorithm to:
   
   - the 'raw' or *uncorrected* allele frequencies (**GF-raw** in @fitzpatrick2021experimental and @capblancq2023common).
   
-  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population reladness. In @fitzpatrick2021experimental and @capblancq2023common, they use the population genetic variance-covariance matrix from Bayenv 2 to correct for population structure and called the matrix of corrected allele frequencies **GF-X**. From @fitzpatrick2021experimental: 'The GF-X approach was included to explore a more robust approach to allele frequency estimation that corrects for finite sampling and population relatedness prior to feeding into GF for outlier detection.' In our case, we extract the matrix of corrected allele frequencies using the latent factor mixed model (LFMM) approach; see section 5 'Corrected allele frequencies' in the `6_LEAanalysis.qmd` report.
+  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population reladness. In @fitzpatrick2021experimental and @capblancq2023common, they use the population genetic variance-covariance matrix from Bayenv 2 to correct for population structure and called the matrix of corrected allele frequencies **GF-X**. From @fitzpatrick2021experimental: 'The GF-X approach was included to explore a more robust approach to allele frequency estimation that corrects for finite sampling and population relatedness prior to feeding into GF for outlier detection.' In our case, we extract the matrix of corrected allele frequencies using the latent factor mixed model (LFMM) approach; see section 5 'Corrected allele frequencies' in the `6_LEAanalysis.qmd` report. 
 
 
 **Strengths** of the GF algorithm: nonparametric (nonlinear allele frequency gradients), makes no assumption about the particular form of the gene–environment relationship, incorporates multivariate predictors, interactions among predictors.
@@ -90,6 +90,13 @@ In the present report, we randomly sample $n$ SNPs and we compare $R^2$ value of
 
 $$\hat{p}_l = 1 - (r_l / n)$$
  with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the  $n$ randomly selected SNPs. 
+ 
+ **<span style="color: red;">Warning:</span>** Gradient Forest has only been used once as a genome scan [@capblancq2023common] and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. This method does not provide a significance level for each SNPs that we can use to select the candidate SNPs and therefore we have to use empirical $p$-values, which may be less robust. Moreover, when we performed several runs of GF as a genome scan, we did not obtain the same exact set of candidate SNPs each time. A final observation that made us skeptical of GF is that no common candidates were found between GF and GF-X (although we do not expect much overlap, it is still unexpected that there is no overlap at all). 
+ 
+For these reasons, we have to be careful when using this method as a GEA. <span style="color: red;">In our study, we finally did not use **GF-X**. And because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of **GF-raw**, we ran 3 independent runs, identified the 0.5\% with the lowest empirical $p$-values for each run (i.e. 49 SNPs) and then considered as outlier SNPs the SNPs identified in the three runs.</span>
+
+
+
 
 # Options, parameters and functions
 
@@ -478,7 +485,9 @@ list_outliers[c(1,3)] %>% make_venndiagram(title="GEAs not corrected for populat
 
 # Unstable outlier identification across runs
 
-GF runs because the outputs vary from one run to another. Below is the comparison of the outliers selected with three different runs of GF not corrected for population structure.
+Outlier SNPs identified across independent runs are not exactly the same. 
+
+The Venn diagrams below show the number of SNPs in common across 3 independent runs (for GF models not corrected for population structure).
 
 
 ```{r ConsistenceAcrossRuns, eval=T}
@@ -489,11 +498,30 @@ gf_out_2 <- readRDS(here::here("outputs/GF/gf_outliers_2.rds"))
 list("run 1"=gf_out_1$gf_raw$outliers_rank005,
      "run 2"=gf_out_2$gf_raw$outliers_rank005,
      "run 3"=gf_out$gf_raw$outliers_rank005) %>% 
-  make_venndiagram(title="0.5% SNPs with the lowest p-values")
+  make_venndiagram(title="0.5% SNPs with the lowest empirical p-values")
 
 list("run 1"=gf_out_1$gf_raw$outliers_rank002,
      "run 2"=gf_out_2$gf_raw$outliers_rank002,
      "run 3"=gf_out$gf_raw$outliers_rank002) %>% 
-  make_venndiagram(title="0.2% SNPs with the lowest p-values")
+  make_venndiagram(title="0.2% SNPs with the lowest empirical p-values")
 ```
 
+
+ **<span style="color: red;">For the following analyses, we keep the outlier SNPs that were among the 0.5% SNPs with the lowest empirical $p$-values in each of the three independent runs:</span>**
+
+```{r CommonCandidates}
+cand <- list("run 1"=gf_out_1$gf_raw$outliers_rank005,
+             "run 2"=gf_out_2$gf_raw$outliers_rank005,
+             "run 3"=gf_out$gf_raw$outliers_rank005) %>% 
+  Reduce(intersect, .)
+
+saveRDS(cand, here::here("outputs/GF/gf_common_outliers_across_three_runs.rds"))
+```
+
+So, at the end, we identified `r length(cand)` outlier SNPs with the GF-based GEA.
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
