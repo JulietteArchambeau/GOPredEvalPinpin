@@ -54,6 +54,8 @@ library(ggpubr)
 library(magrittr)
 library(readxl)
 library(ggridges)
+library(treemap)
+library(RColorBrewer)
 library(cowplot)
 library(ggVennDiagram)
 library(adespatial) # to calculate the Moran eigen vectors
@@ -866,13 +868,13 @@ saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartIndividualLevel.rds"
 list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
 
 # set 1
-kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
 
 # set 2
-kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[2]], round_number = 4, boldfirstcolumn = T)
 
 # set 3
-kable_mydf(list_sum_var_part[[3]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[3]], round_number = 4, boldfirstcolumn = T)
 ```
 
 ## Population-based allele frequencies{#VarPartPop}
@@ -905,13 +907,13 @@ saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",ge
 list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
 
 # set 1
-kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
 
 # set 2
-kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[2]], round_number = 4, boldfirstcolumn = T)
 
 # set 3
-kable_mydf(list_sum_var_part[[3]], boldfirstcolumn = T)
+kable_mydf(list_sum_var_part[[3]], round_number = 4, boldfirstcolumn = T)
 ```
 
 
@@ -942,16 +944,68 @@ saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",ge
 ```{r ShowSummaryVarPartPopLevelMEMs, eval=T}
 list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
 
-# yearly-climate variables
-kable_mydf(list_sum_var_part[[1]], boldfirstcolumn = T)
+# set 1
+kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
 
-# summer-drought climatic variables
-kable_mydf(list_sum_var_part[[2]], boldfirstcolumn = T)
+# set 2
+kable_mydf(list_sum_var_part[[2]], round_number = 4, boldfirstcolumn = T)
 
-# Set 3 climatic variables
-kable_mydf(list_sum_var_part[[3]], boldfirstcolumn = T)
+# set 3
+kable_mydf(list_sum_var_part[[3]], round_number = 4, boldfirstcolumn = T)
 ```
 
+### Viz with treemap
+
+We make a treemap to visualize the partitioning of the genomic variation among geography (dbMEMs), climate (set 2) and the neutral genetic structure.
+
+```{r TreemapVarPart, results='hide'}
+# we load the outputs of the variance partitioning estimated with dbMEMs and the climatic variables from set 2
+tab <- readRDS(file="outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds")[[2]]
+
+# extract the percentages of variance explained
+prop_variance <-tab$`Total exp. variance` * 100
+
+# calculate the percentage of variance explained by the confounded effects of geography, climate and neutral genetic structure:
+prop_variance[[1]] <- prop_variance[[1]] - (prop_variance[[2]] + prop_variance[[3]] + prop_variance[[4]]) 
+
+# calculate the percentage of variance that remains unexplained:
+prop_variance[[5]] <- 100 - sum(prop_variance)
+
+# Create a vector combining the labels and the values of the treemap
+vec <- c("Confounded effects of geography, climate and neutral genetic structure" = prop_variance[[1]],
+         "Effects of climate alone" = prop_variance[[2]],
+         "Effects of neutral population genetic structure alone" =  prop_variance[[3]],
+         "Effects of geography alone" =  prop_variance[[4]],
+         "Non-explained" =  prop_variance[[5]])
+
+tab <- tibble(names = paste0(names(vec), " (", round(vec,2), "%)"),
+              vals= vec) 
+
+# choose my colors with RColorBrewer
+# display.brewer.pal(n = 5, name = "Pastel2") # to see the colors
+my_palette <- brewer.pal(n = 5, name = "Pastel2")
+my_palette[[5]] <- "#EEEEEE"
+
+# Generate the figure in pdf
+pdf(file="figs/RDA/treemap_VarPart.pdf")
+treemap(tab,
+        index="names",
+        vSize="vals",
+        title = "",
+        palette=my_palette,
+        type="index")
+dev.off()
+```
+
+```{r TreeMapVarPartFiguret, fig.width=7, fig.height=6}
+# Show the figure
+treemap(tab,
+        index="names",
+        vSize="vals",
+        title = "",
+        palette=my_palette,
+        type="index")
+```
 
 # Identifying loci under selection
 

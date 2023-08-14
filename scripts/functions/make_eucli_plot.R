@@ -17,7 +17,8 @@ make_eucli_plot <- function(X,Y,
   legend(legend_position, 
          legend=unique(color_names),
          col=unique(colors),
-         bty="n", pch=pch, cex=cex_legend, ncol=1,
+         bty="n", pch=pch,
+         cex=cex_legend, ncol=1,
          title="Main gene pools")
   recordPlot()
 }

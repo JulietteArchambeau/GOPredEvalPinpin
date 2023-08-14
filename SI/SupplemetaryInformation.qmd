@@ -101,7 +101,7 @@ extract_climatedt_metadata() %>%
 ```
 
 
-![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three PC axes of the PCA based on the genomic data (Figure S[-@fig-PCA]). MEM1, MEM2, MEM3 and MEM4 correspond to the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
+![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three principal components (PCs) of the PCA based on the genomic data (Figure S[-@fig-PCA]). MEM1, MEM2, MEM3 and MEM4 correspond to the first four distance-based Moran's eigenvector maps (dbMEMs) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
 
 ## Selection of the climatic variables
 
@@ -169,9 +169,13 @@ where $\mu_{ref}$ is the average of the climatic variable of interest over the r
 
 ![Relative climatic distances for the six climatic variables used to make genomic offset predictions. The relative climatic distances were calculated for five different Global Climate Models (GCMs), each corresponding to a different panel.](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf){#fig-RelativeClimaticDistances}
 
-# Variance partitioning
+# Variance partitioning of the genetic variation
 
-Following @capblancq2021redundancy, we used a partial redundancy analysis (pRDA) to identify the relative contribution of climate, neutral population structure and geography in explaining genetic variation. The climate was captured by the six climatic variables that were then used to identify the loci potentially involved in local adaptation (.i.e. gene-environment association analyses) and to make genomic offset predictions (Figure S[-@fig-DistributionSelectedClimaticVariables]). The neutral population genetic structure was accounted for with the first three PCs of a PCA based on the genomic data not filtered for MAF (Figure S[-@fig-PCA]). The geography was either accounted for with the geographical coordinates of the populations or with the first four distance-based Moran's eigenvector maps (dbMEM) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].
+Following @capblancq2021redundancy, we used a combination of redundancy analyses (RDA) and partial RDA (pRDA) to estimate the proportion of genetic variation that can be or cannot be uniquely attributed to climate, neutral population structure and geography. The response variable was the allele frequencies of the populations. The climate was represented by the six climatic variables that were selected in the previous section (Table S[-@tbl-SelectedClimaticVariableInformation]), i.e. the climatic variables that are then used to identify the loci potentially involved in local adaptation (see the gene-environment association analyses in the section below) and to make genomic offset predictions. The neutral population genetic structure was accounted for with the first three PCs of the PCA based on the genomic data not filtered for MAF (Figure S[-@fig-PCA]). The geography was either accounted for with the geographical coordinates of the populations or with the first four distance-based Moran's eigenvector maps (dbMEMs) calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].
+
+We first used an RDA model including all explanatory variables (i.e. climate, neutral genetic structure and geography), and named the 'full model'. The full model provides the total amount of genetic variance (i.e. inertia) explained by the explanatory variables together. We then used three pRDA models, named the 'pure models', to estimate the contribution of genetic variance that can be uniquely attributed to each explanatory variable. For that, for the three pRDA models, we used either the climate, geography and neutral population structure as explanatory variables, while conditioning on the remaining two variables. 
+
+These analyses were conducted using the function `rda` of the `vegan` R package v`r packageVersion("vegan")` [@vegan].
 
 
 ```{r}
@@ -179,7 +183,7 @@ Following @capblancq2021redundancy, we used a partial redundancy analysis (pRDA)
 #| tbl-cap: Variance partioning using geographical coordinates to account for geography.
 
 readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_coordinates.rds"))[[2]] %>%
-kable_mydf(boldfirstcolumn = T, font_size = 8)
+kable_mydf(boldfirstcolumn = T, round_number = 4, font_size = 8)
 ```
 
 
@@ -188,11 +192,13 @@ kable_mydf(boldfirstcolumn = T, font_size = 8)
 #| tbl-cap: Variance partioning using the first four distance-based Moran's eigenvector maps (dbMEMs) to account for geography.
 
 readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>%
-kable_mydf(boldfirstcolumn = T, font_size = 8)
+kable_mydf(boldfirstcolumn = T, round_number = 4, font_size = 8)
 ```
 
 
 In Tables S[-@tbl-VarPartGeo] and S[-@tbl-VarPartMEMs], `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography.
+
+As dbMEMs explain more genetic variation than the geographical coordinates, we only provide the proportions of variance explained obtained with dbMEMs in the main manuscript.
 
 # Gene-environment association methods
 
@@ -226,7 +232,33 @@ $$\hat{p}_l = 1 - (r_l / 2000)$$
 
 with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the 2000 randomly selected SNPs. 
 
-The 0.5% SNPs with the lowest empirical $p$-values were considered as outliers.
+We ran three independent runs and identified the SNPs that were in the 0.5% SNPs with the lowest empirical $p$-values across the three runs. 
+
+```{r VennDiagramGF, fig.width=6, fig.height=6}
+#| label: fig-GFCommonOutliersAcross3Runs
+#| fig-cap: Venn diagram of the number of SNPs that were in the 0.5% SNPs with the lowest empirical $p$-values across three independant runs of the GF-based GEA.
+#| out-width: "70%"
+
+# We load the outliers of the three independent runs:
+gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
+gf_out_1 <- readRDS(here::here("outputs/GF/gf_outliers_1.rds"))
+gf_out_2 <- readRDS(here::here("outputs/GF/gf_outliers_2.rds"))
+
+list("Run #1"=gf_out_1$gf_raw$outliers_rank005,
+     "Run #2"=gf_out_2$gf_raw$outliers_rank005,
+     "Run #3"=gf_out$gf_raw$outliers_rank005) %>% 
+  ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
+  scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
+  scale_color_manual(values = rep("darkgoldenrod1",6)) + 
+  guides(fill = "none") + 
+  labs(caption="") + 
+  ggtitle("") +
+  theme(text = element_text(size=12),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  scale_x_continuous(expand = expansion(mult = .2))
+```
+
+40 SNPs were identified as outliers in the three runs (i.e. were among the 0.5% SNPs with the lowest empirical $p$-values) and were kept for the following analyses.
 
 **Comment:** To our knowledge, GF has only been used once as a genome scan (@capblancq2023common) and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. We performed several runs of GF models as a genome scan and there was little overlap in the outliers identified across runs. This is in part why we only considered SNPs as outliers if they were identified by at least two GEA methods. Like that, if a SNP was identified as an outlier only with the GF algorithm, it was not included in the set of outliers used to estimate the genomic offset.
 
@@ -258,7 +290,7 @@ Using the core model without covariate from <span style="font-variant:small-caps
 ```{r Outliers}
 outliers <- list(RDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[3]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
                  pRDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[4]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
-                 GF = readRDS(here::here("outputs/GF/gf_outliers.rds"))$gf_raw$outliers_rank005,
+                 GF = readRDS(here::here("outputs/GF/gf_common_outliers_across_three_runs.rds")),
                  LFMM = readRDS(here::here("outputs/LFMM/candidates.rds")),
                  BayPass = readRDS(here("outputs/BayPass/baypass_outliers.rds")))
 
@@ -267,7 +299,6 @@ common_cand <- outliers[c("RDA","pRDA","LFMM","BayPass", "GF")] %>% unlist() %>%
 
 # Final set of outlier SNPs (after filtering for the genomic position)
 snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
-
 ```
 
 Common outliers across GEAs:
@@ -288,7 +319,7 @@ Common outliers across GEAs:
 #| fig-cap: Venn diagram of the number of outlier SNPs in common across the different GEAs.
 #| out-width: "70%"
 
-outliers %>% 
+p <- outliers %>% 
   ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
   scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
   scale_color_manual(values = rep("darkgoldenrod1",6)) + 
@@ -298,6 +329,9 @@ outliers %>%
   theme(text = element_text(size=12),
         plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
   scale_x_continuous(expand = expansion(mult = .2))
+
+ggsave(p, filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", width = 5.7, height = 6)
+p
 ```
 
 For the following analyses, we kept the `r length(common_cand)` outlier SNPs identified by at least two GEAs. Our goal was to get a set of candidate SNPs enriched for loci involved in adaptation to climate, with a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). Selecting SNPs identified by at least two GEAs also allowed us to select candidate SNPs that can only be identified with GEAs that correct for population structure (pRDA, LFMM, BayPass), or candidate SNPs that can only be identified with methods that do not correct for population structure (RDA and GF).

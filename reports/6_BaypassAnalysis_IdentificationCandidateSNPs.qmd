@@ -352,9 +352,10 @@ list_out[[var]][[paste0("cor_",x)]] %>% corrplot(method = 'number',
 
 ## Identification threshold
 
-Which threshold do we use to identify the candidate SNPs?
+Which threshold do we use to select the set of candidate SNPs?
 
-From @gautier2015genome: 'Jeffreys’rule (Jeffreys 1961) provides a useful decision criterion to quantify the strength of evidence (here in favor of association of the SNP with the covariable), using the following dB unit scale: 'strong evidence' when $10 < BF < 15$, 'very strong evidence' when $15 < BF < 20$, and 'decisive evidence' when $BF > 20$.'
+From @gautier2015genome: 'Jeffreys’rule (Jeffreys 1961) provides a useful decision criterion to quantify the strength of evidence (here in favor of association of the SNP with the covariable), using the following dB unit scale: 'strong evidence' when $10 < BF < 15$, 'very strong evidence' when $15 < BF < 20$, and 'decisive evidence' when $BF > 20$.' 
+From @jeffreys1961theory, 'barely worth mentioning' when $0 < BF < 5$ and 'substantial' when $5 < BF < 10$.
 
   - @gautier2015genome uses $BF > 20$ and $eBP > 3$.
 
@@ -370,19 +371,24 @@ From @gautier2015genome: 'Jeffreys’rule (Jeffreys 1961) provides a useful deci
   
   - @vendrami2019rad $BF > 10$ (using standard covariate model)
 
-Here is the number of candidates using different thresholds ($BF > 5$, $BF > 10$,$BF > 20$ or $eBP > 3$) for each climatic variable:
+Number of candidates selected using different thresholds based on the Bayes Factors ($BF > 5$, $BF > 10$ and $BF > 20$) or $eBP > 3$) for each climatic variable:
 
-```{r NumberCandidates}
+```{r NumberCandidatesBF}
 list_out %>% lapply(function(out)out$BF_out) %>%  
   reduce(left_join, by = "BF_threshold") %>% 
   kable_mydf()
+```
 
+Number of candidates selected using the $eBP > 3$ threshold for each climatic variable:
+
+```{r NumberCandidateseBP}
 list_out %>% lapply(function(out)out$eBP_out) %>%  
   reduce(left_join, by = "eBP_threshold") %>% 
   kable_mydf()
 ```
 
-Threshold used for the candidate SNPs:
+
+**We finally use the following threshold to select the candidate SNPs:**
   
 ```{r IdentificationThreshold}
 threshold <- 10 # in dB
@@ -411,3 +417,8 @@ We export the list of candidate SNPs.
 unique(cand$snp) %>% saveRDS(here("outputs/BayPass/baypass_outliers.rds"))
 ```
 
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```

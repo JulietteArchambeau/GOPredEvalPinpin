@@ -41,6 +41,7 @@ library(here)
 library(cowplot)
 library(magrittr)
 library(corrplot)
+library(RColorBrewer)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -71,8 +72,15 @@ snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 # Load GO predictions
 go_df <- lapply(meth_names, function(meth_name) {
   
-readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds"))) %>% 
-  lapply(function(snp_set) {
+if(meth_name=="LFMM"){
+  
+  go_predictions <- readRDS(file=here(paste0("outputs/LFMM/go_predictions_snpsets.rds")))} else {
+  
+  go_predictions <- readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds")))
+  }
+  
+  go_predictions %>% 
+    lapply(function(snp_set) {
 
     as_tibble(snp_set$go) %>%
       mutate(pop=pop_names) %>% 
@@ -106,6 +114,263 @@ go_df %>%
                number.cex=2,tl.cex=1.5)
   })
 })
+```
+
+# Bump charts
+
+## Splitting per method/SNP set
+
+We split the GO predictions by GCM. And for each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), we rank the populations based on their GO predicted value.
+
+```{r CalcRankPop}
+go_df <- lapply(meth_names, function(meth_name) {
+  
+if(meth_name=="LFMM"){
+  
+  go_predictions <- readRDS(file=here(paste0("outputs/LFMM/go_predictions_snpsets.rds")))} else {
+  
+  go_predictions <- readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds")))
+  }
+  
+go_predictions <-  go_predictions %>% 
+    lapply(function(snp_set) {
+
+    snp_set$go %>% 
+        lapply(function(gcm){
+          
+        tibble(pop = pop_names,
+               go = gcm) %>%
+            arrange(go) %>% 
+            mutate(rank = rev(1:length(pop_names)))
+        
+      }) %>% bind_rows(.id="gcm")
+        
+    }) %>% bind_rows(.id="snp_set")
+
+if(meth_name=="LFMM"){
+  
+go_predictions <-    readRDS(file=here(paste0("outputs/LFMM/go_predictions_allsnps.rds")))$go %>% 
+    lapply(function(gcm){
+          
+        tibble(pop = pop_names,
+               go = gcm,
+               snp_set = "all") %>%
+            arrange(go) %>% 
+            mutate(rank = rev(1:length(pop_names)))
+        
+      }) %>% 
+    bind_rows(.id="gcm") %>% 
+    bind_rows(go_predictions)
+  
+  
+  } 
+
+go_predictions
+
+}) %>% 
+  setNames(meth_names) %>% 
+  bind_rows(.id="method")
+```
+
+
+Still for each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), we calculate the average of the GO predictions across the five GCMs, and again we rank the populations based on their GO predicted value.
+
+```{r CalcGCMsAverage, message=FALSE}
+# First option (that we should use I think): take the mean of the GO predictions
+go_df <- go_df %>% 
+  group_by(pop,method,snp_set) %>% 
+  summarise(go=mean(go)) %>% 
+  ungroup() %>% 
+  group_split(method,snp_set) %>% 
+  lapply(function(x){
+    x %>% 
+      arrange(go) %>% 
+      mutate(rank = rev(1:length(pop_names)),
+             gcm = "GCMs_average")
+  }) %>% 
+  bind_rows() %>% 
+  bind_rows(go_df)
+
+# Another option (the first I use, but I think we should use the option above): take the mean of the ranks
+# go_df %>%
+#   group_by(pop,method,snp_set) %>%
+#   summarise(mean_rank=mean(rank),go=mean(go)) %>%
+#   ungroup() %>%
+#   group_split(method,snp_set) %>%
+#   lapply(function(x){
+#     x %>%
+#       arrange(mean_rank) %>%
+#       mutate(rank = 1:length(pop_names),
+#              gcm = "GCM average") %>%
+#       dplyr::select(-mean_rank)
+#   }) %>%
+#   bind_rows() %>%
+#   bind_rows(go_df)
+```
+ 
+
+```{r MethSnpSetLabels}
+# We create a vector that we will use for the x-axis labels and the plot title
+
+method_snpset_names <- c("GDM (candidates)",
+                         "GDM (control)",
+                         "GF (candidates)",
+                         "GF (control)",
+                         "LFMM (all SNPs)",
+                         "LFMM (candidates)",
+                         "LFMM (control)",
+                         "RDA (candidates)",
+                         "RDA (control)",
+                         "Average across methods and SNP sets")
+
+names(method_snpset_names) <- go_df %>% 
+  filter(! (snp_set == "cand_corrected")) %>%
+  mutate(meth_snpset = paste0(method, "_", snp_set)) %>% 
+  pull(meth_snpset) %>% 
+  unique() %>% 
+  c(.,"method_snpset_average")
+```
+
+
+
+We first generate some plots showing the variability in GO predictions across the different combinations method / SNP set. To aid visualization, we only color the populations that are among the three populations with the highest offset in at least one combination method / SNP set. 
+
+```{r BumpChartsSplittingPerMethSnpSet, results='hide', message=FALSE}
+# the colors I will use to color the populations with high GO
+my_colors <- c(brewer.pal(n=12, "Paired"),"#FF40EE")
+
+bump_charts <- go_df %>% 
+  filter(! (snp_set == "cand_corrected")) %>% 
+  mutate(x_axis = method_snpset_names[paste0(method, "_", snp_set)]) %>%
+  group_split(gcm) %>% 
+  lapply(function(x){
+    
+high_go_pops <- x %>% 
+  filter(rank < 4) %>% 
+  pull(pop) %>% 
+  unique()    
+
+my_palette <- c(my_colors[1:length(high_go_pops)],"#E8E8E8")
+
+if(unique(x$gcm)=="GCMs_average"){
+  plot_title <- "Average across the five GCMs"
+} else {
+  plot_title <- unique(x$gcm)
+}
+
+sub <- x %>% 
+  mutate(flag = ifelse(pop %in% high_go_pops, TRUE, FALSE),
+         pop_col = if_else(flag == TRUE, pop, "Others")) %>% 
+  mutate(pop = factor(pop, levels=c(setdiff(unique(x$pop),high_go_pops),high_go_pops)),
+         pop_col = factor(pop_col, levels = c(high_go_pops,"Others")))
+
+p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
+  geom_point(aes(color = pop_col), size = 2, alpha = 0.9) +
+  geom_line(aes(color = pop_col), linewidth = 2, alpha = 0.8) +
+  scale_y_reverse(breaks = 1:nrow(sub)) +
+  scale_color_manual(values = my_palette) +
+  geom_text(data = sub %>% filter(x_axis == sub$x_axis[[length(sub$x_axis)]] & pop %in% high_go_pops),
+            aes(label = pop, x = 9.1) , hjust = 0.15, color = "gray20", size = 3) +#color = "#888888",
+  theme_bw() +
+  ylab("Population rank") +
+  ggtitle(plot_title) +
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "none",
+        axis.title.x = element_blank())
+
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf")
+
+p
+
+  })
+
+pdf(here("figs/PredictionVariability/BumpCharts_PerMethSnpSet.pdf"), width=12)
+lapply(bump_charts, function(x) x)
+dev.off()
+```
+
+
+```{r ShowBumpChartsSplittingPerMethSnpSet, fig.width=12, fig.height=7}
+bump_charts
+```
+
+## Splitting per GCM
+
+Then we split the GO predictions by combination of method/SNP set. And for each GCM (and for the average of GO predictions across the five GCMs), we rank the populations based on their GO predicted value.
+
+We then generate some plots showing the variability in GO predictions across the different GCMs (and for the average of GO predictions across the five GCMs) for each combination method / SNP set. To aid visualization, we only color the populations that are among the three populations with the highest offset in at least one GCM. 
+
+```{r BumpChartsSplittingPerGCM, results='hide', message=FALSE}
+go_df_gcm <- go_df %>% 
+  filter(! (snp_set == "cand_corrected")) %>% 
+  mutate(meth_snpset = paste0(method, "_", snp_set)) %>% 
+  dplyr::select(-method,-snp_set)
+  
+  
+bump_charts <- go_df_gcm %>% 
+  group_by(pop,gcm) %>% 
+  summarise(go =mean(go)) %>% 
+  ungroup() %>% 
+  group_split(gcm) %>% 
+  lapply(function(x){
+    x %>% 
+      arrange(go) %>% 
+      mutate(rank = rev(1:length(pop_names)))
+  }) %>% 
+  bind_rows() %>% 
+  mutate(meth_snpset = "method_snpset_average") %>% 
+  bind_rows(go_df_gcm) %>% 
+  group_split(meth_snpset) %>% 
+  lapply(function(x){
+
+high_go_pops <- x %>% 
+  filter(rank < 4) %>% 
+  pull(pop) %>% 
+  unique()    
+
+my_palette <- c(my_colors[1:length(high_go_pops)],"#E8E8E8")
+
+df <- x %>% 
+  mutate(flag = ifelse(pop %in% high_go_pops, TRUE, FALSE),
+         pop_col = if_else(flag == TRUE, pop, "Others")) %>% 
+  mutate(pop = factor(pop, levels=c(setdiff(unique(go_df_gcm$pop),high_go_pops),high_go_pops)),
+         pop_col = factor(pop_col, levels = c(high_go_pops,"Others")))
+
+
+p <- df %>% ggplot(aes(x = gcm, y = rank, group = pop)) +
+  geom_point(aes(color = pop_col), size = 2, alpha = 0.9) +
+  geom_line(aes(color = pop_col), linewidth = 2, alpha = 0.8) +
+  scale_y_reverse(breaks = 1:nrow(go_df_gcm)) +
+  scale_color_manual(values = my_palette) +
+  geom_text(data = df %>% filter(gcm == "UKESM1-0-LL" & pop %in% high_go_pops),
+            aes(label = pop, x = 6.1) , hjust = 0.15, color = "gray20", size = 3) +#color = "#888888",
+  theme_bw() +
+  ylab("Population rank") +
+  ggtitle(paste0(method_snpset_names[unique(x$meth_snpset)])) +
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "none",
+        axis.title.x = element_blank())
+
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$meth_snpset),".pdf")), device = "pdf")
+
+p
+  })
+
+
+
+pdf(here("figs/PredictionVariability/BumpCharts_PerGCM.pdf"), width=10)
+lapply(bump_charts, function(x) x)
+dev.off()
+
+bump_charts
+```
+
+```{r ShowBumpChartsSplittingPerGCM, fig.width=10, fig.height=7}
+bump_charts
 ```
 
 # Maps
