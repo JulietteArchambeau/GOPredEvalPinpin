@@ -51,7 +51,7 @@ make_go_map <- function(dfcoord,
     xlab("") + ylab("") +
     ggtitle(ggtitle) +
     theme(legend.position = legend_position,
-          legend.box.background = element_rect(colour = legend_box_background))  +
+          legend.box.background = element_rect(colour = legend_box_background, linewidth=0.6))  +
     scale_color_gradientn(name = "Genomic offset", colours = rev(rainbow(5)), limits=go_limits)
   
   if(type=="CG"){

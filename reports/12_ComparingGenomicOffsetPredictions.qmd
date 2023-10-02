@@ -56,73 +56,32 @@ We compare the genomic offset predictions from the four following methods:
   - Gradient Forest (GF). See report `10_GradientForest_GenomicOffsetPredictions.html`.
   
   - Redundancy analysis (RDA). See report `11_RedundancyAnalysis_GenomicOffsetPredictions.html`.
-  
-  
-# Correlations
 
-```{r BuildDataframeGOpredictions}
+```{r}
 # Method names
 meth_names <- c("GDM","LFMM","GF","RDA")
 
 # population names
 pop_names <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrange(pop) %>% pull(pop)
 
+# SNP sets
 snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
-
-# Load GO predictions
-go_df <- lapply(meth_names, function(meth_name) {
-  
-if(meth_name=="LFMM"){
-  
-  go_predictions <- readRDS(file=here(paste0("outputs/LFMM/go_predictions_snpsets.rds")))} else {
-  
-  go_predictions <- readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds")))
-  }
-  
-  go_predictions %>% 
-    lapply(function(snp_set) {
-
-    as_tibble(snp_set$go) %>%
-      mutate(pop=pop_names) %>% 
-      pivot_longer(cols=-c(pop), names_to = "gcm", values_to = "go")
-    }) %>% 
-    bind_rows(.id="snp_set") %>% 
-    mutate(go_scaled = (go - mean(go))/sd(go))
-
-
-}) %>% 
-  setNames(meth_names) %>% 
-  bind_rows(.id="method")
 ```
 
+# Comparing population ranks
 
-```{r Corrplots, fig.height=5,fig.width=14, results="hide"}
-par(mfrow=c(1,3))
+In this section, we compare GO predictions from the different methods (GF, GDM, RDA and LFMM), SNP sets (candidates, control and all SNPs for LFMM) and GCMs. For that, for each combination of method/SNP set/GCM, we ranked the populations based on the GO predictions, i.e. populations with the lowest rank had the highest GO predictions.
+
+### Across methods/SNP sets
+
+We first compared the population ranks from the different combinations method/SNP set. For that, we generated one plot per GCM. We also generated a plot in which the population ranks are not based on an unique GCM but are based on the average GO predictions across all GCMs. 
+In the plots below, we colored the populations that were among the three populations with the highest genomic offset in at least one combination method/SNP set. 
 
 
-lapply(unique(go_df$snp_set), function(x){
-  
-  lapply(unique(go_df$gcm), function(y){
-    
-go_df %>% 
-      dplyr::filter(snp_set == x & gcm == y) %>% 
-      pivot_wider(id_cols=pop, values_from = go, names_from = method) %>% 
-      dplyr::select(-pop) %>% 
-      cor() %>% 
-      corrplot(method = 'number',type = 'lower', diag = FALSE,
-               title=paste0(snp_sets[[x]]$set_name," - ",y),mar=c(0,0,2,0),
-               number.cex=2,tl.cex=1.5)
-  })
-})
-```
+```{r CalcRankPop, message=FALSE}
+# Ranking the populations for each combination method/SNP set/GCM
+# ===============================================================
 
-# Bump charts
-
-## Splitting per method/SNP set
-
-We split the GO predictions by GCM. And for each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), we rank the populations based on their GO predicted value.
-
-```{r CalcRankPop}
 go_df <- lapply(meth_names, function(meth_name) {
   
 if(meth_name=="LFMM"){
@@ -170,12 +129,17 @@ go_predictions
 }) %>% 
   setNames(meth_names) %>% 
   bind_rows(.id="method")
-```
 
 
-Still for each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), we calculate the average of the GO predictions across the five GCMs, and again we rank the populations based on their GO predicted value.
 
-```{r CalcGCMsAverage, message=FALSE}
+# ============================================================================================================
+# ============================================================================================================
+
+# For each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), 
+# we calculate the average of the GO predictions across the five GCMs, 
+# and then we rank the populations based on their GO predicted value.
+
+
 # First option (that we should use I think): take the mean of the GO predictions
 go_df <- go_df %>% 
   group_by(pop,method,snp_set) %>% 
@@ -206,10 +170,13 @@ go_df <- go_df %>%
 #   }) %>%
 #   bind_rows() %>%
 #   bind_rows(go_df)
-```
- 
 
-```{r MethSnpSetLabels}
+
+# =====================================
+# =====================================
+
+# FIGURE TITLE AND LABELS
+
 # We create a vector that we will use for the x-axis labels and the plot title
 
 method_snpset_names <- c("GDM (candidates)",
@@ -232,10 +199,12 @@ names(method_snpset_names) <- go_df %>%
 ```
 
 
+```{r BumpChartsSplittingPerMethSnpSet, results='hide', message=FALSE, fig.width=12, fig.height=7}
+# =================================
+# Code the generate the bump charts
+# =================================
 
-We first generate some plots showing the variability in GO predictions across the different combinations method / SNP set. To aid visualization, we only color the populations that are among the three populations with the highest offset in at least one combination method / SNP set. 
 
-```{r BumpChartsSplittingPerMethSnpSet, results='hide', message=FALSE}
 # the colors I will use to color the populations with high GO
 my_colors <- c(brewer.pal(n=12, "Paired"),"#FF40EE")
 
@@ -280,7 +249,12 @@ p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
         legend.position = "none",
         axis.title.x = element_blank())
 
-ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf")
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf", width=12)
+
+if(unique(x$gcm)=="GCMs_average"){
+  p_manuscript <- p + ggtitle("") 
+  ggsave(p_manuscript, 
+         filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),"_notitle.pdf")), device = "pdf", width=12)} 
 
 p
 
@@ -289,20 +263,19 @@ p
 pdf(here("figs/PredictionVariability/BumpCharts_PerMethSnpSet.pdf"), width=12)
 lapply(bump_charts, function(x) x)
 dev.off()
-```
 
-
-```{r ShowBumpChartsSplittingPerMethSnpSet, fig.width=12, fig.height=7}
 bump_charts
 ```
 
-## Splitting per GCM
 
-Then we split the GO predictions by combination of method/SNP set. And for each GCM (and for the average of GO predictions across the five GCMs), we rank the populations based on their GO predicted value.
+## Across GCMs
 
-We then generate some plots showing the variability in GO predictions across the different GCMs (and for the average of GO predictions across the five GCMs) for each combination method / SNP set. To aid visualization, we only color the populations that are among the three populations with the highest offset in at least one GCM. 
+We then compared the population ranks from the different GCMs (or from the average GO predictions across the five GCMs). For that, we generated one plot per combination method/SNP set. We also generated a plot in which the population ranks are not based on an unique combination method/SNP set but are based on the average GO predictions across all combinations method/SNP set.
 
-```{r BumpChartsSplittingPerGCM, results='hide', message=FALSE}
+In the plots below, we colored the populations that were among the three populations with the highest genomic offset in at least one GCM. 
+
+
+```{r BumpChartsSplittingPerGCM, results='hide', message=FALSE, fig.width=10, fig.height=7}
 go_df_gcm <- go_df %>% 
   filter(! (snp_set == "cand_corrected")) %>% 
   mutate(meth_snpset = paste0(method, "_", snp_set)) %>% 
@@ -355,7 +328,7 @@ p <- df %>% ggplot(aes(x = gcm, y = rank, group = pop)) +
         legend.position = "none",
         axis.title.x = element_blank())
 
-ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$meth_snpset),".pdf")), device = "pdf")
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$meth_snpset),".pdf")), device = "pdf", width=10)
 
 p
   })
@@ -369,9 +342,37 @@ dev.off()
 bump_charts
 ```
 
-```{r ShowBumpChartsSplittingPerGCM, fig.width=10, fig.height=7}
-bump_charts
+# Correlations
+
+```{r CorrelationsPlots, fig.width=7, fig.height=7, results='hide'}
+go_df %>% 
+  filter(! (snp_set == "cand_corrected")) %>% 
+  mutate(meth_snpset = method_snpset_names[paste0(method, "_", snp_set)]) %>% 
+  group_split(gcm) %>% 
+  lapply(function(x){
+    
+    df_cor <- x %>% 
+      pivot_wider(id_cols=pop, values_from = go, names_from = meth_snpset)  %>% 
+      dplyr::select(-pop) %>% 
+      cor()
+    
+    
+    pdf(here(paste0("figs/PredictionVariability/CorrelationPlot_",paste0(unique(x$gcm)),".pdf")))
+    df_cor  %>% corrplot(method = 'number',type = 'lower', diag = FALSE,
+             title="",
+             mar=c(0,0,0,0),
+             number.cex=1,
+             tl.cex=1)
+    dev.off()
+      
+      
+    df_cor %>% corrplot(method = 'number',type = 'lower', diag = FALSE,
+               title=paste0(unique(x$gcm)),mar=c(0,0,2,0),
+               number.cex=1,
+               tl.cex=1)
+  })
 ```
+
 
 # Maps
 

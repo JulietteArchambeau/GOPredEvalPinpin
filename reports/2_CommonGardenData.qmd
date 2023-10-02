@@ -130,6 +130,41 @@ clim %>% saveRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
 clim %>% dplyr::select(cg,any_of(clim_var)) %>% kable_mydf
 ```
 
+
+```{r ClimateCG}
+read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 
+  dplyr::rename(cg=ID,
+                longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                year=Year,
+                SP=MSP) %>% 
+  group_split(cg) %>% 
+  purrr::map(\(x){
+  
+    
+cg <- unique(x$cg)
+ref_period <- years_to_select[[cg]]  
+months_to_rm <-  months_to_rm[[cg]]
+
+clim_df <- x %>%  
+  dplyr::filter(!year %in% c("2041-2070","baseline")) %>% # we remove future climatic data
+  dplyr::mutate(year=as.numeric(year)) %>% # year column as numeric so that we can remove years after a given date
+  { if(length(ref_period)==1) dplyr::filter(.,year %in% ref_period[[1]]) else # we keep the years of the period of interest
+  dplyr::filter(.,ref_period[[1]]<=year& year<=ref_period[[2]]) } %>% 
+  dplyr::select(-year) %>%
+      dplyr::rename(id=all_of("cg")) # rename the column with ID of the spatial points to 'cg'
+
+clim_df[1,lapply(months_to_rm[["first_year"]], function(x) paste0(c("tmn","tmx","prc"),x)) %>% unlist()] <- NA
+clim_df[nrow(clim_df),lapply(months_to_rm[["last_year"]], function(x) paste0(c("tmn","tmx","prc"),x)) %>% unlist()] <- NA
+
+clim_df
+
+  }) %>% 
+  list_rbind() %>% 
+  kable_mydf
+```
+
 # Session information
 
 ```{r SessionInfo}

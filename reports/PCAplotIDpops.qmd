@@ -1,0 +1,149 @@
+---
+title: "Scree plots and PCA plots of the two sets of SNPs"
+subtitle: "With ALT and ARM populations highlighted"
+author: "Juliette Archambeau"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+number-sections: true
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: true
+    page-layout: full
+embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body {
+   font-size: 15px;
+}
+code.r{
+  font-size: 11px;
+}
+pre {
+  font-size: 11px
+}
+
+table {
+  font-size: 10px
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
+options(width = 300)
+library(knitr)      # CRAN v1.26
+library(tidyverse)  # CRAN v1.3.0
+library(here)
+library(vegan)
+library(FactoMineR)
+library(factoextra)
+options(ggrepel.max.overlaps = Inf) # to allow overlapping labels
+library(cowplot)
+```
+
+We load the population-based allele frequencies.
+
+```{r LoadGenomicData}
+# Population-based allele frequencies
+# ===================================
+geno <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"),
+                     row.names = 1)
+```
+
+We run a PCA on the allele frequencies of the **candidate SNPs**, and generate the scree plot and the PCA plot with the populations.
+
+```{r PlotsCandidateSNPs}
+# names of the candidate SNPs
+cand <- readRDS(here("outputs/list_snp_sets.rds"))[["cand"]]$set_snps
+
+# keep the genomic data of the candidate SNPs
+geno_cand <- geno[,cand]
+
+# performing the PCA with the FactoMineR package
+pca <- PCA(geno_cand, scale.unit = TRUE, ncp = 5, graph = F)
+
+# Scree plot
+screeplot_cand <- fviz_eig(pca, 
+                           addlabels = TRUE, 
+                           ylim = c(0, 70),
+                           ggtheme = theme_bw(),
+                           title="Candidate SNPs")
+
+# PCA plot with the populations
+pcaplot_cand <- fviz_pca_ind(pca, 
+                             col.ind = c("deeppink","deeppink",rep("lightskyblue1",32)), # ARM and ALT in pink
+                             repel = TRUE, # Aaoid text overlapping (slow if many points)
+                             ggtheme = theme_bw(),
+                             legend="none",
+                             title="Candidate SNPs",
+                             mean.point = FALSE)
+```
+
+We run a PCA on the allele frequencies of the **control SNPs**, and generate the scree plot and the PCA plot with the populations.
+
+```{r PlotsControlSNPs}
+# names of the control SNPs
+control <- readRDS(here("outputs/list_snp_sets.rds"))[["control"]]$set_snps
+
+# keep the genomic data of the control SNPs
+geno_control  <- geno[,control]
+
+# performing the PCA with the FactoMineR package
+pca <- PCA(geno_control, scale.unit = TRUE, ncp = 5, graph = F)
+
+# Scree plot
+screeplot_control <- fviz_eig(pca, 
+                           addlabels = TRUE, 
+                           ylim = c(0, 70),
+                           ggtheme = theme_bw(),
+                           title="Control SNPs")
+
+
+# PCA plot with the populations
+pcaplot_control <- fviz_pca_ind(pca, 
+                             col.ind = c("deeppink","deeppink",rep("lightskyblue1",32)), # ARM and ALT in pink
+                             repel = TRUE, # Aaoid text overlapping (slow if many points)
+                             ggtheme = theme_bw(),
+                             legend="none",
+                             title="Control SNPs",
+                             mean.point = FALSE)
+```
+
+Merging the graphs and saving for the Supplementary Information.
+
+```{r MergingSavingScreePlots, fig.height=6, fig.width=13}
+screeplots <- plot_grid(screeplot_cand,screeplot_control,nrow=1)
+pcaplots <- plot_grid(pcaplot_cand,pcaplot_control,nrow=2)
+
+
+ggsave(screeplots,
+       device="pdf",
+       filename=here("figs/ExploratoryAnalyses/ScreePlots_SNPsets.pdf"),
+       width=13,
+       height=6)
+
+screeplots
+```
+
+
+```{r MergingSavingPCAPlots, fig.height=7, fig.width=12}
+pcaplots <- plot_grid(pcaplot_cand,pcaplot_control,nrow=1)
+
+ggsave(pcaplots,
+       device="pdf",
+       filename=here("figs/ExploratoryAnalyses/PCAPlots_SNPsets.pdf"),
+       width=12,
+       height=7)
+
+pcaplots
+```
+
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```

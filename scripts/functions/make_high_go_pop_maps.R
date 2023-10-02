@@ -20,7 +20,7 @@ make_high_go_pop_maps <- function(pop_coord,
     pop_coord %>% 
       mutate(GO=list_go[[gcm]]) %>% 
       arrange(GO) %>% 
-      mutate(GO = c(rep(1,nb_id_pop),rep(0,(nrow(pop_coord)-nb_id_pop))))
+      mutate(GO = c(rep(0,(nrow(pop_coord)-nb_id_pop)),rep(1,nb_id_pop)))
     
   }) %>% 
     setNames(names(list_go)) %>% 

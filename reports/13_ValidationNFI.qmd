@@ -49,6 +49,7 @@ library(geodist)
 library(janitor)
 library(latex2exp)
 library(magrittr)
+library(ggrepel)
 library(paletteer)
 
 # my own function for building tables in reports
@@ -360,6 +361,118 @@ list(clim_ref = clim_ref,
 ```
 
 
+# Climatic space covered
+
+We look at how the 34 sampled populations cover the climatic space of the NFI plots.
+
+```{r PlottingClimaticSpace, fig.width=8, fig.height=8}
+# Selected climatic variables
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
+
+# Reference climate of the NFI plots
+clim_nfi <- clim_ref %>% 
+  dplyr::select(plotcode,contains("ude"),elevation, all_of(clim_var)) %>% 
+  dplyr::mutate(subdf="nfi") %>% 
+  dplyr::rename(id=plotcode)
+
+# Gene pools of the populations
+gps <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))[[1]] %>% arrange(pop)
+
+# Reference climate of the populations
+clim_pop <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds"))[[1]]$ref_means %>% 
+  dplyr::select(pop,contains("ude"),elevation, all_of(clim_var)) %>% 
+  left_join(gps,by="pop") %>% 
+  dplyr::rename(id=pop,
+                subdf=main_gp_pop) 
+
+# Combining the dataset of the populations and the NFI plots
+df<- bind_rows(clim_pop,clim_nfi) %>% 
+  mutate(sudf=factor(subdf,levels=c("nfi",unique(clim_pop$subdf))))
+
+
+# Mean annual temperature vs annual precipitation
+# ===============================================
+p <- df %>%
+  ggplot(aes(x=bio1,y=bio12,label=id)) +
+  geom_point(data=df %>% filter(subdf=="nfi"), color="gray85") +
+  geom_point(data=df %>% filter(!subdf=="nfi"), aes(color=subdf),size=4) +
+  scale_color_manual(values=c("darkorchid3",
+                              "gold2",
+                              "navyblue",
+                              "turquoise2",
+                              "orangered3",
+                              "green3")) +
+  xlab("Mean annual temperature (bio1, °C)") +
+  ylab("Annual precipitation (bio12, mm)") +
+  geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.85,0.85),
+        axis.title = element_text(size=13))
+
+p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf"),
+             device="pdf",
+             width = 8,
+             height=8)
+
+p
+
+
+# Precipitation seasonality vs Isothermality	
+# ==========================================
+p <- df %>%
+  ggplot(aes(x=bio15,y=bio3,label=id)) +
+  geom_point(data=df %>% filter(subdf=="nfi"), color="gray85") +
+  geom_point(data=df %>% filter(!subdf=="nfi"), aes(color=subdf),size=4) +
+  scale_color_manual(values=c("darkorchid3",
+                              "gold2",
+                              "navyblue",
+                              "turquoise2",
+                              "orangered3",
+                              "green3")) +
+  xlab("Precipitation seasonality (bio15, coefficient of variation)") +
+  ylab("Isothermality (bio3, index)") +
+  geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.15,0.15),
+        axis.title = element_text(size=13))
+
+p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf"),
+             device="pdf",
+             width = 8,
+             height=8)
+
+p
+
+
+# Temperature seasonality and Summer heat moisture index	
+# ======================================================
+p <- df %>%
+  ggplot(aes(x=bio4,y=SHM,label=id)) +
+  geom_point(data=df %>% filter(subdf=="nfi"), color="gray85") +
+  geom_point(data=df %>% filter(!subdf=="nfi"), aes(color=subdf),size=4) +
+  scale_color_manual(values=c("darkorchid3",
+                              "gold2",
+                              "navyblue",
+                              "turquoise2",
+                              "orangered3",
+                              "green3")) +
+  xlab("Temperature seasonality (bio4, standard deviation ×100)") +
+  ylab("Summer heat moisture index (SHM, °C/mm)") +
+  geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.15,0.85),
+        axis.title = element_text(size=13))
+
+p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio4vsSHM.pdf"),
+             device="pdf",
+             width = 8,
+             height=8)
+
+p
+```
 
 
 # Genomic offset predictions
@@ -453,7 +566,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
 ```
 
 
-### Plot model coefficients
+## Plot model coefficients
 
 Below, we plot the 95% credible intervals of:
 
@@ -462,14 +575,13 @@ Below, we plot the 95% credible intervals of:
   - the **$\beta_C$ coefficients**, which stands for the association between the tree basal area (all species confounded) in the NFI plots and the mortality rates.
 
 
-```{r CoeffPlotsHeightModels, fig.height=6, fig.width=7, eval=T, results="hide"}
+```{r CoeffPlotsHeightModels, fig.height=5, fig.width=5, eval=T, results="hide"}
 colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
-
 
 coefftab <- readRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
   
-coeff_match <- list(beta_GO="Regression coefficients $\\beta_{GO}$",#"$\\beta_{GO}$ estimates",
-                    beta_C="Regression coefficients $\\beta_C$")
+coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{GO}$",c(0.77,0.85)),#"$\\beta_{GO}$ estimates",
+                    beta_C=list("Regression coefficients $\\beta_C$",c(0.77,0.16)))
 
 p <- lapply(c("beta_GO","beta_C"), function(coeff){
   
@@ -489,8 +601,8 @@ p <- coefftab %>%
                shape=method_input)) +
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
-  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
-  ylim(c(-0.1,0.2)) +
+  ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
+  ylim(c(-0.15,0.23)) +
   scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
@@ -500,9 +612,10 @@ p <- coefftab %>%
         axis.title.y = element_text(size=16),
         axis.title.x = element_text(size=1),
         legend.title=element_text(size=13), 
+        legend.box.background = element_rect(colour = "gray", linewidth=0.6),
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
-        legend.position = "right",
+        legend.position = coeff_match[[coeff]][[2]],
         legend.text=element_text(size=12),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
@@ -513,7 +626,7 @@ p <- coefftab %>%
 ggsave(p,file=here(paste0("figs/ValidationNFI/",coeff,"_IntervalPlots.pdf")),
        device="pdf",
        height=5,
-       width=7)
+       width=5)
 
 return(p)
 

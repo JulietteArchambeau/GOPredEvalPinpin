@@ -573,8 +573,6 @@ On the graph below, the relative distances are on the y-axis and are calculated 
   - either the adjusted or not adjusted data for elevation.
 
 ```{r MakeViolinPlots, fig.height=12,fig.width=14, results="hide"}
-# Violin plots
-
 violin_plots <- lapply(unique(fut_rast$adj), function(y){
   
 lapply(unique(fut_rast$ref_period), function(z){
@@ -596,12 +594,7 @@ fut_rast %>%
   geom_hline(yintercept=0, color=bg_color) +
   geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
   geom_jitter(shape=16,aes(colour=main_gp_pop),position=position_jitter(0.2),size=1.7) +
-  scale_colour_manual(values = c("orangered3",
-                                                             "gold2",
-                                                             "darkorchid3",
-                                                              "navyblue",
-                                                             "turquoise2",
-                                                             "green3")) +
+  scale_colour_manual(values = c("orangered3","gold2","darkorchid3","navyblue","turquoise2","green3")) +
   xlab("") + 
   ylab("Relative climatic distance") +
   labs(colour="Main gene pool") +
@@ -614,8 +607,6 @@ fut_rast %>%
         axis.title = element_text(size=16, color=bg_color)) + 
   guides(colour = guide_legend(override.aes = list(size=4))) 
 })
-
-
 
 
 # legend 
@@ -654,6 +645,55 @@ plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 })
 
 violin_plots
+```
+
+
+We also create a figure for the Supplementary Information in which we highlight in pink the populations ALT and ARM, i.e. the two populations considered the most at risk of maladaptation with GDM and GF based on the candidate SNPs (the two methods for which GO predictions were the best predictors of mortality rates in the NFI populations and the common gardens).
+
+```{r MakeViolinPlotsForIdentifiedPops, fig.height=12,fig.width=14, results="hide"}
+y="noADJ" # point estimates not adjusted for elevation
+z="1901-1950" # we use the reference period 1901-1950 
+
+violin_plots <- lapply(gcm_names, function(x) {
+
+df <- fut_rast %>% 
+  dplyr::filter(gcm %in% x) %>% 
+  dplyr::filter(ref_period %in% z) %>% 
+  dplyr::filter(adj %in% y) %>% 
+  mutate(rel_diff=(mean_fut-mean_ref)/mean_ref) %>% 
+  mutate(pop_to_color=ifelse(pop %in% c("ALT","ARM"), pop, "Other populations"))
+
+  ggplot(df,aes(x=variable, y=rel_diff)) + 
+  geom_hline(yintercept=0, color=bg_color) +
+  geom_violin(alpha=0.2, fill="gray76", color=bg_color) + 
+  geom_jitter(data=df %>% dplyr::filter(pop_to_color %in% "Other populations"),shape=16,colour="lightskyblue1",position=position_jitter(0.2),size=1.7) +
+  geom_jitter(data=df %>% dplyr::filter(pop_to_color %in% c("ALT","ARM")),shape=16,colour="deeppink",position=position_jitter(0.2),size=2) +
+  xlab("") + 
+  ylab("Relative climatic distance") +
+  labs(colour="Main gene pool") +
+  theme_bw() +
+  ggtitle(x) +
+  theme(legend.position="none",
+        legend.title = element_text(size=14, color=bg_color),
+        legend.text = element_text(size = 14, color=bg_color),
+        axis.text = element_text(size = 14, color=bg_color),
+        axis.title = element_text(size=16, color=bg_color)) + 
+  guides(colour = guide_legend(override.aes = list(size=4))) 
+})
+
+
+# merge plots
+p <- plot_grid(plotlist=violin_plots)
+
+# We save the plot for the Supplementary Information:
+
+ ggsave(p,
+        device="pdf",
+        filename=here("figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables_2PopsHighlighted.pdf"),
+        width=12,
+        height=10)
+    
+p
 ```
 
 **Interpretation:** For all populations, `AHM`, `SHM`, `bio1` and `bio9` and `Eref` are predicted to increase under future climates. Some exceptions for `AHM` for some populations from the Iberian and French Atlantic regions for the MRI-ESM2-0 GCM. Different predictions across GCMs for the OLB populations. <span style="color: orange;">**The different predictions across GCMs show the importance of calculating the genomic offset under the different GCMs.**</span>
@@ -735,3 +775,9 @@ p <- plot_grid(plotlist=violin_plots,nrow=2)
 plot_grid(title, p, ncol = 1,rel_heights = c(0.1, 1))
 ```
 
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
