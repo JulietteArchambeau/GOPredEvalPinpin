@@ -221,6 +221,12 @@ pop_heights <- mod_arch2022$fit %>%
 pop_heights[1:5,] %>% kable_mydf
 ```
 
+We export the height intercepts from @archambeau2022combining to the DRYAD repository.
+
+```{r HeightInterceptsInDryadRepo}
+pop_heights %>% write_csv(here("data/DryadRepo/HeightIntercepts_Archambeauetal2023.csv"))
+```
+
 ### Survival data 
 
 The response variable is counts of dead trees. To calculate these counts, we load the survival data in the common gardens, in which `0` corresponds to dead trees and `1` to survivors.
@@ -247,7 +253,7 @@ print(stancode)
 
 We run the models for each common garden and each genomic offset predictions/climatic transfer distances, so a total of 5 * 15 = 75 models runs.
 
-```{r RunMortalityModels, eval=T}
+```{r RunMortalityModels, eval=F}
 coefftab <- lapply(unique(survival_data$site),function(site_i){
   
   
@@ -502,7 +508,7 @@ height_data <- pheno_data %>%
 height_data[1:5,] %>% kable_mydf
 ```
 
-```{r RunHeightyModels, eval=T}
+```{r RunHeightModels, eval=F}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
@@ -795,7 +801,7 @@ print(stancode)
 ```
 
 
-```{r RunHeightyModelsConfounder, eval=T}
+```{r RunHeightyModelsConfounder, eval=F}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
@@ -857,6 +863,18 @@ generate_interval_plots(confounder="withconfounder")
 ```{r PolyPlotsWithConfounder, fig.width=12, fig.height=7}
 generate_poly_plots(confounder="withconfounder")
 ```
+
+# DRYAD repository
+
+We export mortality and height data in the DRYAD repository.
+
+```{r PhenoDataInDryadRepo}
+pheno_data %>% 
+  dplyr::rename(cg = site) %>% 
+  dplyr::select(cg,block,pop,clon,tree,any_of(height_measurements),any_of(surv_measurements)) %>% 
+  write_csv(here("data/DryadRepo/CommonGardenData_cleaned.csv"))
+```
+
 
 # Session information
 

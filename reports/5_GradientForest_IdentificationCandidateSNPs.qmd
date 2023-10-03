@@ -306,7 +306,7 @@ We load the *uncorrected* and *corrected* allele frequency matrices in a list.
 # we load the two genomic matrices
 list_geno <- list(mat_raw = read.csv(here::here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"), 
                                      row.names = 1), 
-                  mat_X = read.csv(here::here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"), 
+                  mat_X = read.csv(here::here("data/GenomicData/CorrectedAlleleFrequencies_withoutmaf.csv"), 
                                      row.names = 1))
 ```
 

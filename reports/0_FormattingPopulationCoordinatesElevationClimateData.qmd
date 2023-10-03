@@ -218,7 +218,7 @@ pop_coord %>%
 ```
 
 
-# Extracting climatic data
+# Climatic data
 
 ## Preparing a file for the extraction
 
@@ -288,7 +288,6 @@ clim <- read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/
                 SP=MSP) %>% # replace mean summer precipitation by summer precipitation
   dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
   dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
-
 
 # we create a list with each element corresponding to a reference period
 lapply(list_ref_periods, function(ref_period){
@@ -378,7 +377,7 @@ clim_df %>% saveRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLo
 # Another option: one dataframe with the four columns: 
   # variable = climatic variable#
   # pop = population
-  # gcm = Global Clinatic Model (GCM)
+  # gcm = Global Climatic Model (GCM)
   # mean_fut = value of the climatic variable
 # clim_df <- lapply(clim_var, function(x){
 #   
@@ -392,6 +391,35 @@ clim_df %>% saveRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLo
 #   bind_rows(.id = "variable") %>% 
 #   pivot_longer(names_to = "gcm",values_to="mean_fut",cols=all_of(gcm_names)) 
 
+```
+
+## Datasets in the DRYAD repository
+
+
+We include in the DRYAD repository the annual climatic data extracted at the location of the 34 CLONAPIN populations between 1901 and 2021 (point estimates): file `ClimateDT_Populations_PastClimates.csv`.
+
+
+```{r DryadRepoPastClimates}
+  read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_noADJ.csv")), show_col_types = FALSE) %>% 
+  dplyr::rename(longitude=Longitude,
+                latitude=Latitude,
+                elevation=Elevation,
+                year=Year,
+                pop=ID,
+                SP=MSP) %>% # replace mean summer precipitation by summer precipitation
+  dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>% # the VAL-VMQ population is referred as VAL in the present study
+  dplyr::filter(year %in% 1901:2021) %>% 
+  write_csv(here("data/DryadRepo/ClimateDT_Populations_PastClimates.csv"))
+```
+
+And we include in the DRYAD repository the predicted climatic data extracted from the rasters, which corresponds to averaged climatic values over the period 2041-2070 under the scenario  SSP3.7-0: file `ClimateDT_Populations_FutureClimates.csv`. 
+
+```{r DryadRepoFutureClimates}
+clim_df <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationValuesExtractedFromRasters_FiveGCMs_2041-2070_SSP370.rds")) %>% 
+  bind_rows() %>%
+  dplyr::select(pop,gcm,everything()) %>% 
+  write_csv(here("data/DryadRepo/ClimateDT_Populations_FutureClimates.csv"))
 ```
 
 # Main gene pool of each population

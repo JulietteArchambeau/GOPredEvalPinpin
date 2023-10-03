@@ -54,3 +54,202 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 -   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building and evaluating the accuracy of the Bayesian models used to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
 
 -   [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html) Evaluating the genomic offset predictions with mortality and height data from five clonal common gardens (CLONAPIN network).
+
+
+***
+
+## Description of the DRYAD repository
+
+Datasets associated with the paper were deposited in the following DRYAD repository:
+
+
+### Genomic data
+
+#### Population genetic structure
+
+**Dataset `PopulationStructureCorrea2015.csv`**
+
+Proportion of assignement to the six gene pools identified in [Jaramillo-Correa et al. (2015)](https://academic.oup.com/genetics/article/199/3/793/5935834?login=false). This dataset contains 523 genotypes but only 454 genotypes were used in the present study because the other genotypes had no genomic data or too much missing data.
+
+
+Meaning of the columns:
+
+  1. `clon`: clone (i.e. genotype)
+  2. `pop`: population (i.e. provenance)
+  3. `Q1`: proportion of assignment to the northern African (NA) gene pool for each clone.
+  4. `Q2`: proportion of assignment to the Corsican (C) gene pool for each clone.
+  5. `Q3`: proportion of assignment to the central Spain (CS) gene pool for each clone.
+  6. `Q4`: proportion of assignment to the French Atlantic (FA) gene pool for each clone.
+  7. `Q5`: proportion of assignment to the Iberian Atlantic (IA) gene pool for each clone.
+  8. `Q6`: proportion of assignment to the south-eastern Spain (SES) gene pool for each clone.
+  9. `max.Q`: ID of the main gene pool of each clone.
+  10. `main_gp`: full name of the main gene pool of each clone.
+  11. `color_main_gp`: color attributed to the main gene pool of each clone in the figures.
+
+
+\
+
+#### Raw genomic data
+
+**Dataset `RawGenomicData.csv`**
+
+Genomic data before data filtering and formatting. NAs are indicated with `---`.
+
+Meaning of the columns:
+
+  1. `clone`: clone ID.
+  2. `assay`: assay in which the clone was genotyped, either the Infinium assay (`only_Inf`), the Axiom assay (`only_Affx`) or both assays (`both_Inf_Affx`).
+  3. `snp_1` to `snp_14016`:  genotype for each of the 14,016 SNPs.
+
+
+\
+
+
+#### Filtered and formatted genomic data
+
+For data filtering and formatting, see report [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html).
+
+**Dataset `FormattedFilteredGenomicData_AlleleCounts_withmaf.csv`**
+
+Genomic information of each genotype (coded as 0, 1 or 2) including minor allele frequencies (MAF), i.e. MAF < 1%. SNPs in rows and genotypes in columns.
+
+
+**Dataset `FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv`**
+
+Genomic information of each genotype (coded as 0, 1 or 2) without MAF. SNPs in rows and genotypes in columns.
+
+
+**Dataset `FormattedFilteredGenomicData_AlleleFrequencies_withoutmaf.csv`**
+
+Allele frequencies of the populations without MAF. SNPs in columns and populations in rows.
+
+\
+
+#### Imputed genomic data
+
+For genomic data imputation, see section 6 of the report [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html).
+
+**Dataset `ImputedGenomicData_AlleleCounts_withmaf.csv`**
+
+Imputed genomic data of each genotype (coded as 0, 1 or 2) including MAF. SNPs in rows and genotypes in columns.
+
+**Dataset `ImputedGenomicData_AlleleCounts_withmaf.csv`**
+
+Imputed genomic data of each genotype (coded as 0, 1 or 2) without MAF. SNPs in rows and genotypes in columns.
+
+**Dataset `ImputedGenomicData_AlleleFrequencies_withmaf.csv`**
+
+Imputed allele frequencies of the populations with MAF. SNPs in columns and populations in rows.
+
+**Dataset `ImputedGenomicData_AlleleFrequencies_withoutmaf.csv`**
+
+Imputed allele frequencies of the populations without MAF. SNPs in columns and populations in rows.
+
+\
+
+#### Genomic position and other SNP IDs
+
+
+**Dataset `ListSNPs_withmaf.csv`**
+
+Supplementary information about all the SNPs used in the present paper (including SNPs with MAF < 1%). SNPs are in rows. Meaning of the columns:
+
+  1. `snp_ID`: SNP ID used in the present study.
+  2. `original_ID`: Original ID of the SNP.
+  3. `affx_ID`: SNP ID in the Axiom assay.
+  4. `infinium_ID`: SNP ID in the Infinium assay.
+  5. `scaffold`: scaffold (i.e. contig) on which the SNP is located.
+  6. `genome_position`: position of the SNP on the scaffold (in bp).
+  7. `annotation`: SNP name (including possible alternative names).
+
+**Dataset `ListSNPs_withoutmaf.csv`**
+
+Supplementary information about the SNPs with MAF > 1%. SNPs are in rows. See above for the meaning of the columns.
+
+\
+
+### Climatic data
+
+Climatic data was extracted with the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). For the full name and metadata of the climatic variables, see https://www.ibbr.cnr.it/climate-dt/?action=fldlist.
+
+
+**Dataset `ClimateDT_CommonGardens.csv`**
+
+Climatic data (from 2010 to 2018) at the location of the five common gardens: Asturias (Spain), Bordeaux (France), Cáceres (Spain), Madrid (Spain) and Fundão (Portugal). See report [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_CommonGardenData.html).
+
+
+**Dataset `ClimateDT_Populations_PastClimates.csv`**
+
+Climatic data (from 1901 to 2021) at the location of the 34 populations. See report [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html).
+
+
+**Dataset `ClimateDT_Populations_FutureClimates.csv`**
+
+Predictions of future climatic data  at the location of the 34 populations for the period 2041-2070, under the scenario SSP3.7-0 and for five Global Climate Models (GCMs): GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL (column `gcm`). See report [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html).
+
+
+**Dataset `ClimateDT_NFIPlots_PastClimates.csv`**
+
+Averaged climatic data  at the location of the NFI plots for the reference period 1901-1950. See report [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html).
+
+
+**Dataset `ClimateDT_NFIPlots_SurveyClimates.csv`**
+
+Averaged climatic data  at the location of the NFI plots for the survey periods specific to each plot. See report [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html).
+
+\
+
+### National Forest Inventory (NFI) data
+
+**Dataset `NFIdata_cleaned.csv`**
+
+This dataset contains mortality data from the natural populations of the Spanish and French NFI plots in which maritime pines were recored. See report [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html). Meaning of the columns:
+
+  1. `plotcode`: code of the NFI plot.
+  2. `longitude`: longitude of the NFI plot.
+  3. `latitude`: latitude of the NFI plot.
+  4. `country`: country of the NFI plot (ES = Spain, FR = France).
+  5. `nb_years`: number of years between surveys. It corresponds to the number of years between the first and second inventory in Spain and is equal to 5 in the French inventory as mortality was estimated in the five years before the survey date.
+  6. `first_survey`: year of the first survey in the Spanish NFI (`NA` for the French NFI)
+  7. `second_survey`: year of the second survey in the Spanish NFI and the unique survey in the French NFI
+  8. `nb_dead`: number of dead maritime pines in the NFI plot.
+  9. `nb_tot`: total number of maritime pines in the NFI plot (including the dead ones).
+  10. `basal_area`: basal area of all tree species in the NFI plot (proxy of the competition among trees).
+  11. `prop_dead`: proportion of dead maritime pines in the NFI plot.
+  12. `annual_prop_dead`: annual proportion of maritime pine mortality in the NFI plot.
+
+\
+
+### Common garden data
+
+See report [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html)
+
+**Dataset `CommonGardendata_cleaned.csv`**
+
+This dataset contains mortality and height data from five clonal common gardens. Meaning of the columns:
+
+  1. `cg`: name of the common garden.
+  2. `block`: block in which the tree was planted.
+  3. `pop`: population of the tree.
+  4. `clon`: genotype of the tree.
+  5. `tree`: tree ID.
+  6. `AST_htmar14`: height measurements in March 2014 in Asturias (Spain) when the trees were 37 month-old (trees planted in February 2011).
+  7. `BDX_htnov2018`: height measurements in November 2018 in Bordeaux (France) when the trees were 85 month-old (trees planted in October 2011).
+  8. `CAC_htdec11`: height measurements in December 2011 in Cáceres (Spain) when the trees were 8 month-old (trees planted in April 2011).
+  9. `MAD_htdec11`: height measurements in December 2011 in Madrid (Spain) when the trees were 13 month-old (trees planted in November 2010).
+  10. `POR_htmay13`: height measurements in May 2013 in Fundão (Portugal) when the trees were 27 month-old (trees planted in February 2011).
+  11. `AST_survmar14`: survival data (`0` for dead trees and `1` for survivors) in March 2014 in Asturias.
+  12. `BDX_surv18`: survival data in November 2018 in Bordeaux. 
+  13. `CAC_survdec11`: survival data in December 2011 in Cáceres.
+  14. `MAD_survdec11`: survival data in December 2011 in Madrid.
+  15. `POR_survmay13`: survival data in May 2013 in Fundão.
+  
+
+**Dataset `CommonGardendata_cleaned.csv`**
+
+This dataset contains the population height intercepts calculated across the five common gardens in the model 1 of [Archambeau et al. (2022)](https://www.journals.uchicago.edu/doi/10.1086/720619). Meaning of the columns:
+
+  1. `pop`: population ID.
+  2. `height`: mean of the posterior distributions of the population varying intercepts.
+  3. `std.error`: standard error of the mean of the posterior distributions of the population varying intercepts.
+  4. and 5. `conf.low` and `conf.high`: credible intervals of the posterior distributions of the population varying intercepts.

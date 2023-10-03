@@ -1206,11 +1206,11 @@ geno_corrected <- as.matrix(clim_ref) %*% t(mod_withmaf@B) %>%
   rownames_to_column(var="clon")
 
 # save the matrix for future analyses with and without MAF
-geno_corrected %>% write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withmaf.csv"))
+geno_corrected %>% write_csv(here("data/GenomicData/CorrectedAlleleFrequencies_withmaf.csv"))
 
 geno_corrected %>% 
   dplyr::select(clon,all_of(colnames(geno))) %>% 
-  write_csv(here("data/DryadRepo/CorrectedAlleleFrequencies_withoutmaf.csv"))
+  write_csv(here("data/GenomicData/CorrectedAlleleFrequencies_withoutmaf.csv"))
 
 geno_corrected[1:10,1:10] %>%
   kable_mydf(boldfirstcolumn = 1)

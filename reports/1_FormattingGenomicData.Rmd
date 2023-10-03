@@ -333,11 +333,11 @@ snpcor <- matcor %>%
 
 rm(matcor)
 
-snp_match_1 <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
+snp_match_1 <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
   set_colnames(paste0(colnames(.),"_SNP1")) %>% 
   rename(SNP1 = snp_ID_SNP1)
 
-snp_match_2 <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
+snp_match_2 <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
   set_colnames(paste0(colnames(.),"_SNP2")) %>% 
   rename(SNP2 = snp_ID_SNP2)
   
@@ -746,9 +746,9 @@ df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_without
 We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric assay and in both. 
 
 ```{r NumberSNPgenotypedAssays}
-codes <- read.csv("data/DryadRepo/SnpCodesMatching.csv")
+codes <- read.csv("data/GenomicData/SnpCodesMatching.csv")
 
-temp_df <- read.csv("data/DryadRepo/SnpCodesMatching.csv") %>% 
+temp_df <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
   merge(df %>% rownames_to_column(var="snp_ID"),by="snp_ID")
 
 nb <- sapply(temp_df[,1:4], function(x) sum(!(is.na(x))))
