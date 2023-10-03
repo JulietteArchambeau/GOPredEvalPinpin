@@ -245,7 +245,7 @@ This dataset contains mortality and height data from five clonal common gardens.
   15. `POR_survmay13`: survival data in May 2013 in Fundão.
   
 
-**Dataset `CommonGardendata_cleaned.csv`**
+**Dataset `HeightIntercepts_Archambeauetal2023.csv`**
 
 This dataset contains the population height intercepts calculated across the five common gardens in the model 1 of [Archambeau et al. (2022)](https://www.journals.uchicago.edu/doi/10.1086/720619). Meaning of the columns:
 
