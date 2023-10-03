@@ -87,7 +87,7 @@ Meaning of the columns:
   11. `color_main_gp`: color attributed to the main gene pool of each clone in the figures.
 
 
-\
+&nbsp;
 
 #### Raw genomic data
 
@@ -102,7 +102,7 @@ Meaning of the columns:
   3. `snp_1` to `snp_14016`:  genotype for each of the 14,016 SNPs.
 
 
-\
+&nbsp;
 
 
 #### Filtered and formatted genomic data
@@ -123,7 +123,7 @@ Genomic information of each genotype (coded as 0, 1 or 2) without MAF. SNPs in r
 
 Allele frequencies of the populations without MAF. SNPs in columns and populations in rows.
 
-\
+&nbsp;
 
 #### Imputed genomic data
 
@@ -145,7 +145,7 @@ Imputed allele frequencies of the populations with MAF. SNPs in columns and popu
 
 Imputed allele frequencies of the populations without MAF. SNPs in columns and populations in rows.
 
-\
+&nbsp;
 
 #### Genomic position and other SNP IDs
 
@@ -166,7 +166,7 @@ Supplementary information about all the SNPs used in the present paper (includin
 
 Supplementary information about the SNPs with MAF > 1%. SNPs are in rows. See above for the meaning of the columns.
 
-\
+&nbsp;
 
 ### Climatic data
 
@@ -197,7 +197,7 @@ Averaged climatic data  at the location of the NFI plots for the reference perio
 
 Averaged climatic data  at the location of the NFI plots for the survey periods specific to each plot. See report [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html).
 
-\
+&nbsp;
 
 ### National Forest Inventory (NFI) data
 
@@ -218,7 +218,7 @@ This dataset contains mortality data from the natural populations of the Spanish
   11. `prop_dead`: proportion of dead maritime pines in the NFI plot.
   12. `annual_prop_dead`: annual proportion of maritime pine mortality in the NFI plot.
 
-\
+&nbsp;
 
 ### Common garden data
 
