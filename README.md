@@ -7,13 +7,13 @@
 
 The code (`.qmd` and `Rmd` files) used to generate the following reports can be found in the folder `/reports`.
 
--   [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html) Checking population information (coordinates and elevation data) from different sources - Extracting climatic data with ClimateDT - Calculating the average of the climatic variables across time periods of interest.
+-   [0_FormattingPopulationCoordinatesElevationClimateData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/0_FormattingPopulationCoordinatesElevationClimateData.html) Checking population information (coordinates and elevation data) from different sources - Extracting climatic data with the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) - Calculating the average of the climatic variables across time periods of interest.
 
--   [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data and imputation of missing data.
+-   [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html) Formatting and filtering of the genomic data, checking SNPs position on the genome, imputation of missing data.
 
--   [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_CommonGardenData.html). Extracting climatic data from ClimateDT and calculating the mean climate in each common garden between the planting date and the measurement date.
+-   [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_CommonGardenData.html). Extracting climatic data from [ClimateDT](https://www.ibbr.cnr.it/climate-dt/) at the location of the common gardens and calculating the mean climate in each common garden between the planting date and the measurement date.
 
--   [3_CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_CheckingPastFutureClimatesPopulationLocations.html) Checking past and future climatic values at the population locations.
+-   [3_CheckingPastFutureClimatesPopulationLocations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/3_CheckingPastFutureClimatesPopulationLocations.html) Checking differences in past and future climatic values at the locations of the populations.
 
 -   [4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/4_ReduncancyAnalysis_VariancePartionning_IdentificationCandidateSNPs.html) Selection of the climatic variables, variance partitioning and identification of the candidate SNPs using Redundancy analysis (RDA) (approach developed in [Capblancq et al. 2018](https://onlinelibrary.wiley.com/doi/10.1111/1755-0998.12906) and [Capblancq and Forester 2021](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13722)).
     
@@ -47,14 +47,17 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
     
 -   [11_RedundancyAnalysis_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/11_RedundancyAnalysis_GenomicOffsetPredictions.html) Predicting the genomic offset with Redundancy Analysis (RDA).
 
--   [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) Comparing the genomic offset predictions across the different methods.
+-   [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) Comparing the genomic offset predictions across the different methods, SNPs sets and Global Climate Models (GCMs).
 
--   [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html) Evaluating the genomic offset predictions with mortality rates in natural populations from the National Forest Inventory plots of France and Spain. The genomic offset predictions evaluated come from the four different methods (GF, GDM, RDA and LFMM) and are based on either the candidate or the control SNPs (and also all SNPs for LFMM).
+-   [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html) Evaluating the genomic offset predictions with mortality rates in natural populations from the National Forest Inventory plots of France and Spain. Genomic offset predictions come from the four different methods (GF, GDM, RDA and LFMM) and are based on either the candidate or the control SNPs (and also all SNPs for LFMM).
 
 -   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building and evaluating the accuracy of the Bayesian models used to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
 
 -   [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html) Evaluating the genomic offset predictions with mortality and height data from five clonal common gardens (CLONAPIN network).
 
+-   [16_PCAplotIDpops.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/16_PCAplotIDpops.html) Generating figures for the Supplementary Information based on the PCA of the control and candidate SNPs: screeplots and PCA plots with the ALT and ARM populations highlighted.
+
+-   [RPackageCitations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/RPackageCitations.html) Citations of the R packages used in the present study.
 
 ***
 
@@ -158,13 +161,13 @@ Supplementary information about all the SNPs used in the present paper (includin
   2. `original_ID`: Original ID of the SNP.
   3. `affx_ID`: SNP ID in the Axiom assay.
   4. `infinium_ID`: SNP ID in the Infinium assay.
-  5. `scaffold`: scaffold (i.e. contig) on which the SNP is located.
-  6. `genome_position`: position of the SNP on the scaffold (in bp).
+  5. `scaffold/contig`: contig on which the SNP is located. The term scaffold is also used as some SNPs were obtained from the alignment of NGS short-reads from a pseudoreference genome in *Pinus pinaster* that were called scaffolds (even though there are not really scaffolds).
+  6. `genome_position`: position of the SNP on the scaffold/contig (in bp).
   7. `annotation`: SNP name (including possible alternative names).
 
 **Dataset `ListSNPs_withoutmaf.csv`**
 
-Supplementary information about the SNPs with MAF > 1%. SNPs are in rows. See above for the meaning of the columns.
+Supplementary information about the SNPs with MAF > 1%. SNPs are in rows. See dataset `ListSNPs_withmaf.csv` for the meaning of the columns.
 
 &nbsp;
 

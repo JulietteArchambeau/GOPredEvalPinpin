@@ -44,6 +44,8 @@ options(ggrepel.max.overlaps = Inf) # to allow overlapping labels
 library(cowplot)
 ```
 
+In this report, we generate some figures for the Supplementary Information. For each set of SNPs, we run a PCA and generate the screeplot and the PCA plot with the ALT and ARM populations highlighted in pink.
+
 We load the population-based allele frequencies.
 
 ```{r LoadGenomicData}

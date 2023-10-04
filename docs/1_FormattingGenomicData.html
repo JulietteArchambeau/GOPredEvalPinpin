@@ -584,7 +584,7 @@ display: none;
 
 <h1 class="title toc-ignore">Formatting, exploring and imputing genomic data</h1>
 <h4 class="author">Juliette Archambeau</h4>
-<h4 class="date">22 March, 2023</h4>
+<h4 class="date">04 October, 2023</h4>
 
 </div>
 
@@ -1876,11 +1876,11 @@ snpcor &lt;- matcor %&gt;%
 
 rm(matcor)
 
-snp_match_1 &lt;- read.csv(&quot;data/DryadRepo/SnpCodesMatching.csv&quot;) %&gt;% 
+snp_match_1 &lt;- read.csv(&quot;data/GenomicData/SnpCodesMatching.csv&quot;) %&gt;% 
   set_colnames(paste0(colnames(.),&quot;_SNP1&quot;)) %&gt;% 
   rename(SNP1 = snp_ID_SNP1)
 
-snp_match_2 &lt;- read.csv(&quot;data/DryadRepo/SnpCodesMatching.csv&quot;) %&gt;% 
+snp_match_2 &lt;- read.csv(&quot;data/GenomicData/SnpCodesMatching.csv&quot;) %&gt;% 
   set_colnames(paste0(colnames(.),&quot;_SNP2&quot;)) %&gt;% 
   rename(SNP2 = snp_ID_SNP2)
   
@@ -2707,6 +2707,7 @@ COC
 </div>
 <div id="list-of-snps" class="section level2" number="3.3">
 <h2><span class="header-section-number">3.3</span> List of SNPs</h2>
+<p>For the DRYAD repository, we save</p>
 <pre class="r"><code>for(i in 1:length(list_geno)){
   specMAF &lt;- names(list_geno[i])[1] %&gt;% str_sub(6, -1)
   
@@ -2714,6 +2715,7 @@ list_geno[[i]]$df %&gt;%
   rownames_to_column(var=&quot;snp_ID&quot;) %&gt;%
   dplyr::select(snp_ID) %&gt;% 
   inner_join(snppos, by=&quot;snp_ID&quot;) %&gt;% 
+  dplyr::rename(&quot;scaffold/contig&quot;=&quot;scaffold&quot;) %&gt;% 
   write_csv(paste0(&quot;data/DryadRepo/ListSNPs_&quot;,specMAF,&quot;.csv&quot;),append=FALSE)
 }</code></pre>
 </div>
@@ -3682,9 +3684,9 @@ rm(LDmat) # to free memory space</code></pre>
 <div id="how-many-snps-genotyped-in-each-assay" class="section level2" number="5.1">
 <h2><span class="header-section-number">5.1</span> How many SNPs genotyped in each assay?</h2>
 <p>We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric assay and in both.</p>
-<pre class="r"><code>codes &lt;- read.csv(&quot;data/DryadRepo/SnpCodesMatching.csv&quot;)
+<pre class="r"><code>codes &lt;- read.csv(&quot;data/GenomicData/SnpCodesMatching.csv&quot;)
 
-temp_df &lt;- read.csv(&quot;data/DryadRepo/SnpCodesMatching.csv&quot;) %&gt;% 
+temp_df &lt;- read.csv(&quot;data/GenomicData/SnpCodesMatching.csv&quot;) %&gt;% 
   merge(df %&gt;% rownames_to_column(var=&quot;snp_ID&quot;),by=&quot;snp_ID&quot;)
 
 nb &lt;- sapply(temp_df[,1:4], function(x) sum(!(is.na(x))))</code></pre>
