@@ -173,7 +173,7 @@ Supplementary information about the SNPs with MAF > 1%. SNPs are in rows. See da
 
 ### Climatic data
 
-Climatic data was extracted with the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). For the full name and metadata of the climatic variables, see https://www.ibbr.cnr.it/climate-dt/?action=fldlist.
+Climatic data was extracted with the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). For the full name and metadata of the climatic variables, see https://www.ibbr.cnr.it/climate-dt/?action=fldlist. Note that the variable called mean summer precipitation (`MSP`) in ClimateDT was renamed summer precipitation (`SP`) in the present study. 
 
 
 **Dataset `ClimateDT_CommonGardens.csv`**

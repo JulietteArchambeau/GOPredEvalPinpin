@@ -52,6 +52,10 @@ library(magrittr)
 library(ggrepel)
 library(paletteer)
 
+# Mapping
+library(rnaturalearth)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
 source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
@@ -374,6 +378,8 @@ clim_ref %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_PastClimates.csv"
 clim_survey %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_SurveyClimates.csv"))
 ```
 
+
+
 # Climatic space covered
 
 We look at how the 34 sampled populations cover the climatic space of the NFI plots.
@@ -521,7 +527,9 @@ return(list_snps)
 ```
 
 
-# The model
+# Relationship btw GO predictions and mortality rates
+
+## The Stan model
 
 Stan code of the model:
 
@@ -579,7 +587,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationNFI/coefftab.rds"))
 ```
 
 
-## Plot model coefficients
+## The coefficients
 
 Below, we plot the 95% credible intervals of:
 
@@ -656,6 +664,126 @@ As expected, the basal area is positively associated with mortality rates.
 
 We can also note the very high association between mortality rates and the genomic offset predictions based on candidate SNPs and from the GF and GDM methods.
 
+# GO predictions in Galicia
+
+GO predictions in Galicia (especially those obtained with GF) show a strong boundary between two zones (see Figure 4b of the manuscript). How can we explain this pattern? 
+
+```{r MapSurveyDate, fig.width=8,fig.height=8, results="hide"}
+nfi_data %>% 
+  mutate(year_second_survey = ifelse(second_survey > 1999, "After 2000",second_survey)) %>% 
+           ggplot() + 
+    geom_sf(data = world, fill="gray98") + 
+    theme_bw() +
+    scale_x_continuous(limits = c(-10, 12)) +
+    scale_y_continuous(limits = c(35, 51)) + 
+    geom_point( aes(x=longitude,
+                    y=latitude,
+                    color=factor(year_second_survey)),
+               alpha=0.4, size=0.5) + 
+    xlab("") + ylab("") +
+    ggtitle("") +
+    scale_color_manual(name = "Year of the second survey", 
+                       values =  c("yellow2","darkorchid","#60F2E7","#C1E5AC")) +
+    theme(legend.box.background = element_rect(colour = "gray80", linewidth=0.6)) +
+   guides(colour = guide_legend(override.aes = list(size=2)))
+```
+
+In Galicia, GO predictions from the GF approach (see Figure 4b of the manuscript) are higher for plots surveyed for the second time in 1998 than plots surveyed for the second time in 1997.
+
+We explore the climatic differences between the two sets of plots, ie plots surveyed in 1997 vs 1998. First, we extract the annual climatic values at the location of the Galician plots sampled in 1997 and 1998 and plot their values across the study period (ie between the first and second surveys).
+
+```{r , fig.width=12,fig.height=8, results="hide", message =F}
+# Extracting annual climatic values at the location of the NFI plots in Galicia surveyed for the second time inm 1997 or 1998
+subclim <- clim %>% 
+  left_join(nfi_data, by=c("plotcode","longitude","latitude")) %>% 
+    dplyr::filter(second_survey %in% 1997:1998) %>% 
+    dplyr::filter(year %in% min(first_survey):1998) %>% 
+    dplyr::select(second_survey,year,all_of(clim_var))
+
+
+# violin_plots <- lapply(clim_var, function(x) {
+#   
+# var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+#   mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+#   pull(var_legend)
+# 
+# subclim %>% 
+#   mutate(year=as.factor(year)) %>% 
+#   ggplot(aes_string(y=x,x="year")) + 
+#   geom_jitter(shape=16,aes(colour=factor(second_survey)),position=position_jitter(0.2),size=2,alpha=0.3) +
+#   xlab("") + 
+#   scale_color_manual(name="Year of the second survey",
+#                      values = c("yellow2","darkorchid")) +
+#   ggtitle(var_name) +
+#   ylab("mean climate under survey period - mean past climate") +
+#   theme_bw()
+# 
+# })
+
+violin_plots <- lapply(clim_var, function(x) {
+  
+var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+  mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+  pull(var_legend)
+
+subclim %>% 
+  mutate(year=as.factor(year),
+         second_survey=as.factor(second_survey)) %>% 
+  ggplot(aes_string(y=x,x="year",color="second_survey")) + 
+  geom_point(shape=16,position=position_jitter(0.2),size=2,alpha=0.1) +
+  geom_violin(alpha=0.3,fill="white", linewidth=0.7) + 
+  xlab("") + ylab("") +
+  ggtitle(var_name) +
+  scale_color_manual(name="Year of the second survey",
+                     values = c("yellow2","darkorchid")) +
+  theme_bw() +
+  guides(colour = guide_legend(override.aes = list(size=2)))
+
+})
+
+violin_plots 
+```
+
+From these plots, it seems that the plots sampled in 1997 have lower isothermality (`bio3`) and lower temperature seasonality (`bio4`).
+
+We also compare the mean climatic values of the reference and survey periods between the plots surveyed in 1997 and 1998. For that, we calculate for each plot (and each climatic variable) the difference between its mean climate across the reference period (ie 1901-1950) and its mean climate across the survey period (between the first and second survey period).
+
+```{r ViolinPlotsComparingRefandSurveyClimatesGalicianPlots, fig.height=6, fig.width=8, results="hide", message=F}
+# We load the datasets with mean climatic values across the reference and survey periods
+# Then we calculate the difference between the mean climates of the two periods for each plot
+#  We then keep only plots surveyed (second survey) in 1997 or 1998 (Galician plots)
+subnficlim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds")) %>% 
+  bind_rows() %>% 
+  group_by(plotcode,longitude,latitude,elevation) %>% 
+  summarise(across(tmn01:Eref, diff)) %>% 
+  ungroup() %>% 
+  left_join(nfi_data, by=c("plotcode","longitude","latitude")) %>%
+  dplyr::filter(second_survey %in% 1997:1998)
+
+bg_color <- "gray44" # background color
+
+violin_plots <- lapply(clim_var, function(x) {
+  
+var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+  mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+  pull(var_legend)
+
+subnficlim %>% 
+  mutate(second_survey=as.factor(second_survey)) %>% 
+  ggplot(aes_string(y=x,x="second_survey")) + 
+  geom_violin(alpha=0.2, fill="gray76", color="darkgreen") + 
+  geom_jitter(shape=16,position=position_jitter(0.2),size=2,alpha=0.4) +
+  xlab("") + 
+  ggtitle(var_name) +
+  ylab("mean climate under survey period - mean past climate") +
+  theme_bw()
+
+})
+
+violin_plots 
+```
+
+These plots show that plots surveyed in 1998 show higher increase in the mean annual temperature (`bio1`), lower increase in annual precipitation (`bio12`) and stronger decrease in temperature seasonality (`bio4`) than plots surveyed in 1997. As temperature seasonality is the most important variable to explain the allelic turnover in GF, it may explain the strong differences in GO predictions among plots surveyed in 1997 and 1998.
 
 # Session information
 
