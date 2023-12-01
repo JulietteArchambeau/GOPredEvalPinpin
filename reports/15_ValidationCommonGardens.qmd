@@ -321,7 +321,7 @@ coefftab[1:5,] %>% kable_mydf()
 
 Below, we plot the 95% credible intervals of:
 
-  - the **$\beta_X$ coefficients**, which stand for the association between the counts of dead trees and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic tranfer distances.
+  - the **$\beta_X$ coefficients**, which stand for the association between the counts of dead trees and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic transfer distances.
   
   - the $\beta_H$ coefficients, which stand for the association between the counts of dead trees and the BLUPs for height in the five common gardens, used as a proxy of the initial seedling height (a confounder in the model).
 
@@ -360,13 +360,18 @@ p <- coefftab %>%
                                                     "Isothermality (index)",
                                                     "Temperature seasonality (°C)",
                                                     "Summer heat moisture index (°C/mm)")),
-         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD"))) %>% 
-    ggplot(aes(x = method_type,
-               y = median,
-               ymin = conf_low, 
-               ymax = conf_high,
-               color=method_input,
-               shape=method_input)) +
+         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")))
+
+
+
+# Plots with CTD and SNP sets
+# ===========================
+p_allvar <- p %>% ggplot(aes(x = method_type,
+                             y = median,
+                             ymin = conf_low, 
+                             ymax = conf_high,
+                             color=method_input,
+                             shape=method_input)) +
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.6),
                      point_size=3.5, size=3) + # 
@@ -391,19 +396,68 @@ p <- coefftab %>%
   guides(color=guide_legend(ncol=1),
          shape = guide_legend(override.aes = list(size =2 )))
 
-
-p
 # save in pdf and png
-ggsave(p,file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,".pdf")),
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.pdf")),
        device="pdf",
        height=9,
        width=12)
 
-ggsave(p,file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,".png")),
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.png")),
        height=9,
        width=12)
 
-return(p)
+
+# Plots with SNPs only
+# ====================
+p_SNPs <- p %>% 
+  filter(!method_type == "CTD") %>% 
+  ggplot(aes(x = method_type,
+                             y = median,
+                             ymin = conf_low, 
+                             ymax = conf_high,
+                             color=method_input,
+                             shape=method_input)) +
+  geom_hline(yintercept = 0,color="gray") +
+  geom_pointinterval(position = position_dodge(width = 0.45),
+                     point_size=3.5, size=3) + # 
+  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  scale_color_manual(values=colors_coeff)+
+  #paletteer::scale_color_paletteer_d("ggthemes::calc") +
+  scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
+  theme_bw() +
+  labs(color="",shape="") +
+  theme(axis.text.x =  element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title.y = element_text(size=16),
+        axis.title.x = element_text(size=1),
+        legend.title=element_text(size=13), 
+        strip.text.x = element_text(size = 16),
+        strip.background = element_blank(),
+        legend.position = c(0.77,0.15),
+        legend.text=element_text(size=18),
+        panel.grid.minor.x=element_blank(),
+        panel.grid.major.x=element_blank()) +
+  guides(color=guide_legend(ncol=1),
+         shape = guide_legend(override.aes = list(size =2 )))
+  
+
+# save in pdf and png
+ggsave(p_SNPs,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets.pdf")),
+       device="pdf",
+       height=7,
+       width=8)
+
+ggsave(p_SNPs,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets.png")),
+       height=7,
+       width=8)
+
+
+return(p_allvar)
 
 })
 
@@ -572,7 +626,8 @@ coeff_match <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
                     beta_X2="Regression coefficients $\\beta_{X_2}$")
   
 p <- lapply(c("beta_X1","beta_X2"), function(coeff){
-  
+
+
 p <- coefftab %>% 
   filter(term==coeff) %>% 
   left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
@@ -599,14 +654,18 @@ p <- coefftab %>%
                                                     "Isothermality (index)",
                                                     "Temperature seasonality (°C)",
                                                     "Summer heat moisture index (°C/mm)")),
-         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD"))) %>% 
+         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")))
   
-    ggplot(aes(x = method_type,
-               y = median,
-               ymin = conf_low, 
-               ymax = conf_high,
-               color=method_input,
-               shape=method_input)) +
+
+# Plots with CTD and SNP sets
+# ===========================
+p_allvar <- p %>% 
+   ggplot(aes(x = method_type,
+              y = median,
+              ymin = conf_low, 
+              ymax = conf_high,
+              color=method_input,
+              shape=method_input)) +
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
@@ -630,18 +689,65 @@ p <- coefftab %>%
          shape = guide_legend(override.aes = list(size =2 )))
 
 
-
 # save in pdf and png
-ggsave(p,file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,".pdf")),
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsandCTD.pdf")),
        device="pdf",
        height=9,
        width=12)
 
-ggsave(p,file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,".png")),
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsandCTD.png")),
        height=9,
        width=12)
 
-return(p)
+
+# Plots only SNP sets
+# ===================
+p_SNPs <- p %>% 
+  filter(!method_type == "CTD") %>% 
+  ggplot(aes(x = method_type,
+             y = median,
+             ymin = conf_low, 
+             ymax = conf_high,
+             color=method_input,
+             shape=method_input)) +
+  geom_hline(yintercept = 0,color="gray") +
+  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
+  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  scale_color_manual(values=colors_coeff) +
+  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  theme_bw() +
+  labs(color="",shape="") +
+  theme(axis.text.x =  element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title.y = element_text(size=16),
+        axis.title.x = element_text(size=1),
+        legend.title=element_text(size=13), 
+        strip.text.x = element_text(size = 16),
+        strip.background = element_blank(),
+        legend.position = c(0.77,0.15),
+        legend.text=element_text(size=18),
+        panel.grid.minor.x=element_blank(),
+        panel.grid.major.x=element_blank()) +
+  guides(color=guide_legend(ncol=1),
+         shape = guide_legend(override.aes = list(size =2 )))
+
+
+# save in pdf and png
+ggsave(p_SNPs,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsets.pdf")),
+       device="pdf",
+       height=7,
+       width=8)
+
+ggsave(p_SNPs,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsets.png")),
+       height=7,
+       width=8)
+
+return(p_allvar)
 
 })
 

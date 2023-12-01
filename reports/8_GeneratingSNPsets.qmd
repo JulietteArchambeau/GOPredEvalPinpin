@@ -58,9 +58,9 @@ make_venndiagram <- function(list_candidates,
                              title=""){
 
 list_candidates %>% 
-    ggVennDiagram(lty="solid", size=0.2, label = label) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + 
-  scale_color_manual(values = rep("gray80",6)) + 
+    ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
+  scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
+  scale_color_manual(values = rep("darkgoldenrod1",6)) + 
   guides(fill = "none") + 
   labs(caption=caption) +
   ggtitle(title) +
@@ -213,8 +213,22 @@ make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFM
 > Comparison with @capblancq2023common
 
 In @capblancq2023common, they selected the SNPs that were in the top 0.2% for at least two of four genome scans (GF, GF-X, RDA or pRDA), which resulted in the selection of 240 loci (over 335 588 loci exhibiting  MAF > 0.1). They observed substantial overlap between RDA and GF when neutral population structure was not accounted for, with 149 loci (i.e. 22% of each set) found by both methods. On the contrary, congruence was low when correcting for population structure, with only 15 common loci (2%) between methods, and no visible covariation between GF R2 and RDA Mahalanobis distance.
-
   
+
+### Figure 2 of the manuscript
+
+We generate the figure for the main manuscript (Figure 2).
+
+```{r GeneratingFigure2Manuscript}
+selected_methods <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")]
+names(selected_methods) <- c("RDA (nc)", "pRDA (c)", "LFMM (c)", "BayPass (c)", "GF (nc)")
+
+make_venndiagram(selected_methods,
+                 label="count") %>% 
+ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", width = 6, height = 5.3)
+```
+
+
 # Genome position of candidate SNPs
 
 ```{r LoadGenomePositionData}
@@ -283,7 +297,6 @@ rda_outliers[[3]]$GSout %>%
 common_cand <- setdiff(common_cand, snp_to_remove[[1]])
 common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
 ```
-
 
 # Control SNPs
 
