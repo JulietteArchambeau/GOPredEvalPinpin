@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Juliette Archambeau">
-<meta name="dcterms.date" content="2023-10-03">
+<meta name="dcterms.date" content="2024-01-05">
 
 <title>Populatin coordinates, elevation and climatic data</title>
 <style>
@@ -3292,7 +3292,7 @@ border: 0;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 3, 2023</p>
+      <p class="date">January 5, 2024</p>
     </div>
   </div>
   
@@ -4302,7 +4302,8 @@ font-size: 10px
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>pop_coord <span class="sc">%&gt;%</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="fu">is.na</span>(altitude)) <span class="sc">%&gt;%</span> </span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>altitude,<span class="sc">-</span>POP) <span class="sc">%&gt;%</span> </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div class="table-responsive">
@@ -4313,9 +4314,7 @@ font-size: 10px
 <th style="text-align: left;" data-quarto-table-cell-role="th">code</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">latitude</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">longitude</th>
-<th style="text-align: left;" data-quarto-table-cell-role="th">POP</th>
 <th style="text-align: left;" data-quarto-table-cell-role="th">country</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">altitude</th>
 </tr>
 </thead>
 <tbody>
@@ -4324,81 +4323,63 @@ font-size: 10px
 <td style="text-align: left;">CAV</td>
 <td style="text-align: right;">38.13</td>
 <td style="text-align: right;">-1.92</td>
-<td style="text-align: left;">Caravaca de la Cruz</td>
 <td style="text-align: left;">Spain</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">B4ESTnew</td>
 <td style="text-align: left;">FPN</td>
 <td style="text-align: right;">41.25</td>
 <td style="text-align: right;">-5.42</td>
-<td style="text-align: left;">Fuentelape&lt;f1&gt;a</td>
 <td style="text-align: left;">Spain</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">B4ESTnew</td>
 <td style="text-align: left;">TAB</td>
 <td style="text-align: right;">36.96</td>
 <td style="text-align: right;">8.70</td>
-<td style="text-align: left;">Tabarka</td>
 <td style="text-align: left;">Tunisia</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">B4ESTnew</td>
 <td style="text-align: left;">TUS</td>
 <td style="text-align: right;">43.74</td>
 <td style="text-align: right;">10.74</td>
-<td style="text-align: left;">Montefalcone (Pisa)</td>
 <td style="text-align: left;">Italy</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">B4ESTnew</td>
 <td style="text-align: left;">VCA</td>
 <td style="text-align: right;">41.67</td>
 <td style="text-align: right;">-8.67</td>
-<td style="text-align: left;">North of Portugal</td>
 <td style="text-align: left;">Portugal</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">FORGENIUS</td>
 <td style="text-align: left;">ES_PP_58/MAE</td>
 <td style="text-align: right;">40.24</td>
 <td style="text-align: right;">-0.36</td>
-<td style="text-align: left;">Vistabella del Maestrazgo</td>
 <td style="text-align: left;">Spain</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">FORGENIUS</td>
 <td style="text-align: left;">ES_PP_59</td>
 <td style="text-align: right;">40.33</td>
 <td style="text-align: right;">-4.35</td>
-<td style="text-align: left;">Fuenfr&lt;ed&gt;a</td>
 <td style="text-align: left;">Spain</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">FORGENIUS</td>
 <td style="text-align: left;">ES_PP_60</td>
 <td style="text-align: right;">40.66</td>
 <td style="text-align: right;">-4.13</td>
-<td style="text-align: left;">La Jarosa</td>
 <td style="text-align: left;">Spain</td>
-<td style="text-align: right;">NA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GENTREE</td>
 <td style="text-align: left;">MAUbis/FR-PP-12</td>
 <td style="text-align: right;">43.22</td>
 <td style="text-align: right;">6.36</td>
-<td style="text-align: left;">Maures (stand 2)</td>
 <td style="text-align: left;">France</td>
-<td style="text-align: right;">NA</td>
 </tr>
 </tbody>
 </table>
