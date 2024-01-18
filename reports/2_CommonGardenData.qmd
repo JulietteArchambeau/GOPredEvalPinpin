@@ -1,5 +1,5 @@
 ---
-title: "Common garden data"
+title: "Climatic data in the common gardens"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format: 

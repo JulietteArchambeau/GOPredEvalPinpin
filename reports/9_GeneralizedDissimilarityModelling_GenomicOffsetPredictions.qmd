@@ -55,7 +55,6 @@ library(corrplot)
 library(colorRamps)
 library(latex2exp)
 library(sf)
-library(rgdal)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))

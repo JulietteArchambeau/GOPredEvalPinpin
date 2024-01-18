@@ -6,7 +6,7 @@ kable_mydf <- function(x,
                        round_number = 2,
                        bootstrap_options = c("hover", "condensed", "responsive")){
   x %>% 
-    mutate(across(where(is.numeric), round, round_number)) %>%
+    mutate(across(where(is.numeric), \(x) round (x, round_number))) %>%
     kable() %>%  
     kable_styling(bootstrap_options = bootstrap_options, 
                   full_width = F, 

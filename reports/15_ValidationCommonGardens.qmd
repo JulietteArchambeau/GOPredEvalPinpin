@@ -35,9 +35,9 @@ table {
 knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
+library(knitr)
+library(tidyverse)
+library(readxl)
 library(xtable)
 library(reshape2)
 library(kableExtra)
@@ -58,11 +58,16 @@ library(latex2exp)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
+
+# Colors for the coefficients
+colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
 ```
 
-In this report, we aim to evaluate the genomic offset predictions from the different GEA methods (LFMM, GF, GDM and RDA) with phenotypic data from five clonal common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (Fundão) and France (Pierroton). For that, for each GEA method, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with the highest genomic offset in each common garden are expected to have a lower relative fitness in the common gardens. In this report, we use tree height and mortality in five common gardens as proxies of fitness.
+# Introduction
 
-In comparison, we also estimate the climatic transfer distances (CTD) between the climate-of-origin of the populations and the climate of the common garden (i.e. the **absolute value** of the difference between the **climate of origin of the populations** and the **climate in the common garden** between the tree planting date and the measurement date) and we estimate the association between tree height and mortality and the climatic transfer distances. The climatic transfer distances are calculated for the same set of climatic variables as the one used to calculate the genomic offset (one CTD per climatic variable).
+In this report, we evaluate whether genomic offset (GO) predictions from the different GEA methods (LFMM, GF, GDM and RDA) and SNP sets (control, candidate and all SNPs for LFMM) are good predictors of fitness proxies (height and mortality data) from five clonal common gardens located in Spain (Asturias, Madrid, Cáceres), Portugal (Fundão) and France (Pierroton). For that, we predicted the genomic offset of each population when transplanted in the environment of the common garden (so instead of predicting the genomic offset into future climates, we predict it in the new environment of the common garden, i.e. space-for-time approach). The rational is that populations with higher genomic offset in a given common garden are expected to have lower relative fitness in the common garden.
+
+We also calculate the climatic transfer distances (CTD) between the climate-of-origin of the populations and the climate of the common garden (i.e. the absolute value of the difference between the climate of origin of the populations and the climate in the common garden between the tree planting date and the measurement date). We then estimate the association between tree height and mortality and the climatic transfer distances. The climatic transfer distances are calculated for the same set of climatic variables as the one used to calculate the genomic offset (one CTD per climatic variable).
 
 
 # Data
@@ -288,14 +293,14 @@ coefftab <- lapply(unique(survival_data$site),function(site_i){
 # Save coefficients
     broom.mixed::tidyMCMC(mod,
                   droppars = NULL, 
-                  estimate.method = "median", 
+                  robust = FALSE, # give mean and standard deviation
                   ess = F, 
                   rhat = F, 
                   conf.int = T,
                   conf.level = 0.95) %>% 
     filter(str_detect(term, c('beta'))) %>% 
-    dplyr::rename(median=estimate,
-                  std_error=std.error,
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
                   conf_low=conf.low,
                   conf_high=conf.high) %>% 
     mutate(cg=site_i,
@@ -310,7 +315,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/MortalityModels/c
 ```
 
 
-## Plot model coefficients
+## Model coefficients
 
 We load the model coefficients: 
 
@@ -326,11 +331,8 @@ Below, we plot the 95% credible intervals of:
   - the $\beta_H$ coefficients, which stand for the association between the counts of dead trees and the BLUPs for height in the five common gardens, used as a proxy of the initial seedling height (a confounder in the model).
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
-colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
-
-
 coeff_match <- list(beta_H="$\\beta_{H}$ estimates (effect of initial tree height)",
-                    beta_X="Regression coefficients") #$\\beta_{X}$ estimates
+                    beta_X="\\beta_{X}$ estimates") #$\\beta_{X}$ estimates
   
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
@@ -367,7 +369,7 @@ p <- coefftab %>%
 # Plots with CTD and SNP sets
 # ===========================
 p_allvar <- p %>% ggplot(aes(x = method_type,
-                             y = median,
+                             y = mean,
                              ymin = conf_low, 
                              ymax = conf_high,
                              color=method_input,
@@ -414,11 +416,11 @@ ggsave(p_allvar,
 p_SNPs <- p %>% 
   filter(!method_type == "CTD") %>% 
   ggplot(aes(x = method_type,
-                             y = median,
-                             ymin = conf_low, 
-                             ymax = conf_high,
-                             color=method_input,
-                             shape=method_input)) +
+             y = mean,
+             ymin = conf_low, 
+             ymax = conf_high,
+             color=method_input,
+             shape=method_input)) +
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.45),
                      point_size=3.5, size=3) + # 
@@ -532,24 +534,9 @@ ExpDesignTab[,-1] %>%
 
 # Height models
 
-## No confounder
+In this section, we estimate the association between **genomic offset (GO) predictions** or **climate transfer distances (CTD)** and **tree height**, independently in the five common gardens. We compare four different mathematical models.
 
-### Mathematical model
-
-In this section, we want to determine whether **genomic offset (GO) predictions** or **climate transfer distances (CTD)** are associated with **tree height**, independently in the five common gardens. In each common garden, we perform the following model:
-  
-\begin{align*}
-Y_{ipb}  &\sim \mathcal{N}(\mu_{p},\sigma^{2}_{r}) \\
-\mu_{p} &= B_b + \beta_{X1}X_{p} + \beta_{X2}X^{2}_{p}\\
-\end{align*}
-
-with $Y_{ipb}$ is the height of the individual $i$ in the population $p$ in the block $b$ and $X_{p}$ is the value of the variable of interest (GO or CTD) in the population $p$. We include a quadratic term for $X_p$ to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
-
-
-```{r CompileHeightModel,message=F,warning=F}
-stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_GaussianModelHeight.stan"))
-print(stancode)
-```
+We first subset height measurements from the dataset.
 
 ```{r LoadHeigthData}
 height_measurements <- c("AST_htmar14","BDX_htnov18","CAC_htdec11","MAD_htdec11","POR_htmay13")
@@ -562,70 +549,22 @@ height_data <- pheno_data %>%
 height_data[1:5,] %>% kable_mydf
 ```
 
-```{r RunHeightModels, eval=F}
-coefftab <- lapply(unique(height_data$cg), function(site_i){
-  
-  lapply(unique(df$method), function(method_i){
-  
-    df_sub <- df %>% filter(method == method_i & cg == site_i)
-    
-    sub_data <- height_data %>% 
-      filter(cg == site_i) %>% 
-      left_join(df_sub, by = c("cg","pop"))
-      
-    stanlist <- list(N = nrow(sub_data),
-                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
-                     X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
-                     nb_bloc = length(unique(sub_data$block)),
-                     bloc = as.numeric(as.factor(sub_data$block)))
 
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE) 
-    
-    # 
-    # loo(mod) %>% 
-    #   saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/loos/loo_",
-    #                            site_i,"_",method_i,".rds")))
-  
-  
-# Save coefficients
-    broom.mixed::tidyMCMC(mod,
-                          pars=c("beta_X1","beta_X2","R_squared","sigma_r","alpha_bloc"),
-                          droppars = NULL, 
-                          estimate.method = "median", 
-                          ess = F, 
-                          rhat = F, 
-                          conf.int = T,
-                          conf.level = 0.95) %>% 
-    dplyr::rename(median=estimate,
-                  std_error=std.error,
-                  conf_low=conf.low,
-                  conf_high=conf.high) %>% 
-    mutate(cg=site_i,
-           method=method_i,
-           .before=1)
-    
-    
-  }) %>% bind_rows()
-  
-}) %>% bind_rows()
+We write a function to plot the model coefficients :
 
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_withoutconfounder.rds"))
-```
+```{r FunctionPlotCoefficients, eval=T}
+coeff_y_axis <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
+                     beta_X2="Regression coefficients $\\beta_{X_2}$",
+                     beta_H="Regression coefficients $\\beta_H$")
 
+generate_interval_plots <- function(model_i){
 
-### Plot model coefficients
+coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
 
-Below, we plot the 95% credible intervals of the **$\beta_{X_1}$ and $\beta_{X_2}$ coefficients**, which stand for the association between tree height and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic tranfer distances.
   
-```{r CoeffPlotsHeightModels, fig.height=9, fig.width=12, eval=T}
-generate_interval_plots <- function(confounder="withoutconfounder"){
+params <-  coefftab$term %>% unique() %>% str_subset("^beta")
 
-coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",confounder,".rds")))
-  
-coeff_match <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
-                    beta_X2="Regression coefficients $\\beta_{X_2}$")
-  
-p <- lapply(c("beta_X1","beta_X2"), function(coeff){
+p <- lapply(params, function(coeff){
 
 
 p <- coefftab %>% 
@@ -661,7 +600,7 @@ p <- coefftab %>%
 # ===========================
 p_allvar <- p %>% 
    ggplot(aes(x = method_type,
-              y = median,
+              y = mean,
               ymin = conf_low, 
               ymax = conf_high,
               color=method_input,
@@ -669,7 +608,7 @@ p_allvar <- p %>%
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
-  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
   scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
@@ -689,17 +628,18 @@ p_allvar <- p %>%
          shape = guide_legend(override.aes = list(size =2 )))
 
 
-# save in pdf and png
+# save in pdf
 ggsave(p_allvar,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsandCTD.pdf")),
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.pdf")),
        device="pdf",
        height=9,
        width=12)
 
-ggsave(p_allvar,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsandCTD.png")),
-       height=9,
-       width=12)
+# save in png
+# ggsave(p_allvar,
+#        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.png")),
+#        height=9,
+#        width=12)
 
 
 # Plots only SNP sets
@@ -707,7 +647,7 @@ ggsave(p_allvar,
 p_SNPs <- p %>% 
   filter(!method_type == "CTD") %>% 
   ggplot(aes(x = method_type,
-             y = median,
+             y = mean,
              ymin = conf_low, 
              ymax = conf_high,
              color=method_input,
@@ -715,7 +655,7 @@ p_SNPs <- p %>%
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
-  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
   scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
@@ -735,17 +675,18 @@ p_SNPs <- p %>%
          shape = guide_legend(override.aes = list(size =2 )))
 
 
-# save in pdf and png
+# save in pdf
 ggsave(p_SNPs,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsets.pdf")),
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.pdf")),
        device="pdf",
        height=7,
        width=8)
 
-ggsave(p_SNPs,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",confounder,"_SNPsets.png")),
-       height=7,
-       width=8)
+# save in png
+# ggsave(p_SNPs,
+#        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.png")),
+#        height=7,
+#        width=8)
 
 return(p_allvar)
 
@@ -753,16 +694,14 @@ return(p_allvar)
 
 return(p)
 }
-
-generate_interval_plots()
 ```
 
+We write a function to plot the quadratic relationships between tree height and the GO predictions / CTD.
 
 ```{r MakePolyPlots, fig.width=12, fig.height=7, eval=T}
-generate_poly_plots <- function(confounder="withoutconfounder"){
+generate_poly_plots <- function(model_i){
 
-  
-coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",confounder,".rds")))
+coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
 
 x <- seq(-2,2,0.01)
 poly_function <- function(a,b,x) {a * x^2 + b * x}
@@ -784,7 +723,7 @@ ggtab <- coefftab %>%
                                 method_input=="cand" ~ "Candidate SNPs",
                                 method_input=="control" ~ "Control SNPs",
                                 method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
-  pivot_wider(names_from="term", values_from = c("median","std_error","conf_low","conf_high"))
+  pivot_wider(names_from="term", values_from = c("mean","std_deviation","conf_low","conf_high"))
 
 
 
@@ -793,7 +732,7 @@ lapply(unique(ggtab$method), function(method_i){
   
   subggtab <- ggtab %>% filter(method == method_i & cg == cg_i)
   
-  poly_function(a=subggtab$median_beta_X2, b=subggtab$median_beta_X1,x=x)
+  poly_function(a=subggtab$mean_beta_X2, b=subggtab$mean_beta_X1,x=x)
   }) %>% 
     setNames(unique(ggtab$method)) %>% 
     bind_rows(.id="method") %>% 
@@ -816,7 +755,7 @@ p_go <- ggtab %>%
   geom_line(linewidth=1) +
   ylab('Standardized tree height') + 
   #ylab(paste0('Standardized tree height - ',cg_i)) + 
-  xlab(TeX("Standardized $X$")) +
+  xlab(TeX("Standardized predictor")) +
   ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
   scale_color_manual(values=c("#FCA315FF", "#00FF00FF","#172869FF", "#FF00FFFF"), name = "GEA method") +
   scale_linetype_manual(values=c("solid","dashed","dotted"), name = "SNP set") +
@@ -842,7 +781,7 @@ p_ctd <- ggtab %>%
   #geom_segment(aes(x = min(x_axis), y = 0, xend = max(x_axis), yend = 0), color="black") +
   geom_line(linewidth=1.2) +
   ylab('') + 
-  xlab(TeX("Standardized $X$")) +
+  xlab(TeX("Standardized predictor")) +
   ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
   scale_color_manual(values=colors_coeff[4:length((colors_coeff))], 
                      name = "Climatic transfer distance") +
@@ -862,7 +801,7 @@ p_ctd <- ggtab %>%
 
 pp <- plot_grid(p_go,p_ctd)
 
-ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_",confounder,"_",cg_i,".pdf")), device="pdf", width=12,height=7)
+ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_",model_i,"_",cg_i,".pdf")), device="pdf", width=12,height=7)
 
 pp
 
@@ -870,9 +809,96 @@ pp
 
 return(ggplots)
 }
-
-generate_poly_plots()
 ```
+  
+## Model 1 (basic one)
+
+### Model equation and code 
+
+
+\begin{align*}
+Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
+\mu_{pb} &= B_b + \beta_{X1}X_p + \beta_{X2}X^2_p\\
+\sigma &\sim \text{Exp}(1) \\
+\begin{bmatrix} B_b  \\ \beta_{X1} \\ \beta_{X2} \end{bmatrix} &\sim \mathcal{N}(0,1) \\
+\end{align*}
+
+  - $Y_{ipb}$ is the height of the individual $i$ in the population $p$ and block $b$.
+  - $\sigma^{2}$ is the residual variance of the model.
+  - $B_b$ are the block intercepts.
+  - $X_p$ is the GO or CTD of the population $p$, with $\beta_{X1}$ and $\beta_{X2}$ being its linear and quadratic coefficients, respectively. The quadratic term was included to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+
+
+```{r CompileHeightModelM1,message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M1.stan"))
+print(stancode)
+
+params_to_estimate <- c("beta_X1","beta_X2","R_squared","sigma","alpha_bloc")
+```
+
+```{r RunHeightModelM1, eval=F}
+coefftab <- lapply(unique(height_data$cg), function(site_i){
+  
+  lapply(unique(df$method), function(method_i){
+  
+    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    
+    sub_data <- height_data %>% 
+      filter(cg == site_i) %>% 
+      left_join(df_sub, by = c("cg","pop"))
+      
+    stanlist <- list(N = nrow(sub_data),
+                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                     X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
+                     nb_bloc = length(unique(sub_data$block)),
+                     bloc = as.numeric(as.factor(sub_data$block)))
+
+    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+                    pars=params_to_estimate) 
+  
+# Model coefficients
+    broom.mixed::tidyMCMC(mod,
+                          pars=params_to_estimate,
+                          droppars = NULL, 
+                          robust = FALSE, # give mean and standard deviation
+                          ess = F, 
+                          rhat = F, 
+                          conf.int = T,
+                          conf.level = 0.95) %>% 
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
+                  conf_low=conf.low,
+                  conf_high=conf.high) %>% 
+    mutate(cg=site_i,
+           method=method_i,
+           .before=1)
+    
+    
+  }) %>% bind_rows()
+  
+}) %>% bind_rows()
+
+coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M1.rds"))
+```
+
+
+### Model coefficients
+
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients.
+
+```{r ModelCoeffM1, fig.height=9, fig.width=12}
+generate_interval_plots(model_i = "M1")
+```
+
+### Predicted quadratic relationships
+
+We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
+
+```{r MakePolyPlotsM1, fig.width=12, fig.height=7, eval=T}
+generate_poly_plots(model_i="M1")
+```
+
+### Interpretation
 
 <span style="color: orange;">Interpretation</span>
 
@@ -890,24 +916,35 @@ Therefore, I am not sure we can go very far in this validation step. We may reta
 
 
 
-## Initial height as a counfounder
+## Model 2
 
-  
+### Model equation and code 
+
+Model 2 = Model 1 + Initial height as a confounder.
+
 \begin{align*}
-Y_{ipb}  &\sim \mathcal{N}(\mu_{p},\sigma^{2}_{r}) \\
-\mu_{p} &= B_b + \beta_{X1}X_{p} + \beta_{X2}X^{2}_{p} + \beta_H H_p\\
+Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
+\mu_{pb} &= B_b + \beta_{X1}X_p + \beta_{X2}X^2_p + \beta_H H_p\\
+\sigma &\sim \text{Exp}(1) \\
+\begin{bmatrix} B_b  \\ \beta_{X1} \\ \beta_{X2} \\ \beta_H \end{bmatrix} &\sim \mathcal{N}(0,1) \\
 \end{align*}
 
-with $H_p$ is a proxy of the initial height of the populations when trees were planted. More precisely, it is the BLUPs for height of the population $p$ [population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining].
+  - $Y_{ipb}$ is the height of the individual $i$ in the population $p$ and block $b$.
+  - $\sigma^{2}$ is the residual variance of the model.
+  - $B_b$ are the block intercepts.
+  - $X_p$ is the GO or CTD of the population $p$, with $\beta_{X1}$ and $\beta_{X2}$ being its linear and quadratic coefficients, respectively. The quadratic term was included to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+  - $H_p$ is a proxy of the initial height of the trees from population $p$, i.e. when trees were planted. For that, we used the population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining.
 
 
-```{r CompileHeightModelConfounder, message=F,warning=F}
-stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_GaussianModelHeight_WithHeightConfounder.stan"))
+```{r CompileHeightModelM2, message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M2.stan"))
 print(stancode)
+
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc")
 ```
 
 
-```{r RunHeightyModelsConfounder, eval=F}
+```{r RunHeightyModelM2, eval=F}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
@@ -927,25 +964,20 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                      nb_bloc = length(unique(sub_data$block)),
                      bloc = as.numeric(as.factor(sub_data$block)))
 
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE) 
-    
-    # 
-    # loo(mod) %>% 
-    #   saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/loos/loo_",
-    #                            site_i,"_",method_i,".rds")))
-  
+    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+                    pars = params_to_estimate) 
   
 # Save coefficients
     broom.mixed::tidyMCMC(mod,
-                          pars=c("beta_X1","beta_X2","beta_H","R_squared","sigma_r","alpha_bloc"),
+                          pars=params_to_estimate,
                           droppars = NULL, 
-                          estimate.method = "median", 
+                          robust = FALSE, # give mean and standard deviation
                           ess = F, 
                           rhat = F, 
                           conf.int = T,
                           conf.level = 0.95) %>% 
-    dplyr::rename(median=estimate,
-                  std_error=std.error,
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
                   conf_low=conf.low,
                   conf_high=conf.high) %>% 
     mutate(cg=site_i,
@@ -957,17 +989,240 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
   
 }) %>% bind_rows()
 
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_withconfounder.rds"))
+coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2.rds"))
+```
+
+### Model coefficients
+
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+
+```{r IntervalPlotsM2, fig.width=12, fig.height=9, eval=T}
+generate_interval_plots(model_i = "M2")
+```
+
+### Predicted quadratic relationships
+
+
+```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=T}
+generate_poly_plots(model_i = "M2")
 ```
 
 
-```{r IntervalPlotsWithConfounder, fig.width=12, fig.height=9}
-generate_interval_plots(confounder="withconfounder")
+
+## Model 3
+
+### Model equation and code 
+
+Model 3 = Model 2 + Initial height as a confounder + Clone fixed intercepts
+
+\begin{align*}
+Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
+\mu_{pb} &= \beta_0 + B_b + \beta_{X1}X_p + \beta_{X2}X^2_p + \beta_H H_p\\
+\beta_0 &\sim \mathcal{N}(\text{mean}(Y),2) \\ 
+\sigma &\sim \text{Exp}(1) \\
+\begin{bmatrix} B_b \\ C_c \\ \beta_{X1} \\ \beta_{X2} \\ \beta_H \end{bmatrix} &\sim \mathcal{N}(0,1) \\
+\end{align*}
+
+  - $Y_{ipb}$ is the height of the individual $i$ in the population $p$ and block $b$.
+  - $\sigma^{2}$ is the residual variance of the model.
+  - $B_b$ are the block intercepts. 
+  - $X_p$ is the GO or CTD of the population $p$, with $\beta_{X1}$ and $\beta_{X2}$ being its linear and quadratic coefficients, respectively. The quadratic term was included to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+  - $H_p$ is a proxy of the initial height of the trees from population $p$, i.e. when trees were planted. For that, we used the population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining.
+  - $\beta_0$ is the model global intercept.
+  - $C_c$ are the clone intercepts. 
+
+```{r CompileHeightModel3, message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M3.stan"))
+print(stancode)
+
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc","alpha_clon")
 ```
 
 
-```{r PolyPlotsWithConfounder, fig.width=12, fig.height=7}
-generate_poly_plots(confounder="withconfounder")
+```{r RunHeightyModel3, eval=F}
+coefftab <- lapply(unique(height_data$cg), function(site_i){
+  
+  lapply(unique(df$method), function(method_i){
+  
+    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    
+    sub_data <- height_data %>% 
+      filter(cg == site_i) %>% 
+      left_join(df_sub, by = c("cg","pop")) %>% 
+      
+      left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
+
+# Datalist for Stan      
+    stanlist <- list(N = nrow(sub_data),
+                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                     X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
+                     H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
+                     nb_bloc = length(unique(sub_data$block)),
+                     nb_clon = length(unique(sub_data$clon)),
+                     bloc = as.numeric(as.factor(sub_data$block)),
+                     clon = as.numeric(as.factor(sub_data$clon)))
+    
+# Running the model
+    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+                    pars = params_to_estimate) 
+  
+# Model coefficients
+    broom.mixed::tidyMCMC(mod,
+                          pars=params_to_estimate,
+                          droppars = NULL, 
+                          robust = FALSE, # give mean and standard deviation
+                          ess = F, 
+                          rhat = F, 
+                          conf.int = T,
+                          conf.level = 0.95) %>% 
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
+                  conf_low=conf.low,
+                  conf_high=conf.high) %>% 
+    mutate(cg=site_i,
+           method=method_i,
+           .before=1)
+    
+    
+  }) %>% bind_rows()
+  
+}) %>% bind_rows()
+
+coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M3.rds"))
+```
+
+### Model coefficients
+
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+
+```{r IntervalPlotsM3, fig.width=12, fig.height=9, eval=T}
+generate_interval_plots(model_i = "M3")
+```
+
+### Predicted quadratic relationships
+
+
+```{r PolyPlotsM3, fig.width=12, fig.height=7, eval=T}
+generate_poly_plots(model_i = "M3")
+```
+
+
+## Model 4
+
+### Model equation and code 
+
+Model 4 = Model 2 + Initial height as a confounder + Clone varying intercepts
+
+\begin{align*}
+Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^2) \\
+\mu_{pb} &= \beta_0 + B_b + \beta_{X1}X_p + \beta_{X2}X^2_p + \beta_H H_p\\
+\beta_0 &\sim \mathcal{N}(\text{mean}(Y),2) \\ 
+C_c &\sim \mathcal{N}(0,\sigma_C^2) \\ 
+\begin{bmatrix} \sigma \\ \sigma_C \end{bmatrix} &\sim \text{Exp}(1) \\
+\begin{bmatrix} B_b \\ \beta_{X1} \\ \beta_{X2} \\ \beta_H \end{bmatrix} &\sim \mathcal{N}(0,1) \\
+\end{align*}
+
+  - $Y_{ipb}$ is the height of the individual $i$ in the population $p$ and block $b$.
+  - $\sigma^{2}$ is the residual variance of the model.
+  - $B_b$ are the block intercepts. 
+  - $X_p$ is the GO or CTD of the population $p$, with $\beta_{X1}$ and $\beta_{X2}$ being its linear and quadratic coefficients, respectively. The quadratic term was included to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
+  - $H_p$ is a proxy of the initial height of the trees from population $p$, i.e. when trees were planted. For that, we used the population varying intercepts calculated across all common gardens in the model 1 of @archambeau2022combining.
+  - $\beta_0$ is the model global intercept.
+  - $C_c$ are the clone varying intercepts which follow a normal distribution of variance $\sigma_C^2$.
+
+```{r CompileHeightModel4, message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M4.stan"))
+print(stancode)
+
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc","alpha_clon")
+```
+
+
+```{r RunHeightModel4, eval=F}
+coefftab <- lapply(unique(height_data$cg), function(site_i){
+  
+  lapply(unique(df$method), function(method_i){
+  
+    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    
+    sub_data <- height_data %>% 
+      filter(cg == site_i) %>% 
+      left_join(df_sub, by = c("cg","pop")) %>% 
+      
+      left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
+
+# Datalist for Stan      
+    stanlist <- list(N = nrow(sub_data),
+                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                     X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
+                     H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
+                     nb_bloc = length(unique(sub_data$block)),
+                     nb_clon = length(unique(sub_data$clon)),
+                     bloc = as.numeric(as.factor(sub_data$block)),
+                     clon = as.numeric(as.factor(sub_data$clon)))
+    
+# Running the model
+    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+                    pars = params_to_estimate) 
+  
+# Model coefficients
+    broom.mixed::tidyMCMC(mod,
+                          pars=params_to_estimate,
+                          droppars = NULL, 
+                          robust = FALSE, # give mean and standard deviation
+                          ess = F, 
+                          rhat = F, 
+                          conf.int = T,
+                          conf.level = 0.95) %>% 
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
+                  conf_low=conf.low,
+                  conf_high=conf.high) %>% 
+    mutate(cg=site_i,
+           method=method_i,
+           .before=1)
+    
+    
+  }) %>% bind_rows()
+  
+}) %>% bind_rows()
+
+coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M4.rds"))
+```
+
+### Model coefficients
+
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+
+```{r IntervalPlotsM4, fig.width=12, fig.height=9, eval=T}
+generate_interval_plots(model_i = "M4")
+```
+
+### Predicted quadratic relationships
+
+
+```{r PolyPlotsM4, fig.width=12, fig.height=7, eval=T}
+generate_poly_plots(model_i = "M4")
+```
+
+## Sample size for each clone
+
+We look at the number of height measurements for each clone. In the tables below (one for each common garden), the first column correspond to the number of height measurements and the second column correspond to the number of clones with this number of measurements.
+
+```{r SampleSizeForEachClone}
+lapply(unique(height_data$cg), function(site_i){
+  
+  
+height_data %>% 
+    filter(cg==site_i) %>% 
+    dplyr::select(pop,clon) %>% 
+    drop_na() %>% 
+    group_by(clon) %>% 
+    dplyr::summarise(nb_measurements=n()) %>% 
+    count(nb_measurements)
+  
+  
+}) %>% set_names(unique(height_data$cg))
 ```
 
 # DRYAD repository

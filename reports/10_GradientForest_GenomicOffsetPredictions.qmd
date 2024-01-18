@@ -34,8 +34,8 @@ table {
 knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(cache=F, size="tiny")
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(kableExtra) # CRAN v1.1.0
+library(knitr)
+library(kableExtra)
 library(tidyverse)
 library(gradientForest)
 library(here)
@@ -144,7 +144,7 @@ We generate some plots to evaluate the GF models (stored in the files `GFplots_[
   
 The code to generate those plots comes from 'Example analysis of biodiversity survey data with R package `gradientForest`' by C. Roland Pitcher, Nick Ellis and Stephen J. Smith ([pdf available here](https://gradientforest.r-forge.r-project.org/biodiversity-survey.pdf)).
 
-```{r GenerateGFplots, results="hide"}
+```{r GenerateGFplots, results="hide", warning =F}
 # ==============================
 # Functions to make the GF plots
 # ==============================
@@ -337,7 +337,7 @@ make_eucli_plot(
 ```
 
 
-```{r MakeEucliPlotsGGPLOT, warning=F}
+```{r MakeEucliPlotsGGPLOT, warning=F, results="hide"}
 # We generate scatter plots for the Supplementary Information.
 # ============================================================
 

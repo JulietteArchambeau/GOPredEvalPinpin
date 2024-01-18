@@ -36,9 +36,9 @@ table {
 knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
+library(knitr)
+library(tidyverse)
+library(readxl)
 library(xtable)
 library(reshape2)
 library(kableExtra)

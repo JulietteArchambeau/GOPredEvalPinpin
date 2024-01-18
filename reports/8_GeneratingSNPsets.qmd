@@ -34,9 +34,9 @@ table {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 4,fig.height = 4,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
+library(knitr)
+library(tidyverse)
+library(readxl)
 library(xtable)
 library(reshape2)
 library(kableExtra)

@@ -36,13 +36,13 @@ body{
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(kableExtra) # CRAN v1.1.0
-library(dplyr)      # CRAN v1.0.0
-library(psych)      # CRAN v1.8.12 (pairs.panels function)
-library(tidyverse)  # CRAN v1.3.0
-library(raster)     # CRAN v3.3-13
-library(stringr)    # CRAN v1.4.0
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(psych)
+library(tidyverse)
+library(raster)
+library(stringr)
 library(ggbiplot)
 library(corrplot)
 library(vegan)
@@ -59,17 +59,18 @@ library(RColorBrewer)
 library(cowplot)
 library(ggVennDiagram)
 library(adespatial) # to calculate the Moran eigen vectors
+library(here)
 
 # my own functions
-source("scripts/functions/kable_mydf.R") # building pretty tables for the html
-source("scripts/functions/extract_climatedt_metadata.R") # extracting meta data of the climatic variables in ClimateDT
+source(here("scripts/functions/kable_mydf.R")) # building pretty tables for the html
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
 ```
 
 ```{r Functions, echo=F}
 # Functions from other sources:
-source("scripts/functions/corpmat.R") # to compute the matrix of p-value
-source("scripts/functions/rdadapt.R") # to conduct a RDA based genome scan (from Capblancq & Forester 2021)
-source("scripts/functions/detectoutliers.R") # to identify outliers based on their RDA loadings (from  Forester et al. 2018)
+source(here("scripts/functions/corpmat.R")) # to compute the matrix of p-value
+source(here("scripts/functions/rdadapt.R")) # to conduct a RDA based genome scan (from Capblancq & Forester 2021)
+source(here("scripts/functions/detectoutliers.R")) # to identify outliers based on their RDA loadings (from  Forester et al. 2018)
 
 # Function to generate a corrplot in png
 # ======================================
@@ -187,7 +188,7 @@ nb_dbMEMs <- 4
 ```{r LoadGenomicData}
 # Individual-based allele counts
 # ==============================
-geno_ind <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutmaf.csv",row.names = 1) %>% 
+geno_ind <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleCounts_withoutmaf.csv"),row.names = 1) %>% 
   t() %>% 
   as.data.frame()
 
@@ -196,7 +197,7 @@ kable_mydf(geno_ind[1:10,1:10], boldfirstcolumn = T)
 
 # Population-based allele frequencies
 # ===================================
-geno_pop <- read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv",
+geno_pop <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withoutmaf.csv"),
                      row.names = 1)
 
 kable_mydf(geno_pop[1:10,1:10] %>% round(3), boldfirstcolumn = T)
@@ -220,7 +221,7 @@ In this document, we used the **point estimate climatic data not adjusted for el
 The dataset which contains the climatic data also contains the geographical coordinates and elevation of the populations, and dbMEMs.
 
 ```{r LoadClimateDToutputs}
-clim <- readRDS("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")[[1]]$ref_means %>% 
+clim <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds"))[[1]]$ref_means %>% 
   dplyr::select(-contains("tmn"),-contains("tmx"),-contains("prc")) %>% 
   bind_cols(dbmem(.[,c("longitude","latitude")]))  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
 
@@ -287,7 +288,7 @@ identify_corr_var(df=clim,corr_threshold = 0.95) %>% nrow()
 clim %>% 
   dplyr::select(-pop,-elevation,-contains("ude"),-contains("MEM")) %>% 
   colnames() %>% 
-  saveRDS(file="outputs/VariableSelection/PreselectedClimaticVariableNames.rds")
+  saveRDS(file=here("outputs/VariableSelection/PreselectedClimaticVariableNames.rds"))
 ```
 
 ### Viz 
@@ -304,7 +305,7 @@ p <- clim %>%
   facet_wrap(~variable,scales="free") + 
   theme_bw() 
 
-p %>% ggsave(file="figs/ExploratoryAnalyses/DistributionPreselectedClimaticVariables.png",
+p %>% ggsave(file=here("figs/ExploratoryAnalyses/DistributionPreselectedClimaticVariables.png"),
                width=15,height=12)
 
 p
@@ -319,7 +320,7 @@ We also look at the correlation among the pre-selected climatic variables:
 # PNG
 # ===
 fig_options <- list(
-  path = "figs/ExploratoryAnalyses/CorrplotClimVariables.png",
+  path = here("figs/ExploratoryAnalyses/CorrplotClimVariables.png"),
   width=1000,
   height=1000,
   res=100)
@@ -332,7 +333,7 @@ make_corrplot(df = clim,
 # PDF
 # ===
 fig_options <- list(
-  path = "figs/ExploratoryAnalyses/CorrplotClimVariables.pdf",
+  path = here("figs/ExploratoryAnalyses/CorrplotClimVariables.pdf"),
   width=10,
   height=8)
 
@@ -354,7 +355,9 @@ p <- ggbiplot(pca,varname.size =4) +
   xlim(-3, 3) + 
   theme_minimal(base_size = 12)
 
-ggsave(p,file="figs/ExploratoryAnalyses/PCAClimVariables.png",width=8,height=8,
+ggsave(p,
+       file=here("figs/ExploratoryAnalyses/PCAClimVariables.png"),
+       width=8,height=8,
        bg="white")
 p
 ```
@@ -364,7 +367,7 @@ p
 ## Population genetic structure
 
 ```{r LoadingInformationAboutMainGenePools}
-gps <- readRDS("data/GenomicData/MainGenePoolInformation.rds")
+gps <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))
 ```
 
 ### Ancestry coefficients
@@ -406,7 +409,7 @@ As advised in @capblancq2021redundancy, the estimation of the population genetic
 
 
 ```{r LoadImtGenDataMAF}
-geno_pop_maf <-  read.csv("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv")
+geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv"))
 
 kable_mydf(geno_pop_maf[1:10,1:8], boldfirstcolumn = F)
 ```
@@ -464,7 +467,7 @@ kable_mydf(listdf_pop$dfsc[1:8,1:9], boldfirstcolumn = F)
 listdf_pop <- listdf_pop %>% 
   modify(\(x) right_join(x,gps$pop_level,by="pop"))
 
-saveRDS(listdf_pop, "outputs/RDA/RDA_explanatorydataframes_PopLevel.rds")
+saveRDS(listdf_pop, here("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds"))
 
 kable_mydf(listdf_pop$dfsc[1:8,1:7], boldfirstcolumn = F)
 ```
@@ -487,7 +490,7 @@ levels(GPs) <- list("Northern Africa" = "Q1",
 We plot the PCA performed on **population-based allele frequencies not filtered for MAF** (section \@ref(PCscores)). The figure is stored in `PCAplot.pdf`.
 
 ```{r PlotPCA, fig.width=10,fig.height=6, results="hide"}
-pdf(width=9,height=5,"figs/RDA/PCAplot.pdf")
+pdf(width=9,height=5,here("figs/RDA/PCAplot.pdf"))
 par(mfrow=c(1,2),mar=c(4,4,0.5,0.5))
 lapply(2:3, function(second_axis){
   plot(pca, type="n", scaling=3, choices=c(1,second_axis),
@@ -560,11 +563,11 @@ sumstepwise <- lapply(1:nbmodels, function(x) {
   dplyr::summarise(count(variables)) %>% 
   setNames(c("variable","count"))
 
-saveRDS(sumstepwise,file=paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds"))
+saveRDS(sumstepwise,file=here(paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds")))
 ```
 
 ```{r SummaryStepwiseSelection}
-sumstepwise <- readRDS(file=paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds"))
+sumstepwise <- readRDS(file=here(paste0("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_",nbmodels,"models.rds")))
 
 kable_mydf(sumstepwise, boldfirstcolumn = F)
 ```
@@ -702,7 +705,7 @@ We can look at the correlation among variables and with the PCs scores and geogr
 
 ```{r VizCorrSelectedVariables, fig.height=12,fig.width=12, results="hide"}
 fig_options <- list(
-  path = "figs/ExploratoryAnalyses/CorrplotSelectedClimVariables.png",
+  path = here("figs/ExploratoryAnalyses/CorrplotSelectedClimVariables.png"),
   width=900,
   height=900,
   res=100)
@@ -715,7 +718,7 @@ make_corrplot(df = listdf_pop$df,
 ```{r ColorClimVar}
 # Define the colors associated with each climatic variable for the following visualizations
 color_clim_var <- sample(c('#1f78b4','#a6cee3','#6a3d9a','#e31a1c','#33a02c','#ffff33','#fb9a99',
-                    '#FF7FE6', '#FFB675', '#51FF74','#B4FF32'), length(clim_var_selected), replace=F) %>% #
+                    '#FF7FE6', '#FFB675', '#51FF74','#B4FF32'), length(clim_var_selected), replace=F) %>%
   setNames(clim_var_selected) 
 ```
 
@@ -838,7 +841,7 @@ sum_tab_RDA <- tibble("RDA models"=c("Full model: Y ~ clim + geo + pgs.",
 
 # Export the table in latex
 xtable(sum_tab_RDA, type = "latex",digits=2) %>% 
-  print(file = paste("tables/VariancePartitioningRDA_",select_clim_var$code,".tex"), include.rownames=FALSE)
+  print(file = here(paste("tables/VariancePartitioningRDA_",select_clim_var$code,".tex")), include.rownames=FALSE)
 
 return(sum_tab_RDA)
 }
@@ -861,11 +864,11 @@ list_sum_var_part <- lapply(list(set1_var, set2_var, set3_var), function(x){
                   set2_var$name,
                   set3_var$name))
 
-saveRDS(list_sum_var_part, file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
+saveRDS(list_sum_var_part, file=here("outputs/RDA/SummaryVartPartIndividualLevel.rds"))
 ```
 
 ```{r ShowSummaryVarPartIndividualLevel, eval=T}
-list_sum_var_part <- readRDS(file="outputs/RDA/SummaryVartPartIndividualLevel.rds")
+list_sum_var_part <- readRDS(file=here("outputs/RDA/SummaryVartPartIndividualLevel.rds"))
 
 # set 1
 kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
@@ -900,11 +903,11 @@ list_sum_var_part <- lapply(list(set1_var,set2_var,set3_var), function(x){
                   set2_var$name,
                   set3_var$name))
 
-saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+saveRDS(list_sum_var_part, file=here(paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds")))
 ```
 
 ```{r ShowSummaryVarPartPopLevelCoordinates, eval=T}
-list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+list_sum_var_part <- readRDS(file=here(paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds")))
 
 # set 1
 kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
@@ -938,11 +941,11 @@ list_sum_var_part <- lapply(list(set1_var,set2_var,set3_var), function(x){
                   set2_var$name,
                   set3_var$name))
 
-saveRDS(list_sum_var_part, file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+saveRDS(list_sum_var_part, file=here(paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds")))
 ```
 
 ```{r ShowSummaryVarPartPopLevelMEMs, eval=T}
-list_sum_var_part <- readRDS(file=paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds"))
+list_sum_var_part <- readRDS(file=here(paste0("outputs/RDA/SummaryVartPartPopLevel_",geography,".rds")))
 
 # set 1
 kable_mydf(list_sum_var_part[[1]], round_number = 4, boldfirstcolumn = T)
@@ -960,7 +963,7 @@ We make a treemap to visualize the partitioning of the genomic variation among g
 
 ```{r TreemapVarPart, results='hide'}
 # we load the outputs of the variance partitioning estimated with dbMEMs and the climatic variables from set 2
-tab <- readRDS(file="outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds")[[2]]
+tab <- readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]]
 
 # extract the percentages of variance explained
 prop_variance <-tab$`Total exp. variance` * 100
@@ -987,7 +990,7 @@ my_palette <- brewer.pal(n = 5, name = "Pastel2")
 my_palette[[5]] <- "#EEEEEE"
 
 # Generate the figure in pdf
-pdf(file="figs/RDA/treemap_VarPart.pdf")
+pdf(file=here("figs/RDA/treemap_VarPart.pdf"))
 treemap(tab,
         index="names",
         vSize="vals",
@@ -1237,15 +1240,15 @@ rda_models <- lapply(rda_combinations, function(x){
          pop_structure_correction = x$pop_structure_correction)})
 
 # save the RDA models and their information
-saveRDS(rda_models, "outputs/RDA/RDAmodels.rds")
+saveRDS(rda_models, here("outputs/RDA/RDAmodels.rds"))
 
 # viz RDA models and their summary information
-pdf(width = 13, height = 6, "figs/RDA/RDAsummary.pdf")
+pdf(width = 13, height = 6, here("figs/RDA/RDAsummary.pdf"))
 lapply(rda_models, viz_RDAsummary)
 dev.off()
 
 # plot RDA models
-pdf(width = 12, height = 8, "figs/RDA/RDAplots.pdf")
+pdf(width = 12, height = 8, here("figs/RDA/RDAplots.pdf"))
 lapply(rda_models, function(x) plot_RDA(df=listdf_pop$dfsc,x=x,GPs=GPs))
 dev.off()
 ```
@@ -1268,12 +1271,12 @@ Outliers can also been identified based on the *extreme loadings on each retaine
   
 
 ```{r echo=F}
-rda_models <- readRDS("outputs/RDA/RDAmodels.rds")
-listdf_pop <- readRDS("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds")
+rda_models <- readRDS(here("outputs/RDA/RDAmodels.rds"))
+listdf_pop <- readRDS(here("outputs/RDA/RDA_explanatorydataframes_PopLevel.rds"))
 ```
 
   
-```{r FunctionToIdentifyOutliers}
+```{r FunctionToIdentifyOutliers, fig.width=19, fig.height=8}
 # ====================================
 # Function to identify the outlier SNPs
 # =====================================
@@ -1290,8 +1293,8 @@ GSout <- rdadapt(rda_model$mod_rda, 2) %>%
   mutate(snp=colnames(geno_data)) 
 
 GSout$qvalues %>% hist(col = "orange", 
-     main="Histogram of non-calibrated p-values",
-     xlab="p-values")
+     main=rda_model$form_rda,
+     xlab="Non-calibrated p-values")
 
 # P-values threshold after Bonferroni correction
 # outliers_maha <- GSout %>% 
@@ -1374,7 +1377,7 @@ rda_outliers <- rda_models %>%
     identify_outliers(rda_model = x, explanatory_data = listdf_pop$dfsc, geno_data = geno_pop)
   })
 
-saveRDS(rda_outliers, "outputs/RDA/RDA_outliers.rds")
+saveRDS(rda_outliers, here("outputs/RDA/RDA_outliers.rds"))
 ```
 
 ## Outlier visualization
@@ -1511,7 +1514,7 @@ par(mfrow=c(1,2))
 
 ```{r PlotRDAoutliers, results='hide'}
 # Plot RDA outliers with different colors based either on the detection method or the most associated climatic variable
-pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_1.pdf")
+pdf(width = 12, height = 8, here("figs/RDA/RDAplots_outliers_1.pdf"))
 lapply(rda_outliers, function(x) combine_rda_outlier_plots(rda_out = x,color_clim_var = color_clim_var))
 dev.off()
 ```
@@ -1670,7 +1673,7 @@ plot_grid(
 
 ```{r GGPlotRDAoutliers, results='hide'}
 # Plot RDA outliers with different colors based either on the detection method or the most associated climatic variable
-pdf(width = 12, height = 8, "figs/RDA/RDAplots_outliers_2.pdf")
+pdf(width = 12, height = 8, here("figs/RDA/RDAplots_outliers_2.pdf"))
 lapply(rda_outliers, function(x) combine_rda_outlier_ggplots(rda_out = x, color_clim_var=color_clim_var))
 dev.off()
 ```
@@ -1678,7 +1681,7 @@ dev.off()
 
 We also generate some figures for the Supplementary Information. These figures are only generated for the RDA models that are further used to identify the candidate SNPs, i.e. the RDA models fitted on the set 2 of climatic variables. We call *RDA* the model fitted on the set 2 without correcting for population structure and *pRDA* the model fitted on the set 2 with correcting for population structure
 
-```{r GenerateSIoutlierplots}
+```{r GenerateSIoutlierplots, results="hide"}
 # =========================================
 # Function to generate the SI outlier plots
 # =========================================
@@ -1760,7 +1763,7 @@ plot_row <- plot_grid(plot_row, p2_legend, ncol=2,rel_widths = c(1, 0.1))
 # Save the plots as pdf
 # =====================
 if(grepl("Condition",rda_out$rda_model$form_rda)==TRUE){rda_name <- "pRDA"} else { rda_name <- "RDA"}
-ggsave(plot_row, device = "pdf", filename = paste0("figs/RDA/SI_outlier_plots_",rda_name,".pdf"), width=12, height=5)
+ggsave(plot_row, device = "pdf", filename = here(paste0("figs/RDA/SI_outlier_plots_",rda_name,".pdf")), width=12, height=5)
 }
 
 
@@ -1774,13 +1777,13 @@ lapply(rda_outliers[3:4], function(x) generate_SI_outlier_plots(rda_out = x))
 
 We identify the common outliers among the four RDA models with Venn diagrams. 
 
-```{r VennDiagramOutliers, fig.height=7, fig.width=9, message=F}
+```{r VennDiagramOutliers, fig.height=9, fig.width=9, message=F}
 venn_diagrams <- lapply(list(1:2,2:3,4:5), function(x) 
-  list("Identified with RDA" = rda_outliers[[x[1]]]$outliers$snp,
-       "Identified with pRDA" = rda_outliers[[x[2]]]$outliers$snp) %>% 
-  ggVennDiagram(lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + 
-  scale_color_manual(values = c("grey", "grey", "grey", "grey","grey","grey")) + 
+  list("RDA" = rda_outliers[[x[1]]]$outliers$snp,
+       "pRDA" = rda_outliers[[x[2]]]$outliers$snp) %>% 
+  ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
+  scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
+  scale_color_manual(values = rep("darkgoldenrod1",6)) + 
   guides(fill = "none") + 
   theme(text = element_text(size=16)) + 
   scale_x_continuous(expand = expansion(mult = .2))) %>% 
@@ -1793,7 +1796,7 @@ venn_diagrams <- ggarrange(venn_diagrams[[1]],
                            venn_diagrams[[3]],
                            labels=names(venn_diagrams))
 
-ggsave("figs/RDA/VennDiagramOutliers.pdf",venn_diagrams, width = 9, height=7)
+ggsave(here("figs/RDA/VennDiagramOutliers.pdf"),venn_diagrams, width = 9, height=7)
 
 venn_diagrams
 ```
@@ -1805,7 +1808,7 @@ We export the names of the selected climatic variables for the other GEA analyse
 We will use the set 2 of climatic variables in the following analyses because its VIFs are not too high (see `RDAsummary.pdf`) and it explains almost as well as the set 1 the genomic data (see variance explained for the `pure climate model` in section \@ref(VarPart) and the variance explained by the RDA models in section \@ref(RunRDAs)), which is the set that best explains the genomic data but with very high VIFs. 
 
 ```{r ExportClimNames}
-set2_var$variables %>% saveRDS("data/ClimaticData/NamesSelectedVariables.rds")
+set2_var$variables %>% saveRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 ```
 
 
@@ -1825,10 +1828,16 @@ p <- clim %>%
   theme_bw() 
 
 p %>% ggsave(device="pdf",
-             file="figs/ExploratoryAnalyses/DistributionSelectedClimaticVariables.pdf",
+             file=here("figs/ExploratoryAnalyses/DistributionSelectedClimaticVariables.pdf"),
              width=10,height=8)
 
 p
 ```
 
 # References
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```

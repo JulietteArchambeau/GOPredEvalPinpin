@@ -50,18 +50,19 @@ body{
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(dplyr)      # CRAN v1.0.0
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
-library(magrittr)   # CRAN v2.0.1
-library(kableExtra) # CRAN v1.1.0
-library(genetics)   # to calculate LD
+library(knitr)
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(magrittr)
+library(kableExtra)
+library(genetics)
 library(xtable)
 library(reshape2)
 library(janitor)
 library(diffdf)
 library(parallel)
+library(here)
 ```
 
 
@@ -83,7 +84,7 @@ kable_mydf <- function(x, boldfirstcolumn,font_size){
 
 ```{r LoadRawGenomicData}
 # Load the raw genomic data:
-data <- read.csv("data/DryadRepo/RawGenomicData.csv")
+data <- read.csv(here("data/DryadRepo/RawGenomicData.csv"))
 
 # viz
 data[40:50,1:13] %>% kable_mydf(boldfirstcolumn = F, font_size = 11)
@@ -333,11 +334,11 @@ snpcor <- matcor %>%
 
 rm(matcor)
 
-snp_match_1 <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
+snp_match_1 <- read.csv(here("data/GenomicData/SnpCodesMatching.csv")) %>% 
   set_colnames(paste0(colnames(.),"_SNP1")) %>% 
   rename(SNP1 = snp_ID_SNP1)
 
-snp_match_2 <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
+snp_match_2 <- read.csv(here("data/GenomicData/SnpCodesMatching.csv")) %>% 
   set_colnames(paste0(colnames(.),"_SNP2")) %>% 
   rename(SNP2 = snp_ID_SNP2)
   
@@ -346,12 +347,12 @@ snpcor <- snpcor %>%
   left_join(snp_match_2, by = "SNP2")
 
 # save file (file sent to Santi 14/02/2023)
-# snpcor %>% write_csv("data/GenomicData/CorrelatedSNPs.csv",append=FALSE) 
+# snpcor %>% write_csv(here("data/GenomicData/CorrelatedSNPs.csv"),append=FALSE) 
 ```
 
 ```{r LoadCorrelatedSNPsDataset}
 # we load the dataset of pairs of SNPs with a correlation coeff of 1 that I sent to Santi the 14/02/2023
-snpcor <- read.csv("data/GenomicData/CorrelatedSNPs.csv")
+snpcor <- read.csv(here("data/GenomicData/CorrelatedSNPs.csv"))
 ```
 
 
@@ -363,7 +364,7 @@ This part aimed at understanding how the information about SNP position on the g
 # we load the dataset with information about the SNP position on the genome
 # -------------------------------------------------------------------------
 
-snppos <- read_excel("data/GenomicData/genome_position.xlsx", sheet = "base_table") %>% 
+snppos <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "base_table") %>% 
   dplyr::rename(snp_ID = Juliette_snp_ID,
                 original_ID = Original_ID,
                 affx_ID = affy_snp_id,
@@ -399,7 +400,7 @@ Then, let's look at the sheet `correlated_SNPs` of the excel file `genome_positi
   - `keep_one` when the two SNPs are located on the same scaffold.
 
 ```{r CorrelatedSNPsToRemoveSanti, message=F}
-sheet2 <- read_excel("data/GenomicData/genome_position.xlsx", sheet = "correlated_SNPs") %>% 
+sheet2 <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "correlated_SNPs") %>% 
   dplyr::select(contains("SNP1"),contains("SNP2"), contains ("scaffold"), contains("position"), contains("annotation"), ToDo) %>% 
   dplyr::rename(scaffold_SNP1 = "scaffold...5",
                 scaffold_SNP2 = "scaffold...13",
@@ -408,7 +409,7 @@ sheet2 <- read_excel("data/GenomicData/genome_position.xlsx", sheet = "correlate
                 annotation_SNP1 = "annotation (including alternative names)...7",
                 annotation_SNP2 = "annotation (including alternative names)...15") %>% 
   plyr::arrange(SNP1,SNP2) %>%
-  na_if("NA")
+  mutate(across(where(is.character),~na_if(.,"NA")))
 ```
 
 
@@ -483,7 +484,7 @@ The script in this section are not evaluated as we decided not the prune the dat
 
 ```{r ExtractCorrelatedSNPsToRemove, message=F}
 # We extract the SNPs that we are going to remove
-corrSNPs_to_remove <- read_excel("data/GenomicData/genome_position.xlsx", sheet = "correlated_SNPs") %>% 
+corrSNPs_to_remove <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "correlated_SNPs") %>% 
   dplyr::select(SNP2, ToDo) %>% 
   dplyr::filter(ToDo=="keep_one") %>%  # select only the cases in which the two SNPs are one the same scaffold
   pull(SNP2) %>% # SNPs in the SNP2 column are those that we are going to rm
@@ -534,7 +535,7 @@ for(i in 1:length(list_geno)){
   
   list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",specMAF,".csv"),
+  write_csv(here(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_",specMAF,".csv")),
             append=FALSE)
 }
 
@@ -566,7 +567,7 @@ x %>%
 df_freq <- compute_allele_freq(list_geno$list_withoutmaf$df) 
 
 df_freq %>% 
-  write_csv(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_withoutmaf.csv"),
+  write_csv(here(paste0("data/DryadRepo/FormattedFilteredGenomicData_AlleleFrequencies_withoutmaf.csv")),
             append=FALSE)
 
 df_freq[1:10,1:8] %>% 
@@ -589,7 +590,7 @@ list_geno[[i]]$df %>%
   dplyr::select(snp_ID) %>% 
   inner_join(snppos, by="snp_ID") %>% 
   dplyr::rename("scaffold/contig"="scaffold") %>% 
-  write_csv(paste0("data/DryadRepo/ListSNPs_",specMAF,".csv"),append=FALSE)
+  write_csv(here(paste0("data/DryadRepo/ListSNPs_",specMAF,".csv")),append=FALSE)
 }
 ```
 
@@ -603,7 +604,7 @@ This part is only done on genomic data without MAF.
 The first way to identify the duplicated SNPs is by using the function `duplicated`. 
 
 ```{r IdentifyPerfectDuplicates}
-df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv", row.names = 1) 
+df <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"), row.names = 1) 
 
 dup <- df[duplicated(df) | duplicated(df, fromLast=TRUE), ]
 ```
@@ -709,11 +710,11 @@ LD <- data %>%
 # calculate LD (very very very long)
 LD <- LD(LD)
 
-saveRDS(LD, file="outputs/LD/LDGeneticsRpackage.rds")
+saveRDS(LD, file=here("outputs/LD/LDGeneticsRpackage.rds"))
 ```
 
 ```{r IdentifyHighLDSNPs}
-LDmat <- readRDS("outputs/LD/LDGeneticsRpackage.rds")
+LDmat <- readRDS(here("outputs/LD/LDGeneticsRpackage.rds"))
 LDmat <- LDmat$`R^2`
 
 snpLD <- LDmat %>% 
@@ -739,7 +740,7 @@ snpLDcor <- snpLD %>% inner_join(snpcor, by = c("Var1", "Var2"))
 This section is only done on the genomic dataset without MAF.
 
 ```{r LoadGenomicDataNOMAF}
-df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv", row.names = 1) 
+df <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"), row.names = 1) 
 ```
 
 
@@ -748,9 +749,9 @@ df <- read.csv("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_without
 We look at how many SNPs were genotyped in the Infinium assay, in the Affymetric assay and in both. 
 
 ```{r NumberSNPgenotypedAssays}
-codes <- read.csv("data/GenomicData/SnpCodesMatching.csv")
+codes <- read.csv(here("data/GenomicData/SnpCodesMatching.csv"))
 
-temp_df <- read.csv("data/GenomicData/SnpCodesMatching.csv") %>% 
+temp_df <- read.csv(here("data/GenomicData/SnpCodesMatching.csv")) %>% 
   merge(df %>% rownames_to_column(var="snp_ID"),by="snp_ID")
 
 nb <- sapply(temp_df[,1:4], function(x) sum(!(is.na(x))))
@@ -807,7 +808,7 @@ tibble(Provenance=str_sub(colnames(df),1,3),clon=colnames(df)) %>%
   group_by(Provenance) %>% 
   count(name="Number of clones") %>% 
   xtable(type="latex",digits=3) %>% 
-  print(file='tables/NbclonesPerPopulationGenomicData.tex',include.rownames=FALSE)
+  print(file=here('tables/NbclonesPerPopulationGenomicData.tex'),include.rownames=FALSE)
 ```
 
 # Imputation of missing data
@@ -825,7 +826,7 @@ We are going to impute the missing values using the most common allele at each S
 We load the dataset in which there is the proportion of belonging of each genotype to a given gene pool [from @jaramillo2015molecular].
 
 ```{r LoadingPropAncestry}
-prop <- read.csv("data/DryadRepo/PopulationStructureCorrea2015.csv") %>% 
+prop <- read.csv(here("data/DryadRepo/PopulationStructureCorrea2015.csv")) %>% 
   dplyr::select(clon,pop,paste0(rep("Q",6),1:6),max.Q)
 
 # To check whether some clones in the genomic data have no population structure data.
@@ -949,7 +950,7 @@ for(i in 1:length(list_geno)){
   
   list_geno[[i]]$df %>% 
   rownames_to_column(var="snp_ID") %>% 
-  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",specMAF,".csv"),
+  write_csv(here(paste0("data/DryadRepo/ImputedGenomicData_AlleleCounts_",specMAF,".csv")),
             append=FALSE)
 }
 ```
@@ -970,7 +971,7 @@ for(i in 1:length(list_geno)){
   specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
   
   list_geno[[i]]$df %>% 
-  write_csv(paste0("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_",specMAF,".csv"),
+  write_csv(here(paste0("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_",specMAF,".csv")),
             append=FALSE)
 }
 

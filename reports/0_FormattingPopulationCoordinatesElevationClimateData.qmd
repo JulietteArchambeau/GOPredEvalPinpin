@@ -35,9 +35,9 @@ table {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(kableExtra) # CRAN v1.1.0
-library(tidyverse)  # CRAN v1.3.0
+library(knitr)
+library(kableExtra)
+library(tidyverse)
 library(janitor)
 library(purrr)
 library(SPEI)
@@ -184,6 +184,7 @@ pop_coord <- pop_coord %>%
 ```{r MissingDataForAltitude}
 pop_coord %>%
   dplyr::filter(is.na(altitude)) %>% 
+  dplyr::select(-altitude,-POP) %>% 
   kable_mydf()
 ```
 
