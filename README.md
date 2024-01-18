@@ -218,8 +218,9 @@ This dataset contains mortality data from the natural populations of the Spanish
   8. `nb_dead`: number of dead maritime pines in the NFI plot.
   9. `nb_tot`: total number of maritime pines in the NFI plot (including the dead ones).
   10. `basal_area`: basal area of all tree species in the NFI plot (proxy of the competition among trees).
-  11. `prop_dead`: proportion of dead maritime pines in the NFI plot.
-  12. `annual_prop_dead`: annual proportion of maritime pine mortality in the NFI plot.
+  11. `mean_DBH`: mean DBH of the maritime pines in the NFI plot including dead trees, adults and saplings/seedlings (recruitment).
+  12. `prop_dead`: proportion of dead maritime pines in the NFI plot.
+  13. `annual_prop_dead`: annual proportion of maritime pine mortality in the NFI plot.
 
 &nbsp;
 
