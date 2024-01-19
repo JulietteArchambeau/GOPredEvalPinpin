@@ -110,9 +110,13 @@ m_i &\sim \text{Binomial}(N_i,p_i)\\
 
   - $DBH_{i}$ the mean diameter at breast height (DBH) of the maritime pines in the plot $i$ (including adults, dead trees and recruitment trees) and its associated coefficient $\beta_{DBH}$. This variable is expected to account for the different mean tree ages across plots that may impact mortality rates. 
 
-In the main manuscript, only the outputs from this model are presented.
+We present the results from this model in the main manuscript.
 
+## Priors
 
+We used the following weakly informative priors:
+
+$$\begin{bmatrix}  \beta_{0,c} \\ \beta_C \\ \beta_{GO} \\ \beta_{DBH} \\ \beta_{C*DBH} \end{bmatrix} \sim \text{Normal}(0,1)$$
 
 # NFI data
 
