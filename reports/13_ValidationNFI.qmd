@@ -690,6 +690,8 @@ p <- coefftab %>%
                ymax = conf95_high,
                color=method_input,
                shape=method_input)) +
+  
+  {if(coeff=="beta_GO")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
   ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
@@ -897,6 +899,7 @@ p <- coefftab %>%
                ymax = conf95_high,
                color=method_input,
                shape=method_input)) +
+  {if(coeff=="beta_GO")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
   ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
@@ -935,6 +938,8 @@ p
 
 
 ### $\beta_{GO}$ estimates against a null distribution
+
+We evaluated the probability that the estimated relationship between the mortality rates and GO predictions could be obtained by chance. For that, we ran again the model on the NFI data but we replaced GO predictions by a randomly generated variable $X$ such as $X \sim \mathcal{N}(0,1)$. We repeated this step 100 times and obtained a distribution of $\beta_X$ coefficients capturing the relationship between mortality rates and a randomly generated variable. We then compared this distribution of $\beta_X$ coefficients to the estimated $\beta_{GO}$ coefficients capturing the relationship between the mortality rates and the GO predictions.
 
 ```{r IntervalPlotsComparingRandomVsPredictedGOM62, fig.height=12,fig.width=8}
 # Load the coefficient values of models with predicted GO

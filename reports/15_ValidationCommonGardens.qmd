@@ -324,15 +324,17 @@ coefftab <- readRDS(file=here("outputs/ValidationCommonGarden/MortalityModels/co
 coefftab[1:5,] %>% kable_mydf()
 ```
 
-Below, we plot the 95% credible intervals of:
+Below, we plot the mean and 95% credible intervals of:
 
   - the **$\beta_X$ coefficients**, which stand for the association between the counts of dead trees and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations when transplanted in the new environment of the common gardens) or the climatic transfer distances.
   
   - the $\beta_H$ coefficients, which stand for the association between the counts of dead trees and the BLUPs for height in the five common gardens, used as a proxy of the initial seedling height (a confounder in the model).
+  
+Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting higher mortality rates in populations with higher GO predictions.
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
-coeff_match <- list(beta_H="$\\beta_{H}$ estimates (effect of initial tree height)",
-                    beta_X="\\beta_{X}$ estimates") #$\\beta_{X}$ estimates
+coeff_match <- list(beta_H="Regression coefficients $\\beta_H$",
+                    beta_X="Regression coefficients $\\beta_X$")
   
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
@@ -374,13 +376,13 @@ p_allvar <- p %>% ggplot(aes(x = method_type,
                              ymax = conf_high,
                              color=method_input,
                              shape=method_input)) +
+  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.6),
-                     point_size=3.5, size=3) + # 
-  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+                     point_size=3.5, size=3) +
+  facet_wrap(~cg, ncol=2) + 
   ylab(TeX(coeff_match[[coeff]])) + xlab("") +
   scale_color_manual(values=colors_coeff)+
-  #paletteer::scale_color_paletteer_d("ggthemes::calc") +
   scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
   theme_bw() +
   labs(color="",shape="") +
@@ -421,13 +423,13 @@ p_SNPs <- p %>%
              ymax = conf_high,
              color=method_input,
              shape=method_input)) +
+  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.45),
                      point_size=3.5, size=3) + # 
-  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+  facet_wrap(~cg, ncol=2) +
   ylab(TeX(coeff_match[[coeff]])) + xlab("") +
-  scale_color_manual(values=colors_coeff)+
-  #paletteer::scale_color_paletteer_d("ggthemes::calc") +
+  scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
   theme_bw() +
   labs(color="",shape="") +
@@ -536,7 +538,7 @@ ExpDesignTab[,-1] %>%
 
 In this section, we estimate the association between **genomic offset (GO) predictions** or **climate transfer distances (CTD)** and **tree height**, independently in the five common gardens. We compare four different mathematical models.
 
-We first subset height measurements from the dataset.
+We first subset height measurements from the dataset (below the first five rows of the dataset are shown).
 
 ```{r LoadHeigthData}
 height_measurements <- c("AST_htmar14","BDX_htnov18","CAC_htdec11","MAD_htdec11","POR_htmay13")
@@ -555,14 +557,15 @@ We write a function to plot the model coefficients :
 ```{r FunctionPlotCoefficients, eval=T}
 coeff_y_axis <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
                      beta_X2="Regression coefficients $\\beta_{X_2}$",
-                     beta_H="Regression coefficients $\\beta_H$")
+                     beta_H="Regression coefficients $\\beta_H$",
+                     R_squared="Proportion of variance explained ($R^2$)")
 
 generate_interval_plots <- function(model_i){
 
 coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
 
   
-params <-  coefftab$term %>% unique() %>% str_subset("^beta")
+params <-  coefftab$term %>% unique() %>% str_subset("^beta|R_squared")
 
 p <- lapply(params, function(coeff){
 
@@ -605,6 +608,7 @@ p_allvar <- p %>%
               ymax = conf_high,
               color=method_input,
               shape=method_input)) +
+  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
@@ -652,6 +656,7 @@ p_SNPs <- p %>%
              ymax = conf_high,
              color=method_input,
              shape=method_input)) +
+  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
@@ -805,7 +810,7 @@ ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterP
 
 pp
 
-})
+}) %>% setNames(unique(ggtab$cg))
 
 return(ggplots)
 }
@@ -884,7 +889,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 ### Model coefficients
 
-We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients.
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
 ```{r ModelCoeffM1, fig.height=9, fig.width=12}
 generate_interval_plots(model_i = "M1")
@@ -994,7 +999,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 ### Model coefficients
 
-We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
 ```{r IntervalPlotsM2, fig.width=12, fig.height=9, eval=T}
 generate_interval_plots(model_i = "M2")
@@ -1002,6 +1007,7 @@ generate_interval_plots(model_i = "M2")
 
 ### Predicted quadratic relationships
 
+We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
 ```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots(model_i = "M2")
@@ -1093,7 +1099,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 ### Model coefficients
 
-We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
 ```{r IntervalPlotsM3, fig.width=12, fig.height=9, eval=T}
 generate_interval_plots(model_i = "M3")
@@ -1101,6 +1107,7 @@ generate_interval_plots(model_i = "M3")
 
 ### Predicted quadratic relationships
 
+We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
 ```{r PolyPlotsM3, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots(model_i = "M3")
@@ -1192,7 +1199,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 ### Model coefficients
 
-We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients.
+We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
 ```{r IntervalPlotsM4, fig.width=12, fig.height=9, eval=T}
 generate_interval_plots(model_i = "M4")
@@ -1200,6 +1207,7 @@ generate_interval_plots(model_i = "M4")
 
 ### Predicted quadratic relationships
 
+We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
 ```{r PolyPlotsM4, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots(model_i = "M4")
