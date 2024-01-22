@@ -55,6 +55,7 @@ library(bayesplot)
 color_scheme_set("green")
 library(paletteer)
 library(latex2exp)
+library(ggpubr)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -727,10 +728,17 @@ ggtab <- coefftab %>%
                                 method_input=="bio4" ~ "Temperature seasonality (°C)",
                                 method_input=="cand" ~ "Candidate SNPs",
                                 method_input=="control" ~ "Control SNPs",
-                                method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
+                                method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>%
+  mutate(method_input=factor(method_input, levels=c("All SNPs",
+                                                    "Candidate SNPs",
+                                                    "Control SNPs",
+                                                    "Mean annual temperature (°C)",
+                                                    "Annual precipitation (mm)",
+                                                    "Precipitation seasonality (index)",
+                                                    "Isothermality (index)",
+                                                    "Temperature seasonality (°C)",
+                                                    "Summer heat moisture index (°C/mm)"))) %>% 
   pivot_wider(names_from="term", values_from = c("mean","std_deviation","conf_low","conf_high"))
-
-
 
 ggtab <- lapply(unique(ggtab$cg), function(cg_i){
 lapply(unique(ggtab$method), function(method_i){
@@ -816,6 +824,88 @@ return(ggplots)
 }
 ```
   
+  
+  
+```{r MakePolyPlotsV2, fig.width=12, fig.height=7, eval=F, echo=F}
+generate_poly_plots <- function(model_i){
+
+coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
+
+ggtab <- coefftab %>% 
+  filter(term %in% c("beta_X1","beta_X2")) %>% 
+  filter(!grepl("CTD",method)) %>% 
+  left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
+  mutate(cg_legend =case_when(cg=="asturias"~"Asturias (37 months)",
+                      cg=="bordeaux"~"Bordeaux (85 months)",
+                      cg=="caceres"~"Cáceres (8 months)",
+                      cg=="madrid"~"Madrid (13 months)",
+                      cg=="portugal"~"Fundão (27 months)"),
+         method_input=case_when(method_input=="all" ~ "All SNPs",
+                                method_input=="cand" ~ "Candidate SNPs",
+                                method_input=="control" ~ "Control SNPs")) %>% 
+  pivot_wider(names_from="term", values_from = c("mean","std_deviation","conf_low","conf_high"))
+
+
+
+lapply(unique(ggtab$cg), function(cg_i){
+lapply(unique(ggtab$method), function(method_i){
+  
+  
+  ######
+    df_sub <- df %>% filter(method == method_i & cg == cg_i)
+    
+    sub_data <- height_data %>% 
+      filter(cg == cg_i) %>% 
+      left_join(df_sub, by = c("cg","pop")) %>% 
+      mutate(varX_sdt = (varX -mean(varX))/sd(varX))
+    
+    
+    x <- unique(sub_data$varX_sdt)
+    poly_function <- function(a,b,x) {a * x^2 + b * x}
+    
+    #######
+    
+    
+    
+  subggtab <- ggtab %>% filter(method == method_i & cg == cg_i)
+  
+  tibble(mean=poly_function(a=subggtab$mean_beta_X2, b=subggtab$mean_beta_X1,x=x),
+         low=poly_function(a=subggtab$conf_low_beta_X2, b=subggtab$conf_low_beta_X1,x=x),
+         high=poly_function(a=subggtab$conf_high_beta_X2, b=subggtab$conf_high_beta_X1,x=x),
+         x=x) %>%
+    pivot_longer(cols=c("mean","low","high"),names_to="group",values_to="y") %>% 
+    
+    
+  ggplot(aes(x=x,y=y,col=group)) +
+  geom_hline(yintercept=0,color="black") +
+  geom_line(linewidth=1) +
+  geom_point(size=3) +
+  ylab('Standardized tree height') + 
+  #ylab(paste0('Standardized tree height - ',cg_i)) + 
+  xlab(TeX("Standardized predictor")) +
+  ylim(-2.5,1.7) +
+  #scale_color_manual(values=c("#FCA315FF", "#00FF00FF","#172869FF", "#FF00FFFF"), name = "GEA method") +
+  #scale_linetype_manual(values=c("solid","dashed","dotted"), name = "SNP set") +
+  theme_bw() + 
+  ggtitle(paste0(subggtab$cg_legend," - GO predictions from ",subggtab$method_type," and ",subggtab$method_input)) +
+  theme(axis.text.x = element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title = element_text(size=16),
+        legend.box="horizontal",
+        legend.key.width = unit(1,"cm"),
+        legend.background = element_blank(),
+        legend.box.background = element_blank(),
+        legend.key = element_blank(),
+        legend.position = c(0.73,0.89)) + 
+  guides(color=guide_legend(ncol=1))
+  
+  
+  }) 
+}) 
+
+
+}
+```
 ## Model 1 (basic one)
 
 ### Model equation and code 
@@ -1012,7 +1102,187 @@ We plot the predicted quadratic relationships between tree height and GO predict
 ```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots(model_i = "M2")
 ```
+ 
+### quadratic relationships
 
+```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6}
+cg_names <- list(caceres = "Cáceres",
+                 asturias = "Asturias",
+                 madrid = "Madrid",
+                 portugal = "Fundão",
+                 bordeaux = "Bordeaux")
+
+go_methods <- list(LFMM_all = "LFMM and all SNPs",
+                   LFMM_cand = "LFMM and candidate SNPs",
+                   LFMM_control = "LFMM and control SNPs",
+                   RDA_cand = "RDA and candidate SNPs",
+                   RDA_control = "RDA and control SNPs",
+                   GDM_cand = "GDM and candidate SNPs",
+                   GDM_control = "GDM and control SNPs",
+                   GF_cand = "GF and candidate SNPs",
+                   GF_control = "GF and control SNPs")
+
+myplots <- lapply(unique(height_data$cg), function(site_i){
+
+myplots <- lapply(names(go_methods), function(method_i){
+
+df_sub <- df %>% filter(method == method_i & cg == site_i)
+    
+sub_data <- height_data %>% 
+      filter(cg == site_i) %>% 
+      left_join(df_sub, by = c("cg","pop")) %>% 
+      left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
+      
+stanlist <- list(N = nrow(sub_data),
+                 Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                 X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
+                 H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
+                 nb_bloc = length(unique(sub_data$block)),
+                 bloc = as.numeric(as.factor(sub_data$block)))
+
+mod <- sampling(stancode, 
+                data = stanlist, 
+                iter = 2000, 
+                chains = 4, 
+                cores = 4, 
+                save_warmup = FALSE,
+                pars = params_to_estimate) 
+  
+
+#############################################################################
+# Visualizing the relationships between GO predictions and height predictions
+#############################################################################
+
+# we extract the posterior distributions of all parameters
+post <- as.data.frame(mod)
+
+# Vector of predictor values (based on the min and max of the GO predictions)
+x_vec <- seq(min(stanlist$X),max(stanlist$X),0.05)
+
+
+# Predicting the linear predictor mu (predicting mean-centered height without sigma uncertainty)
+################################################################################################
+
+# we extract the posterior draws of mu, and its mean and HDPIs for each predictor value
+
+# Function to predict mean-centered height in block 2 and with the initial tree height fixed to the mean
+f_mu <- function(x) post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` * mean(sub_data$init_height) 
+
+mu_pred <- 
+  sapply(x_vec, f_mu) %>% 
+  tibble::as_tibble() %>%
+  rename_all(function(x) x_vec) %>%
+  mutate(Iter = row_number()) %>%
+  gather(x, y, -Iter) %>%
+  group_by(x) %>%
+  mutate(hpdi_l = HDInterval::hdi(y, credMass = 0.90)[1],
+         hpdi_h = HDInterval::hdi(y, credMass = 0.90)[2]) %>%
+  mutate(mu_mean = mean(y)) %>%
+  ungroup() %>%
+  mutate(x = as.numeric(x))
+
+# extract only mean values of mu
+mu_mean_df <- mu_pred %>%
+  dplyr::select(x,mu_mean) %>% 
+  dplyr::distinct()
+
+# Predicting mean-centered height with sigma uncertainty)
+#########################################################
+
+# we extract the posterior draws of height predictions, and its mean and PIs for each predictor value
+
+y_pred <- 
+  sapply(x_vec,
+         function(x)
+           rnorm(NROW(post),
+                 post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` * mean(sub_data$init_height),
+                 post$sigma)) %>%
+  as_tibble() %>%
+  rename_all(function(x) x_vec) %>%
+  mutate(Iter = row_number()) %>%
+  gather(x, y, -Iter) %>%
+  group_by(x) %>%
+  mutate(pi_l = rethinking::PI(y, prob = 0.90)[1],
+         pi_h = rethinking::PI(y, prob = 0.90)[2]) %>%
+  ungroup() %>%
+  mutate(x = as.numeric(x))
+
+
+# Plots
+#######
+
+# Plot options 
+y_limits <- c(-3,2)
+x_axis <- "Mean-centered GO predictions"
+y_axis <- "Mean-centered tree height"
+
+p <- ggplot() +
+  ylim(y_limits) +
+  labs(y=y_axis, x=x_axis) +
+  theme_bw()
+
+# First 100 posterior draws of the linear predictor mu
+p1 <- p +
+  geom_point(data = mu_pred %>% filter(Iter < 101),
+             aes(x, y), alpha = .2, color = 'dodgerblue')
+  
+# Mean (line) and 90% HPDI (shaded region) of the linear predictor mu
+p2 <- p +
+  geom_ribbon(data = y_pred,
+                 mapping = aes(x=x, ymin=pi_l, ymax=pi_h), alpha = .1, fill='dodgerblue') +
+  geom_ribbon(data = mu_pred,
+              aes(x = x, ymin = hpdi_l, ymax = hpdi_h),
+              alpha = .2,
+              fill='dodgerblue') +
+  geom_line(data = mu_mean_df,
+              aes(x=x, y=mu_mean), col="dodgerblue4")
+
+p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
+
+# Title
+title <- ggdraw() + 
+  draw_label(paste0(cg_names[[site_i]]," - ",go_methods[[method_i]]),
+             fontface = 'bold',
+             x = 0, hjust = 0) +   
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
+
+p2 <- p2 + labs(title = go_methods[[method_i]])
+
+return(list(p2,p1_p2))
+
+})
+
+
+plot_grid(myplots[[1]][[1]] + labs(x=""),
+          myplots[[2]][[1]] + labs(y="",x=""),
+          myplots[[3]][[1]] + labs(y="",x=""),
+          myplots[[4]][[1]] + labs(x=""),
+          myplots[[5]][[1]] + labs(y="",x=""),
+          myplots[[6]][[1]] + labs(y="",x=""),
+          myplots[[7]][[1]],
+          myplots[[8]][[1]] + labs(y=""),
+          myplots[[9]][[1]] + labs(y=""),
+          ncol=3) %>% 
+ggsave(file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_",site_i,"_M2.pdf")),
+       device="pdf",
+       height=12,
+       width=12)
+
+
+lapply(myplots, function(x) x[[2]]) %>% setNames(names(go_methods))
+
+}) %>% setNames(unique(height_data$cg))
+
+
+pdf(width = 12, height = 6, here("figs/ValidationCommonGarden/HeightModels/HeightPredictions_Allgraphs.pdf"))
+lapply(myplots, function(x) x)
+dev.off()
+
+myplots
+```
 
 
 ## Model 3
