@@ -60,6 +60,8 @@ library(cowplot)
 library(ggVennDiagram)
 library(adespatial) # to calculate the Moran eigen vectors
 library(here)
+library(geosphere) # to calculate geodesic distances among population locations
+library(geodist) # to calculate geodesic distances among population locations
 
 # my own functions
 source(here("scripts/functions/kable_mydf.R")) # building pretty tables for the html
@@ -170,15 +172,6 @@ In the present study, we use *population-level allele frequencies* as several ge
 ```{r SetNbPCscores}
 nb_PCscores <- 3
 ```
-
-  
-  - Number of distance-based Moran's eigen vector maps (dbMEMs) included in the variance partitioning to account for the effect of geography.
-  
-  
-```{r SetNbdbMEMs}
-nb_dbMEMs <- 4
-```
-
   
 # Downloading the data
 
@@ -222,8 +215,7 @@ The dataset which contains the climatic data also contains the geographical coor
 
 ```{r LoadClimateDToutputs}
 clim <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds"))[[1]]$ref_means %>% 
-  dplyr::select(-contains("tmn"),-contains("tmx"),-contains("prc")) %>% 
-  bind_cols(dbmem(.[,c("longitude","latitude")]))  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+  dplyr::select(-contains("tmn"),-contains("tmx"),-contains("prc"))
 
 kable_mydf(clim[1:10,1:10], boldfirstcolumn = F)
 
@@ -233,6 +225,62 @@ extract_climatedt_metadata(var_clim = clim %>% dplyr::select(-pop,-contains("ude
   kable_mydf(font_size = 12)
 ```
 
+### Distance-based Moran's Eigenvector Maps (dbMEMs)
+
+Some papers/resources :
+
+ - The vignette [Moran’s Eigenvector Maps and related methods for the spatial multiscale analysis of ecological data](https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html) by Stéphane Dray.
+
+ - @draySpatialModellingComprehensive2006
+ 
+ - @forester2018comparing
+ 
+ - @gutakerGenomicHistoryEcology2020
+ 
+ - @laskyGenomeenvironmentAssociationsSorghum2015
+ 
+Moran’s Eigenvector Maps (MEMs) are calculated based on a spatial weighting matrix (SWM) and are orthogonal vectors maximizing the spatial autocorrelation (measured by Moran’s coefficient) of the sampled locations. Distance-based MEMs are calculated based on a particular SWM which is a geographic distance matrix. 
+ 
+We first calculate a matrix of geodesic distances (in meters) among population locations using [great-circle distances](https://en.wikipedia.org/wiki/Great-circle_distance) calculated for the WGS84 ellipsoid. The shortest path between two points on an ellipsoid is called the geodesic. The WGS84 ellipsoid is the best available global ellipsoid.
+We compared the distances calculated with the function `geodist`of the R package `geodist` and the function `distm` from the R package `geosphere`. 
+
+```{r CalculateGeodesicDistancesAmongPopulationLocations}
+# convert long-lat coordinates to a matrix of geodesic distances in meters
+
+# 1) with the R package geodist
+geodist(clim[,c("longitude","latitude")], measure = "geodesic")  %>% .[1:4,1:4]
+
+# 2) with the R package geoshere
+distm(clim[,c("longitude","latitude")], fun = distGeo) %>% .[1:4,1:4]
+```
+
+The two functions give the same results :)
+
+We then calculate the dbMEMs with the function `dbmem` of the `adespatial` R package. Similarly to @laskyGenomeenvironmentAssociationsSorghum2015, we only keep MEMs with positive eigenvalues. 
+
+```{r CalculatedbMEMswithGeodesicDistances, eval = T}
+# to calculate dbMEMs using geodesic distances and  keep only positive eigenvalues
+dbmems <- distm(clim[,c("longitude","latitude")], fun = distGeo) %>% as.dist() %>%  dbmem(MEM.autocor = "positive")
+```
+
+We get a message informing the we do not use Euclidean distances. I think this is ok: we do not have to convert geodesic distances to Euclidean distances.
+
+```{r CalculatedbMEMswithEuclideanDistances, eval = F}
+# to calculate dbMEMs using Euclidean distances and  keep only positive eigenvalues
+dbmems <- distm(clim[,c("longitude","latitude")], fun = distGeo) %>% dist(method="euclidean") %>%  dbmem(MEM.autocor = "positive")
+```
+
+We add the dbMEMs to the dataset with the climatic variables:
+
+```{r AdddbMEMsToClimDataset}
+clim <- clim %>% bind_cols(dbmems)  # we add the distance-based Moran’s Eigenvector Maps (dbMEMs)
+```
+
+In the variance partitioning section, we use all the dbMEMs with positive eigenvalues: 
+  
+```{r SetNbdbMEMs}
+nb_dbMEMs <- dim(dbmems)[[2]]
+```
 
 ### Filtering the climatic variables
 
@@ -731,7 +779,7 @@ We want to disentangle the *relative contribution* of different factors in expla
   
   - *neutral population structure*, captured by the ancestry coefficients from @jaramillo2015molecular for the individual-based allele counts, or captured by the first `r nb_PCscores` PC scores for the **population-based allele frequencies**. 
   
-  - *geography*, accounted for by the population coordinates (longitude and latitude) or by `r nb_dbMEMs` distance-based Moran's eigen vector maps. 
+  - *geography*, accounted for by the population coordinates (longitude and latitude) or by the distance-based Moran's eigenvector maps (dbMEMs) with positive eigenvalues (`r nb_dbMEMs` in our study). 
   
   
 
@@ -849,7 +897,7 @@ return(sum_tab_RDA)
 
 ## Individual-based allele counts{#VarPartInd}
 
-I left this part in the document but I think we should only use the variance partitioning based on population-level allele frequencies.
+I left this part in the document but I think we should only use the variance partitioning based on population-level allele frequencies. Geography is accounted for with geographical coordinates (longitude and latitude in degrees).
 
 ```{r VartPartIndividualLevel, eval=F}
 list_sum_var_part <- lapply(list(set1_var, set2_var, set3_var), function(x){
