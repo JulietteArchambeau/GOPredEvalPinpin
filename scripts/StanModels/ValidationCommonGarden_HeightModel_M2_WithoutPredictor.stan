@@ -1,26 +1,23 @@
 data {
   int N;
   vector[N] Y;                              // Response variable (individual height)
-  vector[N] X;                              // Genomic offset or climatic transfer distances
-  vector[N] H;                              // Initial height of the populations
+  vector[N] H;                              // Initial tree height of the populations
   int<lower=0> nb_bloc;                     // Number of blocks
   int<lower=0, upper=nb_bloc> bloc[N];      // Blocks
 }
 
 parameters {
   vector[nb_bloc] alpha_bloc;               // Intercepts of the blocks
-  real beta_X1;                             // Linear coefficent of GO or CTD
-  real beta_X2;                             // Quadratic coefficent of GO or CTD
   real beta_H;                              // Coefficient of the initial height of the populations
   real<lower = 0>  sigma;                   // Residual variance of the model
   
 }
 
 transformed parameters {
-  vector[N] mu;     // Linear predictor
+  vector[N] mu;    // Linear predictor
   real classic_R2;  // classic R2 to evaluate the goodness of fit of the model
   
-  mu = alpha_bloc[bloc] + beta_X1 * X + beta_X2 * square(X) + beta_H * H;
+  mu = alpha_bloc[bloc] + beta_H * H;
   classic_R2 = 1 - variance(Y - mu) / variance(Y); // classical R2
 }
 
@@ -33,8 +30,6 @@ model {
   sigma ~ exponential(1);
   alpha_bloc ~ std_normal();
   beta_H ~ std_normal();
-  beta_X1 ~ std_normal();
-  beta_X2 ~ std_normal();
 }
 
 generated quantities{
@@ -44,12 +39,4 @@ generated quantities{
   
   bayes_R2_res = variance(mu) / (variance(mu) + variance(Y-mu));
   bayes_R2_mod = variance(mu) / (variance(mu) + square(sigma));
-  
-//   // log likelihood for loo
-//   vector[N] log_lik;
-//   vector[N] muhat;
-//   for (n in 1:N) {
-//     log_lik[n] = normal_lpdf(Y[n] |mu[n],sigma);
-//     muhat[n] = normal_rng(mu[n], sigma);
-//   }
 }

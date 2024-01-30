@@ -559,17 +559,18 @@ We write a function to plot the model coefficients :
 coeff_y_axis <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
                      beta_X2="Regression coefficients $\\beta_{X_2}$",
                      beta_H="Regression coefficients $\\beta_H$",
-                     R_squared="Proportion of variance explained ($R^2$)")
+                     R_squared="Proportion of variance explained ($R^2$)",
+                     classic_R2="Classic $R^2$",
+                     bayes_R2_res="Residual-based Bayes $R^2$",
+                     bayes_R2_mod="Model-based Bayes $R^2$")
 
 generate_interval_plots <- function(model_i){
 
 coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
 
-  
-params <-  coefftab$term %>% unique() %>% str_subset("^beta|R_squared")
+params <-  coefftab$term %>% unique() %>% str_subset("^beta|squared|R2")
 
 p <- lapply(params, function(coeff){
-
 
 p <- coefftab %>% 
   filter(term==coeff) %>% 
@@ -600,6 +601,18 @@ p <- coefftab %>%
          method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")))
   
 
+
+if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2"){
+  nullR2 <- readRDS(file = here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds")) %>% 
+    filter(term==coeff) %>% 
+    mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
+                      cg=="bordeaux"~"Bordeaux, France (85 months)",
+                      cg=="caceres"~"Cáceres, Spain (8 months)",
+                      cg=="madrid"~"Madrid, Spain (13 months)",
+                      cg=="portugal"~"Fundão, Portugal (27 months)"))
+}
+
+
 # Plots with CTD and SNP sets
 # ===========================
 p_allvar <- p %>% 
@@ -609,7 +622,9 @@ p_allvar <- p %>%
               ymax = conf_high,
               color=method_input,
               shape=method_input)) +
-  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
+  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
@@ -632,6 +647,7 @@ p_allvar <- p %>%
   guides(color=guide_legend(ncol=1),
          shape = guide_legend(override.aes = list(size =2 )))
 
+p_allvar 
 
 # save in pdf
 ggsave(p_allvar,
@@ -657,7 +673,9 @@ p_SNPs <- p %>%
              ymax = conf_high,
              color=method_input,
              shape=method_input)) +
-  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
+  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
   facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
@@ -906,7 +924,7 @@ lapply(unique(ggtab$method), function(method_i){
 
 }
 ```
-## Model 1 (basic one)
+## Model 1
 
 ### Model equation and code 
 
@@ -1035,23 +1053,25 @@ Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M2.stan"))
 print(stancode)
 
-params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc")
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","sigma","alpha_bloc",
+                        "classic_R2","bayes_R2_mod","bayes_R2_res")
 ```
 
 
-```{r RunHeightyModelM2, eval=F}
+```{r RunHeightModelM2, eval=F}
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
   lapply(unique(df$method), function(method_i){
   
+    # Subset the data
     df_sub <- df %>% filter(method == method_i & cg == site_i)
     
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
       left_join(df_sub, by = c("cg","pop")) %>% 
-      
       left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
       
+    # Data in a list for Stan
     stanlist <- list(N = nrow(sub_data),
                      Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                      X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
@@ -1059,10 +1079,15 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                      nb_bloc = length(unique(sub_data$block)),
                      bloc = as.numeric(as.factor(sub_data$block)))
 
+    # Run the models
     mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
                     pars = params_to_estimate) 
-  
-# Save coefficients
+    
+    # Save the models
+    mod %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_",method_i,".rds")))
+    
+    
+    # Extract coefficients
     broom.mixed::tidyMCMC(mod,
                           pars=params_to_estimate,
                           droppars = NULL, 
@@ -1087,6 +1112,64 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
 coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2.rds"))
 ```
 
+
+### Running model without predictor
+
+```{r M2WithoutPredictor, eval=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M2_WithoutPredictor.stan"))
+print(stancode)
+
+params_to_estimate <- c("beta_H","sigma","alpha_bloc",
+                        "classic_R2","bayes_R2_mod","bayes_R2_res")
+
+coefftab <- lapply(unique(height_data$cg), function(site_i){
+  
+    # Subset the data
+    df_sub <- df %>% filter(method == "CTD_bio1" & cg == site_i)
+    
+    sub_data <- height_data %>% 
+      filter(cg == site_i) %>% 
+      left_join(df_sub, by = c("cg","pop")) %>% 
+      left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
+      
+    # Data in a list for Stan
+    stanlist <- list(N = nrow(sub_data),
+                     Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                     H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
+                     nb_bloc = length(unique(sub_data$block)),
+                     bloc = as.numeric(as.factor(sub_data$block)))
+
+    # Run the models
+    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+                    pars = params_to_estimate) 
+    
+    # Save the models
+    mod %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_WithoutPredictor.rds")))
+    
+    
+    # Extract coefficients
+    broom.mixed::tidyMCMC(mod,
+                          pars=params_to_estimate,
+                          droppars = NULL, 
+                          robust = FALSE, # give mean and standard deviation
+                          ess = F, 
+                          rhat = F, 
+                          conf.int = T,
+                          conf.level = 0.95) %>% 
+    dplyr::rename(mean=estimate,
+                  std_deviation=std.error,
+                  conf_low=conf.low,
+                  conf_high=conf.high) %>% 
+    mutate(cg=site_i,
+           method="WithoutPredictor",
+           .before=1)
+    
+    
+  }) %>% bind_rows()
+
+coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds"))
+```
+
 ### Model coefficients
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
@@ -1095,37 +1178,58 @@ We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ 
 generate_interval_plots(model_i = "M2")
 ```
 
-### Predicted quadratic relationships
+### Vizualising predicted associations
 
-We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
+#### Mean predictions
+
+We plot the mean predicted relationships between tree height and GO predictions / CTD.
 
 ```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=T}
 generate_poly_plots(model_i = "M2")
 ```
  
-### quadratic relationships
+#### Posterior draws and uncertainty intervals
 
-```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6}
+The graphs above do not show the estimate uncertainty. We generate some graphs to visualise the uncertainty around the estimates :
+
+  - the uncertainty in the mean estimates (i.e. variability in posterior draws of the linear predictor $\mu$)
+  
+  - the uncertainty in tree height predictions (i.e. after accounting for $\sigma$ in the predictions).
+
+```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
 cg_names <- list(caceres = "Cáceres",
                  asturias = "Asturias",
                  madrid = "Madrid",
                  portugal = "Fundão",
                  bordeaux = "Bordeaux")
 
-go_methods <- list(LFMM_all = "LFMM and all SNPs",
-                   LFMM_cand = "LFMM and candidate SNPs",
-                   LFMM_control = "LFMM and control SNPs",
-                   RDA_cand = "RDA and candidate SNPs",
-                   RDA_control = "RDA and control SNPs",
-                   GDM_cand = "GDM and candidate SNPs",
-                   GDM_control = "GDM and control SNPs",
-                   GF_cand = "GF and candidate SNPs",
-                   GF_control = "GF and control SNPs")
+methods <- list(LFMM_all = "LFMM and all SNPs",
+                LFMM_cand = "LFMM and candidate SNPs",
+                LFMM_control = "LFMM and control SNPs",
+                RDA_cand = "RDA and candidate SNPs",
+                RDA_control = "RDA and control SNPs",
+                GDM_cand = "GDM and candidate SNPs",
+                GDM_control = "GDM and control SNPs",
+                GF_cand = "GF and candidate SNPs",
+                GF_control = "GF and control SNPs",
+                CTD_bio1 = "CTD for mean annual temperature (bio1, °C)",
+                CTD_bio12 = "CTD for annual precipitation (bio12, mm)",
+                CTD_bio15 = "CTD for precipitation seasonality (bio15, index)",
+                CTD_bio3 = "CTD for isothermality (bio3, index)",
+                CTD_bio4 = "CTD for temperature seasonality (bio4, °C)",
+                CTD_SHM = "CTD for summer heat moisture index (SHM, °C/mm)")
 
-myplots <- lapply(unique(height_data$cg), function(site_i){
 
-myplots <- lapply(names(go_methods), function(method_i){
+lapply(unique(height_data$cg), function(site_i){
 
+list(CTDs=names(methods) %>% str_subset("^CTD"),
+     go_methods=names(methods) %>% str_subset("^CTD", negate=T)) %>% 
+    
+    lapply(function(method_group_i){
+      
+myplots <- lapply(method_group_i, function(method_i){
+
+# Subset the data
 df_sub <- df %>% filter(method == method_i & cg == site_i)
     
 sub_data <- height_data %>% 
@@ -1133,22 +1237,17 @@ sub_data <- height_data %>%
       left_join(df_sub, by = c("cg","pop")) %>% 
       left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
       
+# Data in a list for Stan
 stanlist <- list(N = nrow(sub_data),
                  Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                  X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
                  H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
                  nb_bloc = length(unique(sub_data$block)),
                  bloc = as.numeric(as.factor(sub_data$block)))
-
-mod <- sampling(stancode, 
-                data = stanlist, 
-                iter = 2000, 
-                chains = 4, 
-                cores = 4, 
-                save_warmup = FALSE,
-                pars = params_to_estimate) 
+    
+# Loading the model
+mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_",method_i,".rds")))
   
-
 #############################################################################
 # Visualizing the relationships between GO predictions and height predictions
 #############################################################################
@@ -1212,8 +1311,9 @@ y_pred <-
 #######
 
 # Plot options 
-y_limits <- c(-3,2)
-x_axis <- "Mean-centered GO predictions"
+y_limits <- c(-3,3)
+if(grepl("CTD",method_group_i[[1]]) == T){x_axis <- "Mean-centered CTD"} else {
+  x_axis <- "Mean-centered GO predictions"}
 y_axis <- "Mean-centered tree height"
 
 p <- ggplot() +
@@ -1241,7 +1341,7 @@ p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
 
 # Title
 title <- ggdraw() + 
-  draw_label(paste0(cg_names[[site_i]]," - ",go_methods[[method_i]]),
+  draw_label(paste0(cg_names[[site_i]]," - ",methods[[method_i]]),
              fontface = 'bold',
              x = 0, hjust = 0) +   
   theme(plot.margin = margin(0, 0, 0, 7))
@@ -1249,39 +1349,63 @@ title <- ggdraw() +
 # merge title and plots
 p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
 
-p2 <- p2 + labs(title = go_methods[[method_i]])
+p2 <- p2 + labs(subtitle = methods[[method_i]])
 
-return(list(p2,p1_p2))
+ggsave(p1_p2,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_MuPosteriorDraws_UncertaintyIntervals/",
+                        method_i,"_",site_i,"_M2.pdf")),
+       device="pdf",
+       height=6,
+       width=11)
+
+
+return(p2)
 
 })
 
+if(grepl("CTD",method_group_i[[1]]) == T){
+  
+  group_name <- "CTDs"
+  
+  p <- plot_grid(myplots[[1]] + labs(x=""),
+                 myplots[[2]] + labs(y="",x=""),
+                 myplots[[3]] + labs(x=""),
+                 myplots[[4]] + labs(y="",x=""),
+                 myplots[[5]],
+                 myplots[[6]] + labs(y=""),
+                 ncol=2)
+  
+  fig_width <- 10
+  
+} else {
+  
+  group_name <- "SNPsets"
+  
+  p <- plot_grid(myplots[[1]] + labs(x=""),
+                 myplots[[2]] + labs(y="",x=""),
+                 myplots[[3]] + labs(y="",x=""),
+                 myplots[[4]] + labs(x=""),
+                 myplots[[5]] + labs(y="",x=""),
+                 myplots[[6]] + labs(y="",x=""),
+                 myplots[[7]],
+                 myplots[[8]] + labs(y=""),
+                 myplots[[9]] + labs(y=""),
+                 ncol=3)
+  
+    fig_width <- 12
+    
+    }
+      
 
-plot_grid(myplots[[1]][[1]] + labs(x=""),
-          myplots[[2]][[1]] + labs(y="",x=""),
-          myplots[[3]][[1]] + labs(y="",x=""),
-          myplots[[4]][[1]] + labs(x=""),
-          myplots[[5]][[1]] + labs(y="",x=""),
-          myplots[[6]][[1]] + labs(y="",x=""),
-          myplots[[7]][[1]],
-          myplots[[8]][[1]] + labs(y=""),
-          myplots[[9]][[1]] + labs(y=""),
-          ncol=3) %>% 
-ggsave(file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_",site_i,"_M2.pdf")),
-       device="pdf",
+ggsave(p,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_",group_name,"_",site_i,"_M2.png")),
+       device="png",
        height=12,
-       width=12)
-
-
-lapply(myplots, function(x) x[[2]]) %>% setNames(names(go_methods))
-
-}) %>% setNames(unique(height_data$cg))
-
-
-pdf(width = 12, height = 6, here("figs/ValidationCommonGarden/HeightModels/HeightPredictions_Allgraphs.pdf"))
-lapply(myplots, function(x) x)
-dev.off()
-
-myplots
+       width=fig_width,
+       dpi=600)
+})
+  
+})
 ```
 
 
