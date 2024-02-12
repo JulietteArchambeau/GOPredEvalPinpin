@@ -20,10 +20,10 @@ model {
   beta_X ~ normal(0,5);//std_normal();
 }
 
-generated quantities{
-  vector[N] log_lik;
-  // log likelihood for loo
-  for (n in 1:N) {
-    log_lik[n] = binomial_logit_lpmf( nb_dead[n] | nb_tot[n] , beta_0 + beta_H * H[n] + beta_X * X[n]);
-  }
-}
+// generated quantities{
+//   vector[N] log_lik;
+//   // log likelihood for loo
+//   for (n in 1:N) {
+//     log_lik[n] = binomial_logit_lpmf( nb_dead[n] | nb_tot[n] , beta_0 + beta_H * H[n] + beta_X * X[n]);
+//   }
+// }

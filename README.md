@@ -53,7 +53,9 @@ The code (`.qmd` and `Rmd` files) used to generate the following reports can be 
 
 -   [14_ValidationNFI_ModelComparison.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/14_ValidationNFI_ModelComparison.html) Building and evaluating the accuracy of the Bayesian models used to estimate the relationship between genomic offset predictions and mortality rates in the National Forest Inventory plots.
 
--   [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html) Evaluating the genomic offset predictions with mortality and height data from five clonal common gardens (CLONAPIN network).
+-   [15_ValidationCommonGardens.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/15_ValidationCommonGardens.html) Evaluating the genomic offset predictions with mortality and height data from five clonal common gardens (CLONAPIN network), and comparing with the predictive ability of the more commonly used climatic transfer distances (CTDs).
+
+    * Correlations among GO predictions and climatic transfer distances in each common garden are shown here: <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/Corrplot_GOpreds_CTDs_asturias.pdf" target="_blank">Asturias (Spain)</a>, <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/Corrplot_GOpreds_CTDs_bordeaux.pdf" target="_blank">Bordeaux (France)</a>, <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/Corrplot_GOpreds_CTDs_caceres.pdf" target="_blank">Cáceres (Spain)</a>, <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/Corrplot_GOpreds_CTDs_madrid.pdf" target="_blank">Madrid (Spain)</a>, <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/Corrplot_GOpreds_CTDs_portugal.pdf" target="_blank">Fundão (Portugal)</a>.
 
 -   [16_PCAplotIDpops.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/16_PCAplotIDpops.html) Generating figures for the Supplementary Information based on the PCA of the control and candidate SNPs: screeplots and PCA plots with the ALT and ARM populations highlighted.
 

@@ -996,13 +996,36 @@ go_maps_cg <- lapply(cg_names, function(cg_name){
 go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[[cg_name]]) %>%  unlist() %>% range()
 go_limits[[1]] <- 0
 
-p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
-                                              snp_set = x,
-                                              point_size = 3,
-                                              type="CG",
-                                              go_limits = go_limits,
-                                              cg_name=cg_name,
-                                              cg_coord=cg_coord))
+p <- lapply(snp_sets, function(x) {
+  
+ p <- make_go_map(dfcoord=pop_coord,
+              snp_set = x,
+              point_size = 3,
+              type="CG",
+              go_limits = go_limits,
+              cg_name=cg_name,
+              cg_coord=cg_coord)
+ 
+ 
+ # We save the figures for the Supplementary Information
+ if(x$set_code=="cand") {
+   p_SI <- p + theme(plot.title = element_blank(),
+                     legend.position = "none")
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/RDA/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)}
+  
+  if(x$set_code=="control") {
+   p_SI <- p + theme(plot.title = element_blank())
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/RDA/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)}
+ 
+ 
+ 
+ p
+ 
+  })
 
 plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
   

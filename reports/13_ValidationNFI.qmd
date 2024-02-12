@@ -51,6 +51,8 @@ library(latex2exp)
 library(magrittr)
 library(ggrepel)
 library(paletteer)
+library(cowplot)
+library(ggpubr)
 
 # Mapping
 library(rnaturalearth)
@@ -824,7 +826,10 @@ coefftab <- lapply(unique(df$method), function(method_i){
 # Running the Stan model
 mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE)
 
-
+# Save the model and the stanlist
+list(mod = mod, stanlist = stanlist) %>% 
+  saveRDS(file=here(paste0("outputs/ValidationNFI/StanModels/M62_",unique(sub_data$method_type),"_",unique(sub_data$method_input),".rds")))
+    
 # Model coefficients
 conf95 <- broom.mixed::tidyMCMC(mod,
                                 pars=params_to_estimate,
@@ -861,6 +866,236 @@ conf95 <- broom.mixed::tidyMCMC(mod,
 
 coefftab %>% saveRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
 ```
+
+
+### Predictions of tree mortality probability
+
+#### Plots
+
+Let's visualize the uncertainty around the estimation of the probability of tree mortality $p$.
+
+```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+############################################################################################
+# Visualizing the relationships between GO predictions and mortality probability predictions
+############################################################################################
+df <- df %>% mutate(method_id=paste0(method_type,"_",method_input))
+
+go_methods <- list(LFMM_all = "GO predictions from LFMM and all SNPs",
+                LFMM_cand = "GO predictions from LFMM and candidate SNPs",
+                LFMM_control = "GO predictions from LFMM and control SNPs",
+                RDA_cand = "GO predictions from RDA and candidate SNPs",
+                RDA_control = "GO predictions from RDA and control SNPs",
+                GDM_cand = "GO predictions from GDM and candidate SNPs",
+                GDM_control = "GO predictions from GDM and control SNPs",
+                GF_cand = "GO predictions from GF and candidate SNPs",
+                GF_control = "GO predictions from GF and control SNPs")
+                
+myplots <- lapply(unique(df$method_id), function(method_i){
+
+# We load the stanlist
+stanlist <- readRDS(file = here(paste0("outputs/ValidationNFI/StanModels/M62_",method_i,".rds")))$stanlist
+
+# We load the model
+mod <- readRDS(file = here(paste0("outputs/ValidationNFI/StanModels/M62_",method_i,".rds")))$mod
+
+# We extract the posterior distributions of all parameters
+post <- as.data.frame(mod)
+
+# Vector of predictor values (based on the min and max of the GO predictions)
+x_vec <- seq(min(stanlist$GO),max(stanlist$GO),0.05)
+
+# Function to predict the mortality probability p with the initial tree height fixed to the mean
+p_pred <- lapply(c("alpha_country[1]","alpha_country[2]"), function(country_i){
+  
+  f_p <- function(x) 1 -(exp(-exp(post[,country_i] + 
+                                    post$`beta_DBH` * mean(stanlist$DBH) + 
+                                    post$`beta_C` * mean(stanlist$C) + 
+                                    post$`beta_C_DBH` * mean(stanlist$C) * mean(stanlist$DBH) + 
+                                    post$`beta_GO` * x +
+                                    log(5))))
+  
+sapply(x_vec, f_p) %>% 
+    tibble::as_tibble() %>%
+    rename_all(function(x) x_vec) %>%
+    mutate(Iter = row_number()) %>%
+    gather(x, p, -Iter) %>%
+    group_by(x) %>%
+    mutate(hpdi_l = HDInterval::hdi(p, credMass = 0.90)[1],
+           hpdi_h = HDInterval::hdi(p, credMass = 0.90)[2],
+           p_mean = mean(p)) %>%
+    ungroup() %>%
+    mutate(x = as.numeric(x),
+           Country=ifelse(country_i=="alpha_country[1]","Spain","France"))
+  
+}) %>% bind_rows()
+
+
+# Keep mean and 90% HDPI of p (one value for each iteration)
+p_mean_df <- p_pred %>%
+  dplyr::select(x,hpdi_l,hpdi_h,p_mean,Country) %>% 
+  dplyr::distinct()
+
+
+# Plots
+#=======
+
+# Plot options 
+y_limits <- c(0,0.2)
+x_axis <- "Mean-centered GO predictions"
+y_axis <- "Probability of tree mortality"
+
+p <- ggplot() +
+  ylim(y_limits) +
+  labs(y=y_axis, x=x_axis) +
+  theme_bw() +
+  theme(legend.position=c(0.8,0.85),
+        legend.text = element_text(size=13),
+        legend.title = element_text(size=13),
+        legend.background = element_blank())
+
+# First 100 posterior draws of the mortality probability p
+p1 <- p +
+  geom_point(data = p_pred %>% filter(Iter < 101),
+             aes(x, p, color=Country), alpha = .2) 
+  
+# Mean (line) and 90% HPDI (shaded region) of the mortality probability p
+p2 <- p +
+  geom_ribbon(data = p_mean_df,
+              aes(x = x, ymin = hpdi_l, ymax = hpdi_h, fill=Country),
+              alpha = .2) +
+  geom_line(data = p_mean_df,
+              aes(x=x, y=p_mean,col=Country))
+
+p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
+
+# Title
+title <- ggdraw() + 
+  draw_label(paste0(go_methods[[method_i]]),
+             fontface = 'bold',
+             x = 0, hjust = 0) +   
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+# merge title and plots
+p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
+
+p2 <- p2 + labs(subtitle = go_methods[[method_i]])
+
+ggsave(p1_p2,
+       file=here(paste0("figs/ValidationNFI/MortalityProbabilityPredictions_UncertaintyIntervals/M62_",method_i,".pdf")),
+       device="pdf",
+       height=6,
+       width=11)
+
+
+return(p2)
+
+})
+
+p <- plot_grid(myplots[[1]] + labs(x="") + theme(legend.position = "none"),
+               myplots[[2]] + labs(y="",x="") + theme(legend.position = "none"),
+               myplots[[3]] + labs(y="",x=""),
+               myplots[[4]] + labs(x="") + theme(legend.position = "none"),
+               myplots[[5]] + labs(y="",x="") + theme(legend.position = "none"),
+               myplots[[6]] + labs(y="",x="") + theme(legend.position = "none"),
+               myplots[[7]] + theme(legend.position = "none"),
+               myplots[[8]] + labs(y="") + theme(legend.position = "none"),
+               myplots[[9]] + labs(y="") + theme(legend.position = "none"),
+               ncol=3)
+
+ggsave(p,
+       file=here(paste0("figs/ValidationNFI/MortalityProbabilityPredictions_M62.pdf")),
+       device="pdf",
+       height=12,
+       width=12)
+
+
+```
+
+
+#### Table
+
+In the table below:
+
+  - mean and 90% credible intervals (highest posterior density intervals) of $p$ for $x=\{-1, 0, 1\}$.
+  
+  - percent change in $p$ associated with a one-unit increase in $x$ (which corresponds to a one-standard deviation increase).
+
+```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+p_pred <- lapply(unique(df$method_id), function(method_i){
+
+# We load the stanlist
+stanlist <- readRDS(file = here(paste0("outputs/ValidationNFI/StanModels/M62_",method_i,".rds")))$stanlist
+
+# We load the model
+mod <- readRDS(file = here(paste0("outputs/ValidationNFI/StanModels/M62_",method_i,".rds")))$mod
+
+# We extract the posterior distributions of all parameters
+post <- as.data.frame(mod)
+
+# Vector of predictor values (based on the min and max of the GO predictions)
+x_vec <- c(-1,0,1)
+
+# Function to predict the mortality probability p with the initial tree height fixed to the mean
+p_pred <- lapply(c("alpha_country[1]","alpha_country[2]"), function(country_i){
+  
+  f_p <- function(x) 1 -(exp(-exp(post[,country_i] + 
+                                    post$`beta_DBH` * mean(stanlist$DBH) + 
+                                    post$`beta_C` * mean(stanlist$C) + 
+                                    post$`beta_C_DBH` * mean(stanlist$C) * mean(stanlist$DBH) + 
+                                    post$`beta_GO` * x +
+                                    log(5))))
+  
+sapply(x_vec, f_p) %>% 
+    tibble::as_tibble() %>%
+    rename_all(function(x) x_vec) %>%
+    mutate(Iter = row_number()) %>%
+    gather(x, p, -Iter) %>%
+    group_by(x) %>%
+    mutate(hpdi_l = HDInterval::hdi(p, credMass = 0.90)[1],
+           hpdi_h = HDInterval::hdi(p, credMass = 0.90)[2],
+           p_mean = mean(p)) %>%
+    ungroup() %>%
+    mutate(x = as.numeric(x),
+           Country=ifelse(country_i=="alpha_country[1]","Spain","France"))
+  
+}) %>%  
+  bind_rows() %>% 
+  dplyr::select(x,p_mean,hpdi_l,hpdi_h,Country) %>% 
+  distinct() %>% 
+  mutate_if(is.numeric, round,  digits=3)
+
+lapply(unique(p_pred$Country), function(country_i){
+  
+p_pred_sub <- p_pred %>% dplyr::filter(Country==country_i)
+
+delta_p_pos <- (p_pred_sub$p_mean[p_pred_sub$x==1] * 100 / p_pred_sub$p_mean[p_pred_sub$x==0])-100
+delta_p_neg <- (p_pred_sub$p_mean[p_pred_sub$x==-1] * 100 / p_pred_sub$p_mean[p_pred_sub$x==0])-100
+
+tibble("Method" = go_methods[[method_i]],
+       "Country"=country_i,
+         "p(GO=-1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==-1], " [",
+                       p_pred_sub$hpdi_l[p_pred_sub$x==-1],";",
+                       p_pred_sub$hpdi_h[p_pred_sub$x==-1],"]"),
+       "p(GO=0)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==0], " [",
+                       p_pred_sub$hpdi_l[p_pred_sub$x==0],";",
+                       p_pred_sub$hpdi_h[p_pred_sub$x==0],"]"),
+       "p(GO=1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==1], " [",
+                       p_pred_sub$hpdi_l[p_pred_sub$x==1],";",
+                       p_pred_sub$hpdi_h[p_pred_sub$x==1],"]"),
+       "+Δp"=paste0(round(delta_p_pos,3),"%"),
+       "-Δp"=paste0(round(delta_p_neg,3),"%"))
+  
+}) %>% bind_rows()
+
+})  %>% bind_rows()
+
+p_pred %>% saveRDS(file = here("tables/MortalityPredNFI.rds"))
+```
+
+```{r ShowMortalityPredictionsTable}
+readRDS(file = here("tables/MortalityPredNFI.rds"))  %>% kable_mydf()
+```
+
 
 ### Model coefficients
 
