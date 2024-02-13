@@ -1040,6 +1040,20 @@ GO predictions with GDM in the common garden of Madrid, Spain (black asterisk).
 GO predictions with GDM in the common garden of Fundão, Portugal (black asterisk).
 :::
 
+
+### Correlations between GO predictions and CTDs
+
+![Correlations between GO predictions and CTDs in Asturias, Spain.](../figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_asturias.pdf){#fig-CorrPlotGOpredCTDsAsturias}
+
+![Correlations between GO predictions and CTDs in Bordeaux, France.](../figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_bordeaux.pdf){#fig-CorrPlotGOpredCTDsBordeaux}
+
+![Correlations between GO predictions and CTDs in Cáceres, Spain.](../figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_caceres.pdf){#fig-CorrPlotGOpredCTDsCaceres}
+
+![Correlations between GO predictions and CTDs in Madrid, Spain.](../figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_madrid.pdf){#fig-CorrPlotGOpredCTDsMadrid}
+
+![Correlations between GO predictions and CTDs in Fundão, Portugal.](../figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_portugal.pdf){#fig-CorrPlotGOpredCTDsFundao}
+
+
 ## Sample size
 
 
@@ -1268,7 +1282,7 @@ In the graphs below, the blue line corresponds to the mean estimate of the linea
 ![Tree height predictions as a function of GO predictions in Fundão (Portugal). ](../figs/ValidationCommonGarden/HeightModels/HeightPredictions_SNPsets_portugal_M2.pdf){#fig-ValCGHeightPredictionsFundao}
 
 
-#### Height predictions as a function of CTDs
+#### Plots with CTDs as covariates
 
 ![Tree height predictions as a function of CTDs in Asturias (Spain). ](../figs/ValidationCommonGarden/HeightModels/HeightPredictions_CTDs_asturias_M2.pdf){#fig-ValCGHeightPredictionsAsturias}
 
@@ -1280,7 +1294,7 @@ In the graphs below, the blue line corresponds to the mean estimate of the linea
 
 ![Tree height predictions as a function of CTDs in Fundão (Portugal). ](../figs/ValidationCommonGarden/HeightModels/HeightPredictions_CTDs_portugal_M2.pdf){#fig-ValCGHeightPredictionsFundao}
 
-#### Proportion of variance explained 
+### Proportion of variance explained 
 
 ![Estimated mean and 95\% credible intervals of the proportion of variance explained $R^2$. Graph titles include the time in months corresponding to the age at which height and survival were recorded. For each common garden, the brown line and uncertainty interval correspond to the estimated mean and 95\% credible interval of $R^2$ in a model that does not contain GO predictions or CTDs as predictors (i.e., only including the block intercepts and the initial tree height $H_p$).](../figs/ValidationCommonGarden/HeightModels/bayes_R2_mod_M2_SNPsandCTD.pdf){#fig-ValCGHeightModelsR2}
 
@@ -1304,7 +1318,7 @@ In the graphs below, the blue line corresponds to the mean estimate of the linea
 
 ## Climate change exposure
 
-The graph below is the same as @fig-RelativeClimaticDistances, except that ALT and ARM populations are colored in pink and the other populations are colored in light blue.
+The graph below is the same as S[-@fig-RelativeClimaticDistances], except that ALT and ARM populations are colored in pink and the other populations are colored in light blue.
 
 ![Relative climatic distances for the six climatic variables used to make GO predictions. The relative climatic distances were calculated for five different GCMs, each corresponding to a different panel. ALT and ARM populations are colored in pink and the other populations are colored in light blue.](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables_2PopsHighlighted.pdf){#fig-RelativeClimaticDistances2Pops}
 
