@@ -50,6 +50,8 @@ library(RColorBrewer)
 library(pdist)
 library(corrplot)
 library(latex2exp)
+library(rnaturalearthdata)
+library(rnaturalearth)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -411,7 +413,9 @@ lapply(snp_sets, function(x) x$go[[gcm]]) %>%
 ```
 
 
-### Maps
+## Maps
+
+### With spatial points
 
 ```{r MakeGomaps, fig.width=12, fig.height=7, results="hide", warning=F}
 # Function to make the genomic offset maps
@@ -499,6 +503,120 @@ high_go_pops[[1]] %>% kable_mydf
 
 high_go_pops[[2]]
 ```
+
+### With rasters
+
+
+We project the genomic offset predictions for the set of candidate SNPs and the mean genomic offset across the five GCMs.
+
+```{r ProjectMeanGO, eval=F}
+# Extract scaling parameters, i.e. mean and variance  
+scale_params <- lapply(clim_var, function(x){
+    
+    vec_var <- readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")))[["ref_1901_1950"]]$ref_means[,x] %>% pull()
+    
+    list(mean = mean(vec_var),
+         sd = sd(vec_var))
+    
+  }) %>% setNames(clim_var)
+
+
+
+# Buffer for the maps (maritime pine distribution)
+range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp'))
+
+# We project the genomic offset only for the candidate SNPs
+snp_set <- snp_sets[["cand"]]
+
+# We load the rasters with the climates of the reference period
+path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
+ref_rasts <- lapply(clim_var, function(x) paste0(path,"/",x,".tif")) %>% 
+  raster::stack() %>%
+  mask(range_buffer) 
+
+# We extract the climatic values in a data frame
+clim_ref_df <- ref_rasts %>% 
+  rasterToPoints() %>% 
+  as.data.frame()
+
+# Scale the climatic variables with the initial scaling parameters
+for(i in clim_var){clim_ref_df[,i] <- (clim_ref_df[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+
+# GF predictions under current climates
+ref_pred <- predict(snp_set$gf_mod,clim_ref_df[,clim_var])
+
+df <- lapply(names(clim_dfs$clim_pred), function(gcm){ # for each GCM
+  
+# Rasters with future climates
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-JulietteA/"))
+clim_fut_df <- lapply(clim_var, function(x) paste0(path,"/",x,".tif")) %>% 
+  raster::stack() %>% 
+  mask(range_buffer) %>% 
+  rasterToPoints() %>% # extract the climatic values at each spatial points
+  as.data.frame()
+
+# Scale the climatic variables with the initial scaling parameters
+for(i in clim_var){clim_fut_df[,i] <- (clim_fut_df[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+
+# GF predictions under future climates
+fut_pred <- predict(snp_set$gf_mod, clim_fut_df[,clim_var]) 
+
+# Calculate the genomic offset
+GO <- lapply(1:nrow(ref_pred), function(x, ref_pred, fut_pred){
+    as.numeric(pdist(ref_pred[x,],  fut_pred[x,])@dist)}, fut_pred=fut_pred, ref_pred=ref_pred) %>% 
+  unlist()
+
+clim_ref_df %>%
+  dplyr::select(x,y) %>% 
+  as_tibble() %>% 
+  mutate(GO = GO,
+         gcm = gcm)
+
+}) %>% 
+  bind_rows %>% 
+  pivot_wider(values_from = GO, names_from = gcm) %>% 
+  mutate(mean_GO = rowMeans(dplyr::select(.,-c(x:y))))
+
+
+df %>% saveRDS(here("outputs/GF/go_pred_rasters.rds"))
+```
+
+```{r PlotMeanGOProjections, fig.height=8, fig.width=8}
+# Map options
+# ===========
+point_size = 2
+x_limits = c(-10, 15)
+y_limits = c(31, 52)
+
+# Country borders
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Load the mean GO projections
+df <- readRDS(here("outputs/GF/go_pred_rasters.rds"))
+
+p <- ggplot(data=df) + 
+  geom_sf(data = world, fill="gray98") + 
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) + 
+  geom_raster(aes(x = x, y = y, fill = mean_GO), alpha = 1) + 
+  scale_fill_gradient2(low="blue", mid= "yellow", high="red",
+                       midpoint=(max(df$mean_GO)-min(df$mean_GO))/2,
+                       limits=c(min(df$mean_GO),max(df$mean_GO)),
+                       name = "Genomic offset from GF") +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(), 
+        plot.background = element_blank(), 
+        panel.background = element_blank(), 
+        legend.position = c(0.8,0.15),
+        legend.box.background = element_rect(colour = "gray80"),
+        legend.title = element_text(size=10),
+        strip.text = element_text(size=11))
+
+p %>% ggsave(here("figs/GF/GOmeanProjections_CandSNPs.pdf"),., width=8,height=8, device="pdf")
+p
+```
+
 
 
 # Validation - NFI plots
@@ -614,13 +732,34 @@ go_maps_cg <- lapply(cg_names, function(cg_name){
 go_limits <- lapply(snp_sets, function(snp_set) snp_set$go_cg[[cg_name]]) %>%  unlist() %>% range()
 go_limits[[1]] <- 0
 
-p <- lapply(snp_sets, function(x) make_go_map(dfcoord=pop_coord, 
-                                              snp_set = x,
-                                              point_size = 3,
-                                              type="CG",
-                                              go_limits = go_limits,
-                                              cg_name=cg_name,
-                                              cg_coord=cg_coord))
+p <- lapply(snp_sets, function(x){
+            
+ p <- make_go_map(dfcoord=pop_coord,
+              snp_set = x,
+              point_size = 3,
+              type="CG",
+              go_limits = go_limits,
+              cg_name=cg_name,
+              cg_coord=cg_coord)
+ 
+ 
+ # We save the figures for the Supplementary Information
+ if(x$set_code=="cand") {
+   p_SI <- p + theme(plot.title = element_blank(),
+                     legend.position = "none")
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)}
+  
+  if(x$set_code=="control") {
+   p_SI <- p + theme(plot.title = element_blank())
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)}
+
+ p
+ 
+ })
 
 plot_grid(p[[1]],p[[2]],p[[3]],nrow=1)
   
