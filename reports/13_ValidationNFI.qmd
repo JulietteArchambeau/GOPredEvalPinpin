@@ -874,7 +874,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
 
 Let's visualize the uncertainty around the estimation of the probability of tree mortality $p$.
 
-```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+```{r MortalityPredictions, message=F,warning=F, fig.height=12, fig.width=12, eval=T}
 ############################################################################################
 # Visualizing the relationships between GO predictions and mortality probability predictions
 ############################################################################################
@@ -948,7 +948,7 @@ p <- ggplot() +
   ylim(y_limits) +
   labs(y=y_axis, x=x_axis) +
   theme_bw() +
-  theme(legend.position=c(0.8,0.85),
+  theme(legend.position=c(0.2,0.85),
         legend.text = element_text(size=13),
         legend.title = element_text(size=13),
         legend.background = element_blank())
@@ -993,7 +993,7 @@ return(p2)
 
 p <- plot_grid(myplots[[1]] + labs(x="") + theme(legend.position = "none"),
                myplots[[2]] + labs(y="",x="") + theme(legend.position = "none"),
-               myplots[[3]] + labs(y="",x=""),
+               myplots[[3]] + labs(y="",x="") + theme(legend.position = c(0.8,0.85)),
                myplots[[4]] + labs(x="") + theme(legend.position = "none"),
                myplots[[5]] + labs(y="",x="") + theme(legend.position = "none"),
                myplots[[6]] + labs(y="",x="") + theme(legend.position = "none"),
@@ -1008,7 +1008,7 @@ ggsave(p,
        height=12,
        width=12)
 
-
+p
 ```
 
 
@@ -1138,7 +1138,7 @@ p <- coefftab %>%
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
   ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
-  ylim(c(-0.15,0.25)) +
+  ylim(c(-0.15,0.26)) +
   scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
   theme_bw() +
@@ -1215,6 +1215,211 @@ ggsave(p,
 p
 ```
 
+### Mapping model predictions
+
+We add in the Stan code of the model the estimation of:
+
+  - $p$ the probability of mortality during the survey period in each plot (`p` in the Stan code).
+  
+  - $p_{annual}$ the annual probability of mortality in each plot (`p_annual` in the Stan code).
+  
+  - $p_{annual,go}$ the annual probability of mortality in each plot with $DBH$ and $C$ fixed to the mean and country fixed for Spain (`p_annual_go` in the Stan code).
+  
+  - $m_{pred}$ the predicted number of dead trees in each plot during the survey period (`nb_dead_pred` in the Stan code).
+  
+  - $r_{pred}$ the residuals (in each plot during the survey period): the observed number of dead trees $m_i$ minus the predicted number of dead trees $m_{pred}$ (`nb_dead_res` in the Stan code).
+ 
+**Comment:** Estimating these parameters is computationally demanding as one value is estimated for each plot. So I estimated each parameter in independent model runs (otherwise, it was too heavy for my laptop).
+
+```{r CompileMortalityModelM62WithPredictions, message=F,warning=F}
+# Stan code
+stancode = stan_model(here("scripts/StanModels/ValidationNFI_m6_2_with_predictions.stan"))
+print(stancode)
+```
+
+We estimate these parameters for GO predictions with GF and the candidate SNPs only.
+
+```{r RunMortalityModelM62WithPredictions, eval=F}
+params_to_estimate <- c("p", "p_annual", "p_annual_go", "nb_dead_pred", "nb_dead_res")
+
+# Running the model for GO predictions from GF and the candidate SNPs
+method_i <- "GF (cand SNPs)"
+  
+# Subset the data - keeping only one set of method / SNP set
+sub_data <- df %>% 
+  filter(method == method_i) %>% 
+  inner_join(nfi_data, by="plotcode")
+      
+saveRDS(sub_data, file = here(paste0("outputs/ValidationNFI/StanModels/M62_with_predictions/subdata_M62_with_predictions_",unique(sub_data$method_type),"_",unique(sub_data$method_input),".rds")))
+
+# Data in a list for Stan 
+stanlist <- list(N = nrow(sub_data),
+                     nb_dead = sub_data$nb_dead,
+                     nb_tot=sub_data$nb_tot,
+                     GO = (sub_data$GO - mean(sub_data$GO))/sd(sub_data$GO),
+                     C = (sub_data$basal_area - mean(sub_data$basal_area))/sd(sub_data$basal_area),
+                     DBH = (sub_data$mean_DBH - mean(sub_data$mean_DBH))/sd(sub_data$mean_DBH),
+                     nb_country=length(unique(sub_data$country)),
+                     country=as.numeric(as.factor(sub_data$country)),
+                     log_nb_years=log(sub_data$nb_years))
+
+saveRDS(stanlist, file = here(paste0("outputs/ValidationNFI/StanModels/M62_with_predictions/stanlist_M62_with_predictions_",unique(sub_data$method_type),"_",unique(sub_data$method_input),".rds")))
+
+lapply(params_to_estimate, function(x){
+  
+# Running the Stan model
+mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE, include = TRUE, pars=x)
+
+# Extract the coefficient of interest
+mod %>% broom.mixed::tidyMCMC(pars=x,
+                              droppars = NULL, 
+                              robust = TRUE,  # give median and mean absolute deviation (= avg distance btw each data point and the mean)
+                              ess = T, # effective sample size estimates
+                              rhat = T, # Rhat estimates
+                              conf.int = T, conf.level = 0.95 # include 95% credible intervals
+                              ) %>% 
+  saveRDS(file=here(paste0("outputs/ValidationNFI/StanModels/M62_with_predictions/",x,"_",unique(sub_data$method_type),"_",unique(sub_data$method_input),".rds")))
+  
+  
+})
+```
+
+We map the predictions.
+
+
+```{r MappingM62Predictions}
+# Package for mapping
+library(rnaturalearth)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Function for mapping
+map_pred_nfi <- function(x, # parameter to plot 
+                         ggtitle = NULL, 
+                         legendtitle = "Annual probability\nof tree mortality",
+                         plots_above, # Which plots should be overlaid on top to be sure of seeing them?
+                         method_type= "GF", 
+                         unbalanced_rainbow,
+                         method_input = "cand"){
+
+coeffs <- readRDS(file=here(paste0("outputs/ValidationNFI/StanModels/M62_with_predictions/",x,"_",method_type,"_",method_input,".rds")))
+  
+data <- readRDS(file=here(paste0("outputs/ValidationNFI/StanModels/M62_with_predictions/subdata_M62_with_predictions_",method_type,"_",method_input,".rds"))) %>% 
+  dplyr::select(plotcode, longitude, latitude) %>% 
+  bind_cols(coeffs) 
+
+p <- ggplot() + 
+    geom_sf(data = world, fill="gray98") + 
+    theme_bw() +
+    scale_x_continuous(limits = c(-10, 11)) +
+    scale_y_continuous(limits = c(35, 51)) + 
+    geom_point(data=data, aes(x=longitude,y=latitude,color=estimate), size=1, alpha = 0.8) + 
+  xlab("") + ylab("") +
+    ggtitle(ggtitle) +
+    theme(legend.position = c(0.85,0.2),
+          legend.box.background = element_rect(fill = "white", linewidth=0.6, colour="gray"))
+
+{ 
+  if(x == "nb_dead_res") {
+    
+    p <- p + 
+      geom_point(data=data %>% filter(estimate > plots_above[[1]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) +
+      geom_point(data=data %>% filter(estimate < plots_above[[2]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) +
+      geom_point(data=data %>% filter(estimate > plots_above[[3]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) + 
+      geom_point(data=data %>% filter(estimate < plots_above[[4]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) + 
+      scale_color_stepsn(name = legendtitle, colours = rainbow(8), limits=NULL, breaks=c(-20,-10,0,10,20,30,40)) 
+    
+      } else {
+        
+        p <-  p + 
+          geom_point(data=data %>% filter(estimate>plots_above[[1]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) +
+          geom_point(data=data %>% filter(estimate>plots_above[[2]]), aes(x=longitude,y=latitude,color=estimate), size=1.4) +
+          scale_color_gradientn(name = legendtitle, colours = unbalanced_rainbow, limits=NULL)
+        } 
+      } 
+}
+```
+
+Probability of mortality $p$ during the survey period in each plot.
+
+```{r ModelM62ProbMortalityPred, fig.height=8, fig.width=8}
+p <- map_pred_nfi(x = "p", 
+                  ggtitle = NULL, 
+                  legendtitle = "Probability of tree\nmortality during\nthe inventory period",
+                  plots_above = c(0.2,0.4),
+                  unbalanced_rainbow = c("#00FF66", "#0066FF",rep("#CCFF00",2),rep("orange",3),rep("#FF0000",9)),
+                  method_type= "GF", 
+                  method_input = "cand")
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ModelM62_PredictedMortalityProbabilityInventoryPeriod_Map.pdf"), height = 6, width = 6)
+
+p
+```
+
+
+Annual probability $p_{annual}$ of tree mortality
+
+```{r ModelM62AnnualProbMortalityPred, fig.height=8, fig.width=8}
+p <- map_pred_nfi(x = "p_annual", 
+                  ggtitle = NULL, 
+                  legendtitle = "Annual probability\nof tree mortality",
+                  plots_above = c(0.1,0.2),
+                  unbalanced_rainbow = c("#00FF66", "#0066FF",rep("#CCFF00",2),rep("orange",3),rep("#FF0000",9)),
+                  method_type= "GF", 
+                  method_input = "cand")
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ModelM62_PredictedAnnualMortalityProbability_Map.pdf"), height = 6, width = 6)
+
+p
+```
+
+Annual probability $p_{annual,go}$ of tree mortality in each plot with $DBH$ and $C$ fixed to the mean and country fixed for Spain.
+
+```{r ModelM62AnnualProbMortalityPredGO, fig.height=8, fig.width=8}
+p <- map_pred_nfi(x = "p_annual_go", 
+                  ggtitle = NULL, 
+                  legendtitle = "Annual probability\nof tree mortality",
+                  plots_above = c(0.065,0.08),
+                  unbalanced_rainbow = c("#00FF66", "#0066FF",rep("#CCFF00",2),rep("orange",3),rep("#FF0000",5)),
+                  method_type= "GF", 
+                  method_input = "cand")
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ModelM62_PredictedAnnualMortalityProbability_varyingGO_OtherParamsFixed_Map.pdf"), height = 6, width = 6)
+
+p
+```
+
+
+$m_{pred}$ the predicted number of dead trees in each plot during the survey period.
+
+```{r ModelM62PredicteNumberDeadTrees, fig.height=8, fig.width=8}
+p <- map_pred_nfi(x = "nb_dead_pred", 
+                  ggtitle = NULL, 
+                  legendtitle = "Predicted number\nof dead trees",
+                  unbalanced_rainbow = c("#00FF66", "#0066FF",rep("#CCFF00",2),rep("orange",3),rep("#FF0000",9)),
+                  plots_above = c(8,14),
+                  method_type= "GF", 
+                  method_input = "cand")
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ModelM62_PredictedNumberDeadTrees_Map.pdf"), height = 6, width = 6)
+
+p
+```
+
+$r_{pred}$ the residuals (in each plot during the survey period): the observed number of dead trees $m_i$ minus the predicted number of dead trees $m_{pred}$.
+
+```{r ModelM62PredictedResiduals, fig.height=8, fig.width=8}
+p <- map_pred_nfi(x = "nb_dead_res", 
+                  ggtitle = NULL, 
+                  legendtitle = "Residuals",
+                  unbalanced_rainbow = NULL,
+                  plots_above = c(10,-10,20,-20),
+                  method_type= "GF", 
+                  method_input = "cand")
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ModelM62_Residuals_Map.pdf"), height = 6, width = 6)
+
+p
+```
 
 # GO predictions in Galicia
 

@@ -441,8 +441,8 @@ Graph titles include the time in months corresponding to the age at which height
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
 coeff_match <- list(beta_H="Regression coefficients $\\beta_H$",
-                    beta_X="Regression coefficients $\\beta_X$")
-  
+                   beta_X="Regression coefficients $\\beta_X$")
+
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
 p <- coefftab %>% 
@@ -472,10 +472,10 @@ p <- coefftab %>%
                                                     "Temperature seasonality (°C)",
                                                     "Summer heat moisture index (°C/mm)")),
          method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")),
-         cg=factor(cg, levels=c("Asturias, Spain (37 months)",
-                                "Madrid, Spain (13 months)",
-                                "Bordeaux, France (85 months)",
+         cg=factor(cg, levels=c("Madrid, Spain (13 months)",
                                 "Cáceres, Spain (8 months)",
+                                "Asturias, Spain (37 months)",
+                                "Bordeaux, France (85 months)",
                                 "Fundão, Portugal (27 months)")))
 
 # Plots with CTD and SNP sets
@@ -491,7 +491,8 @@ p_allvar <- p %>% ggplot(aes(x = method_type,
   geom_pointinterval(position = position_dodge(width = 0.6),
                      point_size=3.5, size=3) +
   facet_wrap(~cg, ncol=2) + 
-  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  ylab(TeX(coeff_match[[coeff]])) +
+  xlab("") +
   scale_color_manual(values=colors_coeff)+
   scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
   theme_bw() +
@@ -538,7 +539,8 @@ p_SNPs <- p %>%
   geom_pointinterval(position = position_dodge(width = 0.45),
                      point_size=3.5, size=3) + # 
   facet_wrap(~cg, ncol=2) +
-  ylab(TeX(coeff_match[[coeff]])) + xlab("") +
+  ylab(TeX(coeff_match[[coeff]])) +
+  xlab("") +
   scale_color_manual(values=colors_coeff) +
   scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
   theme_bw() +
@@ -580,6 +582,11 @@ annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax
         inherit.aes = TRUE, params = list(grob = grob, 
                                           xmin = xmin, xmax = xmax, 
                                           ymin = ymin, ymax = ymax))}
+
+# ========
+# Option 1 - same image, different image sizes
+# ========
+
 df_coord_png <- p %>% 
   dplyr::select(cg) %>%
   distinct %>% 
@@ -609,11 +616,49 @@ png_cg = annotation_custom2(rasterGrob(cloudpng,interpolate=TRUE),
                             data=sub)
 })
 
-p_SNPs <- p_SNPs + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+p_SNPs_1 <- p_SNPs + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
 
 # save in pdf and png
-ggsave(p_SNPs,
+ggsave(p_SNPs_1,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets_WithCloudImage.pdf")),
+       device="pdf",
+       height=7,
+       width=8)
+
+
+# ========
+# Option 2 - different images, same image size
+# ========
+
+df_png <- p %>% 
+  dplyr::select(cg) %>%
+  distinct %>% 
+  dplyr::mutate(image = case_when(cg == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
+                                  cg == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
+                                  cg == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
+                                  cg == "Madrid, Spain (13 months)" ~ "reports/sun.png",
+                                  cg == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
+
+list_pngs <- lapply(unique(p$cg), function(cg_i){
+  
+sub <-  p %>% 
+  filter(cg==cg_i) %>%
+  filter(!method_type == "CTD") %>% 
+  slice(1)
+
+png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg==cg_i,"image"])),interpolate=TRUE), 
+                            ymin = -0.56,
+                            ymax= -0.28,
+                            xmin = 4.02,
+                            xmax = 4.55, 
+                            data=sub)
+})
+
+p_SNPs_2 <- p_SNPs + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+
+# save in pdf and png
+ggsave(p_SNPs_2,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets_WithCloudAndSunImages.pdf")),
        device="pdf",
        height=7,
        width=8)

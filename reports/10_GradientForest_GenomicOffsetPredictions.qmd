@@ -50,8 +50,7 @@ library(RColorBrewer)
 library(pdist)
 library(corrplot)
 library(latex2exp)
-library(rnaturalearthdata)
-library(rnaturalearth)
+library(readxl)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -280,7 +279,7 @@ ggsave(p, filename = here(paste0("figs/GF/GFPlots_AlleleImportance_",snp_set$set
 })
 ```
 
-# GO predictions
+# GO predictions {#sec-GO-pred-pop}
 
 ```{r PredictGOpops}
 snp_sets <- lapply(snp_sets, function(snp_set){
@@ -504,12 +503,12 @@ high_go_pops[[1]] %>% kable_mydf
 high_go_pops[[2]]
 ```
 
-### With rasters
+### With rasters {#sec-GO-pred-rast}
 
 
 We project the genomic offset predictions for the set of candidate SNPs and the mean genomic offset across the five GCMs.
 
-```{r ProjectMeanGO, eval=F}
+```{r ScalingParameters}
 # Extract scaling parameters, i.e. mean and variance  
 scale_params <- lapply(clim_var, function(x){
     
@@ -519,9 +518,9 @@ scale_params <- lapply(clim_var, function(x){
          sd = sd(vec_var))
     
   }) %>% setNames(clim_var)
+```
 
-
-
+```{r ClimaticDatasetReferenceClimateSpeciesDistribution}
 # Buffer for the maps (maritime pine distribution)
 range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp'))
 
@@ -541,7 +540,10 @@ clim_ref_df <- ref_rasts %>%
 
 # Scale the climatic variables with the initial scaling parameters
 for(i in clim_var){clim_ref_df[,i] <- (clim_ref_df[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+```
 
+
+```{r ProjectMeanGO, eval=F}
 # GF predictions under current climates
 ref_pred <- predict(snp_set$gf_mod,clim_ref_df[,clim_var])
 
@@ -621,12 +623,22 @@ p
 
 # Validation - NFI plots
 
+## Predicting GO in the NFI plots
+
+::: {.callout-warning}
+The NFI climatic datasets used for GO predictions have to be scaled with the scaling parameters used for GO estimation (i.e., the mean and variance of the climatic variables at the location of the studied populations under the reference climate).
+:::
+
 ```{r NFIGOmaps, fig.width=8,fig.height=8, results="hide"}
 # Load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
   
 # Keep only the climatic variables of interest and scale the climatic data
-nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+# Careful here! We have to scale the climatic variables of the reference period
+# with the scaling parameters used for estimating GO!
+source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
+nfi_dfs <- generate_scaled_nfi_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+#generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
 
 # calculate the genomic offset for the NFI plots
 snp_sets <- lapply(snp_sets, function(snp_set){
@@ -694,7 +706,309 @@ lapply(snp_sets, function(x) x$go_nfi) %>%
 ```
 
 
+## How to explain high GO values in some of the NFI plots?
 
+Interestingly, GO predictions for some of the NFI plots have considerably higher values than GO predictions at the location of the populations under future climates (section @sec-GO-pred-pop) or GO predictions projected across the species distribution (section @sec-GO-pred-rast) under future climates. 
+
+We can visualize these differences with the graph below that shows the distribution of GO predictions projected across the species range under future climates (i.e., with the 5 GCMs) and GO predictions at the location of the NFI plots during the survey period.
+
+```{r DiffGOpredictionNFIvsSpeciesRange}
+readRDS(here("outputs/GF/go_pred_rasters.rds")) %>% 
+  dplyr::select(-x,-y) %>%
+  dplyr::select(-mean_GO) %>% # we do not show the mean GO across GCMs
+  set_colnames(paste0("Species range - Future climate with ",colnames(.))) %>% 
+  pivot_longer(cols = everything(), names_to = "projection") %>% 
+  bind_rows(tibble(projection="NFI plots - Climate during the inventory period",value=snp_sets$cand$go_nfi)) %>% 
+  
+  ggplot(aes(x=value, group=projection, fill=projection)) +
+  geom_density(adjust=1.5, alpha=.4) +
+  theme_bw() +
+  xlab("Genomic offset predictions") +
+  ylab("Density") +
+  theme(legend.position = c(0.7,0.8),
+        legend.title = element_blank())
+```
+
+
+How can we explain these differences among the predictions?
+
+### Climatic differences
+
+To understand, we first look at the climatic differences (1) at the location of the studied populations, (2) across the species range and (3) at the location of the NFI plots. We compare their reference climate, their climate for GO predictions (i.e., climate during the inventory period for the NFI plots and future climates for the populations and the species range), and their climatic differences between reference and inventory/future climate.
+
+```{r ClimDiffdatasets}
+##########
+# DATASETS
+##########
+
+# We use the following datasets
+  # clim_dfs which contains reference and future climates at the location of the populations
+  # nfi_dfs which contains reference and survey climates at the location of the nfi plots
+  # clim_ref_df which contains reference climates across the species distribution
+
+
+# we also extract future climates across the species distribution (5 GCMs)
+clim_fut_rast <- lapply(names(clim_dfs$clim_pred), function(gcm){ # for each GCM
+  
+# Rasters with future climates
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-JulietteA/"))
+clim_fut_df <- lapply(clim_var, function(x) paste0(path,"/",x,".tif")) %>% 
+  raster::stack() %>% 
+  mask(range_buffer) %>% 
+  rasterToPoints() %>% # extract the climatic values at each spatial points
+  as.data.frame()
+
+# Scale the climatic variables with the initial scaling parameters
+for(i in clim_var){clim_fut_df[,i] <- (clim_fut_df[,i] - scale_params[[i]]$mean) / scale_params[[i]]$sd}
+
+clim_fut_df
+})
+names(clim_fut_rast) <- names(clim_dfs$clim_pred)
+```
+
+
+#### Reference climates
+
+```{r ClimDiffRedClimates, fig.width=6, fig.height=6}
+######################################
+# Density plots of reference climates
+######################################
+
+lapply(clim_var, function(x){
+
+   ## Legend title
+ var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+    mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+    pull(var_legend)
+ 
+  # Climatic values at the location of the populations
+  tibble(group="Populations",value=clim_dfs$clim_ref[[x]]) %>% 
+    bind_rows(tibble(group="NFI plots", value=nfi_dfs$clim_ref[[x]])) %>% 
+    bind_rows(tibble(group="Species distribution", value=clim_ref_df$bio1)) %>% 
+    
+    ggplot(aes(x=value, group=group, fill=group)) +
+    xlab(var_name) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() + 
+    ggtitle("Reference climates (1901-1950)") +
+    theme(legend.position = c(0.2,0.8),
+          legend.title = element_blank())
+})
+```
+
+
+#### Future climates 
+
+```{r ClimDiffFutureClimates, fig.width=10, fig.height=6}
+lapply(clim_var, function(x){
+  
+  ## Legend title
+  var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+    mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+    pull(var_legend)
+ 
+  # Climatic values at the location of the populations
+ 
+lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+  tibble(group="Populations",
+         value=clim_dfs$clim_pred[[gcm]][[x]]) %>% 
+    bind_rows(tibble(group="NFI plots", 
+                     value=nfi_dfs$clim_pred[[x]])) %>% 
+    bind_rows(tibble(group="Species distribution", 
+                     value=clim_fut_rast[[gcm]][[x]])) %>% 
+    mutate(gcm=gcm)
+  }) %>% 
+  bind_rows() %>% 
+  
+  ggplot(aes(x=value, group=group, fill=group)) +
+  xlab(var_name) +
+  ylab("Density") +
+  geom_density(adjust=1.5, alpha=.4) +
+  theme_bw() +
+  facet_wrap(~gcm)+
+  ggtitle("Future climates and inventory climates") +
+  theme(legend.position = c(0.85,0.2),
+        legend.title = element_blank())
+
+})
+```
+
+#### Climatic differences
+
+We look at the climatic differences between reference climates and future/inventory climates. 
+
+```{r DiffClimates, fig.width=10, fig.height=6}
+lapply(clim_var, function(x){
+  
+  ## Legend title
+  var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+    mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+    pull(var_legend)
+
+  lapply(names(clim_dfs$clim_pred), function(gcm){
+  
+  tibble(group="Populations",
+         value_ref=clim_dfs$clim_ref[[x]],
+         value_pred=clim_dfs$clim_pred[[gcm]][[x]]) %>% 
+ bind_rows(tibble(group="NFI plots", 
+        value_ref=nfi_dfs$clim_ref[[x]],
+        value_pred=nfi_dfs$clim_pred[[x]])) %>% 
+   bind_rows(tibble(group="Species distribution", 
+        value_ref=clim_ref_df[[x]],
+        value_pred=clim_fut_rast[[gcm]][[x]])) %>% 
+   mutate(diff=value_pred-value_ref,
+           gcm=gcm)
+}) %>% bind_rows() %>% 
+    
+    ggplot(aes(x=diff, group=group, fill=group)) +
+    xlab("Future/Inventory climate - reference climate") +
+    ggtitle(paste0("Climatic differences - ",var_name)) +
+    ylab("Density") +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    facet_wrap(~gcm) +
+    theme(legend.position = c(0.85,0.2),
+          legend.title = element_blank())
+})
+```
+
+These last graphs are useful to understand what is going on. 
+
+`bio4` is the most important variable to explain the gene-climate relationships and thus to predict GO. For `bio4`, the climatic differences at the location of the NFI plots have higher minimum and maximum values than climatic differences at the location of the studied populations or across the species range (under future climates). More precisely, some NFI plots experienced strong deviations in `bio4` during the survey period, which are larger than the mean deviations expected under climate change. 
+
+This trend may seem surprising at first glance. However, it is important to remember that predictions of future climates are 20-year averages, whereas climates for NFI plots are calculated over shorter inventory periods. Consequently, NFI plot climates are likely to be subject to greater deviations from long-term climate averages, particularly for plots with shorter inventory periods. 
+
+
+#### Mapping
+
+I generated maps to visualize the climatic differences but it does not help to visualize the higher climatic differences in some of the NFI plots for `bio4`.
+
+```{r MapNFIclimates, fig.height=10, fig.width=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+nfi_coord <- nfi_clim$clim_ref %>% dplyr::select(plotcode,longitude,latitude)
+
+nfi_coord_spdf <- SpatialPointsDataFrame(coords = nfi_coord[, c("longitude", "latitude")],
+                                         data = nfi_coord,
+                                         proj4string = CRS("+proj=longlat +datum=WGS84"))
+
+
+clim_nfi_fut <- lapply(names(clim_dfs$clim_pred), function(gcm){ # for each GCM
+  
+# Rasters with future climates
+path <- here(paste0("data/ClimaticData/ClimateDTRasters/1km_",gcm,"_2041-2070_ssp370_Extent-JulietteA/"))
+
+df <- lapply(clim_var, function(x) paste0(path,"/",x,".tif")) %>% 
+  raster::stack() %>% 
+  extract(nfi_coord_spdf) %>% 
+  as_tibble() %>% 
+  bind_cols(nfi_coord) %>% 
+  mutate(clim_period = paste0("clim_fut_",gcm))
+
+}) %>% bind_rows
+
+clim_nfi <- nfi_clim %>% 
+  bind_rows(.id="clim_period") %>% 
+  dplyr::select(clim_period, plotcode, longitude, latitude, any_of(clim_var)) %>% 
+  bind_rows(clim_nfi_fut) %>% 
+  pivot_longer(cols = any_of(clim_var), names_to = "var")
+
+final_plots <- lapply(clim_var, function(x) {
+  
+   data <-   clim_nfi %>% dplyr::filter(var == x)
+   
+   max_value <- max(data$value, na.rm = T)
+   min_value <- min(data$value, na.rm = T)
+
+   
+list_plots <-    lapply(unique(clim_nfi$clim_period), function(clim_period_i){
+    
+ subdata <-   data %>% dplyr::filter(clim_period == clim_period_i)
+ 
+ 
+ ## Title of the graph
+ if(clim_period_i == "clim_ref"){
+   
+   ggtitle <- "Reference climate (1901-1950)"
+ } else if (clim_period_i == "clim_survey"){
+   
+   ggtitle <- "Climate during the inventory period"
+ } else {
+   ggtitle <- clim_period_i %>% str_sub(10,-1) %>% paste0("Future climate - ",.)
+ }
+ 
+ ## Legend title
+ var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+    mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+    pull(var_legend)
+ 
+ ## Plot
+ ggplot() + 
+   geom_sf(data = world, fill="gray98") + 
+   theme_bw() +
+   scale_x_continuous(limits = c(-10, 11)) +
+   scale_y_continuous(limits = c(35, 51)) + 
+   geom_point(data=subdata, aes(x=longitude,y=latitude,color=value), size=1, alpha = 0.8) + 
+   xlab("") + ylab("") +
+   ggtitle(ggtitle) +
+   theme(legend.position = "right", # legend.position =c(0.85,0.2), legend.box.background = element_rect(fill = "white", linewidth=0.6, colour="gray")
+          title = element_text(size=8),
+          legend.text = element_text(size=10),
+          legend.title = element_text(size=12)) +
+      scale_colour_gradientn(colours=c("blue", "yellow", "red"), 
+                              name = var_name,
+                             na.value = "grey50",
+                             limits=c(min_value,max_value))
+  })
+  
+  
+plot_legend <- get_legend(list_plots[[1]])
+
+list_plots <- lapply(list_plots, function(p){
+  p + theme(legend.position = "none")
+})
+
+list_plots$legend <- plot_legend
+final_p <- plot_grid(plotlist = list_plots)
+
+ggsave(final_p, filename=here(paste0("figs/GF/NFI_ClimaticMaps_",x,".pdf")), width=12, height=10)
+
+final_p
+})
+
+lapply(final_plots, function(p) p)
+```
+
+### Relationship between GO and climatic differences
+
+Finally, we look at the relationship between the climatic differences in the NFI plots (climate during the inventory period - climate during the reference period) and GO predictions. 
+
+We can see that the high GO values in the NFI plots are associated with strong deviations of `bio4` from its values under the reference period. I think this is the reason why we obtained higher maximum GO values in the NFI plots than across the species range under future climates.  
+
+```{r RelationshipGOpredNFIplotsClimDifferences, fig.height=6, fig.width=6, message =F}
+lapply(clim_var, function(x){
+
+   ## Legend title
+ var_name <- extract_climatedt_metadata(var_clim = x) %>% 
+    mutate(var_legend= paste0(description, " (", label,"; ",unit_symbol,")")) %>% 
+    pull(var_legend)
+ 
+tibble(group="NFI plots", 
+       value_ref=nfi_dfs$clim_ref[[x]],
+       value_pred=nfi_dfs$clim_pred[[x]],
+       diff=value_pred - value_ref,
+       go_pred=snp_sets$cand$go_nfi) %>% 
+  ggplot(aes(x=diff, y=go_pred)) +
+  geom_point(alpha=0.5) +
+  xlab("Climate during the survey period - Reference climate") +
+  ylab("Genomic offset predictions with GF and the candidate SNPs") +
+  ggtitle(var_name) +
+  geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+  theme_bw()
+
+})
+```
 
 # Validation - Common gardens
 

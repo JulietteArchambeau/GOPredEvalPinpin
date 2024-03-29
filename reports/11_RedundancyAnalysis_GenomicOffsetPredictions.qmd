@@ -8,6 +8,7 @@ format:
     toc-depth: 4
     code-fold: true
     page-layout: full
+    number-sections: true
 embed-resources: true
 bibliography: references.bib
 editor_options: 
@@ -901,7 +902,8 @@ This is ok!
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
   
 # Keep only the climatic variables of interest and scale the climatic data
-nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
+nfi_dfs <- generate_scaled_nfi_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
 
 # calculate the genomic offset for the NFI plots
 snp_sets <- lapply(snp_sets, function(x){

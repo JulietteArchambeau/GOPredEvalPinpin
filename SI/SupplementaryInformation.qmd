@@ -106,7 +106,7 @@ df_sum %>%
   kable_mydf()
 ```
 
-In the present study, we use `r length(unique(df$pop))` and `r length(unique(df$clon))`. There are between `r range(df_sum$count)[[1]]` and `r range(df_sum$count)[[2]]` genotypes per population, with an average of about `r mean(df_sum$count) %>% round(1)` genotypes per population.
+In the present study, we use `r length(unique(df$pop))` populations and `r length(unique(df$clon))` genotypes. There are between `r range(df_sum$count)[[1]]` and `r range(df_sum$count)[[2]]` genotypes per population, with an average of about `r mean(df_sum$count) %>% round(1)` genotypes per population.
 
 ## Population neutral genetic structure
 
@@ -117,7 +117,7 @@ geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequenc
 
 The population neutral genetic structure was inferred with a PCA on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs including SNPs with minor allele frequencies (Figure S[-@fig-PCA]). We did not remove SNPs with minor allele frequencies because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). We retained the first three PCs of the PCA as proxy of population evolutionary history in the RDA.
 
-![Principal component analysis of the genomic data with minor allele frequencies. Each point correspond to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
+![Principal component analysis of the genomic data. Each point corresponds to a population and the colors correspond to the main gene pool of each population. No minor allele frequency filter was applied because small genetic variation can be informative to differentiate the neutral genetic groups.](../figs/RDA/PCAplot.pdf){#fig-PCA}
 
 {{< pagebreak >}}
 
@@ -144,7 +144,7 @@ extract_climatedt_metadata() %>%
 ```
 
 
-![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. PC1, PC2 and PC3 correspond to the first three principal components (PCs) of the PCA based on the genomic data (Figure S[-@fig-PCA]). The variables noted as MEM$X$ correspond to the distance-based Moran's eigenvector maps (dbMEMs) with positive eigenvalues calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
+![Correlation matrix including the geographical coordinates (i.e. latitude and longitude), elevation and climatic variables at the location of the populations. The variables noted as MEM$X$ correspond to the distance-based Moran's eigenvector maps (dbMEMs) with positive eigenvalues calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2022a].](../figs/ExploratoryAnalyses/CorrplotClimVariables.pdf){#fig-CorrplotClimVariables}
 
 ## Selection of the climatic variables
 

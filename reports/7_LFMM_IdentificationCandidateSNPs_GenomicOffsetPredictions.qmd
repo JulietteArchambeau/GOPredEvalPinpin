@@ -626,7 +626,8 @@ We load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
 
 # Keep only the climatic variables of interest and scale the climatic data
-nfi_dfs <- generate_scaled_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
+nfi_dfs <- generate_scaled_nfi_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
 ```
 
 We predict the genomic offset at the location of the NFI plots.
@@ -634,8 +635,8 @@ We predict the genomic offset at the location of the NFI plots.
 ```{r GOpredNFIplotsWithAllSNPs, fig.width=8,fig.height=8}
 go_nfi <- genetic.gap(input = geno,
                       env = clim_ref,
-                      new.env = nfi_dfs$clim_ref[,-1],
-                      pred.env = nfi_dfs$clim_pred[,-1],
+                      new.env = nfi_dfs$clim_ref %>% dplyr::select(any_of(clim_var)),
+                      pred.env = nfi_dfs$clim_pred %>% dplyr::select(any_of(clim_var)),
                       K = 6)
 
 # Find minimum and maximum values of genomic offset for the maps
@@ -1004,8 +1005,8 @@ snp_sets <- lapply(snp_sets, function(snp_set){
   
 ggap <- genetic.gap(input = geno,
                     env = clim_ref,
-                    new.env = nfi_dfs$clim_ref[,-1],
-                    pred.env = nfi_dfs$clim_pred[,-1],
+                    new.env = nfi_dfs$clim_ref %>% dplyr::select(any_of(clim_var)),
+                    pred.env = nfi_dfs$clim_pred %>% dplyr::select(any_of(clim_var)),
                     candidate.loci = which(names(geno) %in% snp_set$set_snps),
                     K = 6)
 
