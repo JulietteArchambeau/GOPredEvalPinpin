@@ -467,9 +467,9 @@ From the GDM website: A GDM model can be used to (i) predict the genetic dissimi
 We want to predict the expected degree of maladaptation in units of the response variable ($F_{ST}$) for each population.
 
 
-### Using spatial points
+### At the location of the populations
 
-For that, we create a dataset with:
+We aim to predict the genomic offset at the location of the studied populations (predictions based on spatial points). For that, we build a dataset with:
   
   - the genetic distance fixed to O. Indeed, we want the disruption of the current gene-climate relationships under future climates, so we assume that the genetic composition is the same between current and future climate to do this calculation.
   
@@ -725,7 +725,9 @@ lapply(snp_sets, function(x) x$go[[gcm]]) %>%
 
 
 
-### Using rasters
+### Across the species range
+
+To predict the genomic offset across the species range, we use climatic rasters for the reference period (1901-1950). These rasters were provided by Maurizio Marchi and come from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). The values of climatic variables at the location of the populations match between the rasters and the spatial points (I checked it in the report `3_CheckingPastFutureClimatesPopulationLocations`).
 
 #### Option 1
 
@@ -783,7 +785,14 @@ raster::plot(list_pred_rasts[[x]][[gcm]],
 
 We project the genomic offset predictions for the set of candidate SNPs and the mean genomic offset across the five GCMs. 
 
-```{r ProjectMeanGO, eval=F}
+::: {.callout-tip}
+## Figure in the manuscript
+
+This figure corresponds to Figure 6a in the main manuscript.
+:::
+
+
+```{r ProjectMeanGO, eval=F, message=F}
 # Buffer for the maps (maritime pine distribution)
 range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp'))
 
@@ -827,7 +836,7 @@ predict(snp_set$gdm_mod,
 df %>% saveRDS(here("outputs/GDM/go_pred_rasters_2.rds"))
 ```
 
-```{r PlotMeanGOProjections, fig.height=8, fig.width=8}
+```{r PlotMeanGOProjections, fig.height=8, fig.width=8, warning=F}
 # Map options
 # ===========
 point_size = 2
@@ -861,12 +870,13 @@ p <- ggplot(data=df) +
         strip.text = element_text(size=11))
 
 p %>% ggsave(here("figs/GDM/GOmeanProjections_CandSNPs.pdf"),., width=8,height=8, device="pdf")
+p %>% ggsave(here("figs/GDM/GOmeanProjections_CandSNPs.png"),., width=8,height=8)
 p
 ```
 
 ### Corr btw predictions with rasters or spatial points 
 
-We check that the genomic offset predictions we obtained with the spatial points are highly correlated (also similar) to those obtained with the rasters. 
+We check that the genomic offset predictions at the locations of the populations are correlated between those obtained with the spatial points and those obtained with the rasters. 
 
 ```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters}
 # checking correlations

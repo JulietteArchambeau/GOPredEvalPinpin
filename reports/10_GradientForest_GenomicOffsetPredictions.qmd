@@ -616,6 +616,8 @@ p <- ggplot(data=df) +
         strip.text = element_text(size=11))
 
 p %>% ggsave(here("figs/GF/GOmeanProjections_CandSNPs.pdf"),., width=8,height=8, device="pdf")
+p %>% ggsave(here("figs/GF/GOmeanProjections_CandSNPs.png"),., width=8,height=8)
+
 p
 ```
 

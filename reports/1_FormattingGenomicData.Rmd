@@ -4,11 +4,8 @@ author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   bookdown::html_document2:
-    # code_fold: hide
     toc: true
     toc_depth: 4
-    #toc_float:
-    #   collapsed: false
     number_sections: true
 bibliography: references.bib
 editor_options: 
@@ -81,6 +78,10 @@ kable_mydf <- function(x, boldfirstcolumn,font_size){
 # Raw genomic data
 
 ## Loading
+
+We load the raw genomic data available in the DRYAD repository. 
+
+A subset of rows are shown below (rows 40 to 50 and columns 1 to 13).
 
 ```{r LoadRawGenomicData}
 # Load the raw genomic data:
@@ -309,10 +310,13 @@ plot(list_geno$list_withoutmaf$tab$id,list_geno$list_withoutmaf$tab$na_freq,
 
 ## Filtering correlated SNPs
 
+In this section, we estimate the statistical correlations among SNPs and examine whether these correlations can be explained by the closed locations of SNPs on the genome or not. 
 
-### Identify correlated SNPs
+To do this, we use the `genome_position.xlsx` dataset, which contains information on SNP positions on the genome. A cleaned-up version of this dataset available in the DRYAD repository; see section \@ref(ListSNPs).
+ 
+### Statistically correlated SNPs
 
-We extract the pairs of SNPs with a correlation coefficient of 1 in the dataset with MAF.
+We extract the pairs of SNPs with a correlation coefficient of 1 in the dataset not filtered for MAF.
 
 ```{r GenerateFilePairsCorrelatedSNPs, warning=F, eval=F}
 # Invert the genomic matrix
@@ -358,7 +362,7 @@ snpcor <- read.csv(here("data/GenomicData/CorrelatedSNPs.csv"))
 
 ### SNP positions on the genome
 
-This part aimed at understanding how the information about SNP position on the genome is stored in the excel file `genome_position.xlsx` (sent by Santi the 14/02/2023). In this excel file, the sheet `base_table` provides the information about the SNP positions on the genome. The position of the SNPs on the genome is given by the columns `scaffold` and `genome_position`. However, it is important to note that some SNPs have **alternative names**, referring to **different positions** on the genome. The alternative names are given in the column `annotation`. 
+This part aims at understanding how the information about SNP position on the genome is stored in the excel file `genome_position.xlsx` (sent by Santi the 14/02/2023). In this excel file, the sheet `base_table` provides the information about the SNP positions on the genome. The position of the SNPs on the genome is given by the columns `scaffold` and `genome_position`. However, it is important to note that some SNPs have **alternative names**, referring to **different positions** on the genome. The alternative names are given in the column `annotation`. 
 
 ```{r SNPpositionInformationSheetBaseTable}
 # we load the dataset with information about the SNP position on the genome
@@ -528,6 +532,11 @@ There are `r nrow(list_geno$list_withmaf$df)` left in the genomic dataset with M
 
 ##  Allele counts (i.e. 0/1/2)
 
+We export the dataset containing allele counts (coded as 0, 1 or 2) in the DRYAD repository. SNPs in rows and genotypes in columns.
+
+  - column 1: `snp_ID`: SNP ID.
+  
+  - columns 2 to 455: `ALT10` to `VER9`:  Clone (i.e., genotype) ID.
 
 ```{r ExportingFormattedGenomicDataAlleleCounts}
 for(i in 1:length(list_geno)){
@@ -548,7 +557,12 @@ for(i in 1:length(list_geno)){
 
 ##  Allele frequencies
 
+We calculate allele frequencies at the population level for the dataset filtered for MAF. And we export the allle frequencies in the DRYAD repository. SNPs in columns and populations in rows.
 
+  - column 1: `pop`: population.
+  
+  - columns 2 to 9818: SNP ID.
+  
 ```{r ExportingFormattedGenomicDataAllelefrequencies}
 # Only useful for the dataset without MAF
 
@@ -578,9 +592,20 @@ df_freq[1:10,1:8] %>%
 `r sum(is.na(df_freq))` missing data in this dataset.
 
 
-## List of SNPs
+## List of SNPs{#ListSNPs}
 
-For the DRYAD repository, we save 
+We export in the DRYAD repository two datasets (filtered or not for MAF) containing information about the different IDs and the genome position of each SNP. SNPs are in rows. 
+
+Meaning of the columns:
+
+  1. `snp_ID`: SNP ID used in the present study.
+  2. `original_ID`: Original ID of the SNP.
+  3. `affx_ID`: SNP ID in the Axiom assay.
+  4. `infinium_ID`: SNP ID in the Infinium assay.
+  5. `scaffold/contig`: contig on which the SNP is located. The term scaffold is also used as some SNPs were obtained from the alignment of NGS short-reads from a pseudoreference genome in *Pinus pinaster* that were called scaffolds (even though there are not really scaffolds).
+  6. `genome_position`: position of the SNP on the scaffold/contig (in bp).
+  7. `annotation`: SNP name (including possible alternative names).
+  
 ```{r ListSelectedSNPsWithGenomePositionInformation}
 for(i in 1:length(list_geno)){
   specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
@@ -813,7 +838,7 @@ tibble(Provenance=str_sub(colnames(df),1,3),clon=colnames(df)) %>%
 
 # Imputation of missing data
 
-We will impute the missing data in both datasets with or without minor allele frequencies.
+We impute the missing data in both datasets; with or without minor allele frequencies.
 
 Percentage of missing data:
   
@@ -941,6 +966,7 @@ list_geno$list_withoutmaf$df[1:10,1:10]  %>% kable_mydf(boldfirstcolumn = T, fon
  
 # Exporting the imputed genomic data
 
+We export the genomic datasets imputed for missing data in the DRYAD repository. 
 
 ## Allele counts
 
@@ -976,11 +1002,16 @@ for(i in 1:length(list_geno)){
 }
 
 
-
 list_geno$list_withoutmaf$df[1:10,1:8]  %>% 
   mutate(across(where(is.numeric), round, 2)) %>%
   kable_mydf(boldfirstcolumn = F, font_size = 11)
 ```
 
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```
 
 # References

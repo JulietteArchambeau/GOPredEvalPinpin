@@ -3,13 +3,13 @@ title: "Populatin coordinates, elevation and climatic data"
 subtitle: "Checking population information - Extracting climatic data with ClimateDT"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-number-sections: true
 format: 
   html:
     toc: true
     toc-depth: 4
     code-fold: true
     page-layout: full
+    number-sections: true
 embed-resources: true
 bibliography: references.bib
 editor_options: 
@@ -51,16 +51,25 @@ source(here("scripts/functions/kable_mydf.R"))
 
 # Introduction
 
-In this document, we first build a table with updated population coordinates and elevation. The information on maritime pine populations has been gathered by different teams across many years, so we had to merge the different sources of information. We first check that we have the most up to date population information.
+The first aim of this report is to check that we have the most up-to-date information on population coordinates and elevation. Indeed, the information on maritime pine populations has been gathered by different teams across many years, so we merge the different sources of information and we check that we have the most up-to-date population information.
 
-We have some information on 116 populations that were sampled within different projects. The different sampling are referred as CLONAPIN, B4ESTnew, CORSICA, FORGENIUS and GENTREE. The populations we use in the present study are the populations sampled within the CLONAPIN sampling (except the SID population, and the ROD population for which there is no genomic information). The entire set of populations is analysed within the PhD project of Adélaïde Theraroz.
+116 populations of maritime pine have been sampled across different projects, referred to as CLONAPIN, B4ESTnew, CORSICA, FORGENIUS and GENTREE. The entire set of populations is analysed within the PhD project of Adélaïde Theraroz.
 
-Then we use the population coordinates and elevation data to extract their climatic data using the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the B4EST project. Annual climatic variables are extracted between 1901 and 2098. 
+The populations we use in the present study are the populations sampled within the CLONAPIN sampling (except the SID population, and the ROD population for which there is no genomic information). In the DRYAD repository associated with the present paper, we only include information on the CLONAPIN populations.
+
+The second aim of this report is to use the population coordinates and elevation data to extract climatic data at the location of the populations using the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) developed within the framework of the B4EST project. Averages of the climatic variables under periods of interest (i.e., the reference periods 1901-1950 and 1961-1990; and the future period 2041-2070).
+
+::: {.callout-note}
+## DRYAD repository
+
+Three datasets generated in this report are uploaded in the DRYAD repository: `AnnualClimaticData_FromClimateDT_PopulationLocations.csv` (annual climatic data at the location of the 34 CLONAPIN populations between 1901 and 2021), `AveragedClimaticVariables_ReferencePeriod_PopulationLocations.csv` (averages of the climatic variables over the reference period 1901-1950 at the location of the 34 CLONAPIN populations) and `AveragedClimaticVariables_FuturePeriod_PopulationLocations.csv` (averages of the predicted climatic variables over the period 2041-2070 under the scenario SSP3.7-0 and for five different GCMs at the location of the 34 CLONAPIN populations).
+:::
+
 
 
 # Population coordinates and elevation
 
-We load the dataset with the coordinates of the 116 populations that Adélaïde uses during its PhD.
+We load the dataset `coordinates_pinaster_populations_ade_phd.csv` with the coordinates of the 116 populations that Adélaïde Theraroz uses during her PhD.
 
 ```{r AllPopsCoordinates}
 pop_coord <- read_csv(here("data/PopulationData/coordinates_pinaster_populations_ade_phd.csv"),show_col_types = FALSE) %>% 
@@ -76,13 +85,19 @@ pop_coord <- read_csv(here("data/PopulationData/coordinates_pinaster_populations
 # pop_coord %>% dplyr::select(latitude,longitude) %>% get_dupes()
 ```
 
-<span style="color: red;">**Warning!**</span> There are two VAL populations in this dataset: VAL-VMQ and VAL-CORSICA. The VAL population that I used during my PhD is referred as VAL-VMQ (and belong to the CLONAPIN dataset). I will change its name.
+::: {.callout-warning}
+There are two VAL populations in this dataset: VAL-VMQ and VAL-CORSICA. During my PhD, I used the VAL-VMQ population (which belongs to the CLONAPIN dataset). This population is named VAL in the datasets I used during my PhD (e.g., in `coordinates_pinaster_populations_juliette_phd.csv`).
+:::
 
 ```{r VALpop}
 pop_coord %>% filter(str_detect(code,"VAL")) %>% kable_mydf()
 ```
 
-We load the dataset with population information that I used during my PhD and we compare the population coordinates from the `coordinates_pinaster_populations_ade_phd.csv` file.
+We load the dataset `coordinates_pinaster_populations_juliette_phd.csv` which contains the population information that I used during my PhD (i.e. CLONAPIN populations). 
+
+In this dataset, the VAL-VMQ population is named VAL, so we rename it VAL-VMQ. 
+
+We then compare the population coordinates from this dataset to the population coordinates from the `coordinates_pinaster_populations_ade_phd.csv` dataset.
 
 ```{r MyClonapinCoordinates}
 clonapin_pop_coord_juliette <- read_csv(here("data/PopulationData/coordinates_pinaster_populations_juliette_phd.csv"),
@@ -96,7 +111,6 @@ clonapin_pop_coord_juliette <- read_csv(here("data/PopulationData/coordinates_pi
   mutate(diff_longitude = longitude - longitude_juliette,
          diff_latitude = latitude - latitude_juliette)
 
-
 clonapin_pop_coord_juliette %>% kable_mydf(boldfirstcolumn = T, round_number = 10)
 ```
 
@@ -108,10 +122,10 @@ We merge the two datasets using:
   
   - the coordinates from the file `coordinates_pinaster_populations_ade_phd.csv` for the other populations.
   
-  
-<span style="color: red;">**Warning!**</span>  The SID population (from Sidi-Meskour) is referred as belonging to the CLONAPIN dataset in the file `coordinates_pinaster_populations_ade_phd.csv` but was not included in the populations I used during my PhD (populations in the file `coordinates_pinaster_populations_juliette_phd.csv`). So we attribute to this population the coordinates from the file `coordinates_pinaster_populations_ade_phd.csv`.
 
-
+::: {.callout-warning}
+The SID population (from Sidi-Meskour) is referred as belonging to the CLONAPIN dataset in the file `coordinates_pinaster_populations_ade_phd.csv` but was not included in the populations I used during my PhD (populations in the file `coordinates_pinaster_populations_juliette_phd.csv`). So we attribute to this population the coordinates from the file `coordinates_pinaster_populations_ade_phd.csv`.
+:::
 
 ```{r MergingWithMyPopulationCoordinates}
 pop_coord <- pop_coord %>% 
@@ -121,7 +135,7 @@ pop_coord <- pop_coord %>%
   dplyr::select(-longitude_juliette, -latitude_juliette)
 ```
 
-In this dataset, the coordinates of some populations were not ok (eg the coordinates of the RIO population fall into the Mediterranean sea). Santi sent a new dataset (`coordinates_pinaster_populations_21022023.txt`) with updated coordinates (21/02/2023) and with elevation information (with some missing data for some populations).
+In this dataset, the coordinates of some populations were not ok (eg the coordinates of the RIO population fall into the Mediterranean sea). Santiago C. González-Martínez sent a new dataset (`coordinates_pinaster_populations_21022023.txt`) with updated coordinates (21/02/2023) and with elevation information (with some missing data for some populations).
 
 
 ```{r NewAllPopsCoordinates}
@@ -205,7 +219,7 @@ pop_coord <- pop_coord %>%
 ```
 
 
-We visualize and save the dataset. Sent to Santi and Adé the 22/02/2023. 
+We visualize and save the dataset. Sent to Santiago C. González-Martínez and Adélaïde Theraroz the 22/02/2023. 
 
 ```{r VizAndSavingAllPopsInfo}
 pop_coord %>% 
@@ -246,22 +260,47 @@ pop_coord %>%
 
 ## Generating datasets with climatic information
 
+The aim of this section is to generate datasets with averages of the climatic variables over a certain time periods (i.e., 1901-1950, 1961-1990 or 2041-2070).
+
 ### Point estimates
 
-We load the csv files sent by Maurizio Marchi with **point estimate** climatic values at the location of each population.
+We load the csv files sent by Maurizio Marchi with **point estimate** climatic values at the location of the populations.
 
-We generate some datasets with climatic information for the variables of interest and only for the CLONAPIN populations. We generate two .rds files: one for the climatic data adjusted for elevation, and one for the climatic data not adjusted for elevation. In each file, we store a list with each element corresponding to a reference period (i.e. 1901-1950 and 1961-1990). And for each reference period, we generate a dataset with the climatic variables in columns averaged over the period considered. **Important**: In this dataset, the indices such `bio1`, `bio2`, `AHM`, `SHM` etc are re-calculated using the annual `tmn`, `tmx` and `prc` values averaged over the period considered.
-
-The climatic variables are calculated based on the `biovars` function of the dismo R package: <https://rdrr.io/cran/dismo/src/R/biovars.R>
+We generate some datasets with climatic information for the variables of interest and only for the CLONAPIN populations. 
 
 
-#### Past climate 
+#### Average climate over reference period 
 
 
-```{r BuildingClimaticDatasetClonapinPopForPresentStudy, results="hide"}
+**Elevation correction**. Maurizio Marchi sent climatic files adjusted or not for elevation. We show in the report `3_CheckingPastFutureClimatesPopulationLocations.qmd` that climatic values adjusted or not for elevation are similar for the climatic variables of interest in our study. In the paper analyses, we will use the climatic values not adjusted for elevation.
+
+**Reference period**. In the paper analyses, we will use the averages of the climatic variables over the reference period 1901-1950. See report `3_CheckingPastFutureClimatesPopulationLocations.qmd` for a comparison of the climatic averages over the reference period 1901-1950 vs 1961-1990.
+
+**In this section**, we calculate the average of the climatic variables for the two reference periods 1901-1950 and 1961-1990 and for data adjusted or not for elevation. We generate two .rds files: one for the climatic data adjusted for elevation, and one for the climatic data not adjusted for elevation. In each file, we store a list with each element corresponding to a reference period (i.e. 1901-1950 and 1961-1990). And for each reference period, we generate a dataset with the climatic variables in columns averaged over the period considered. 
+
+::: {.callout-warning}
+In this dataset, the indices such as `bio1`, `bio2`, `AHM`, `SHM` etc are re-calculated using the annual `tmn`, `tmx` and `prc` values averaged over the period considered (i.e., these indices are not calculated by averaging their annual values over the period considered). These climatic indices are calculated based on the `biovars` function of the dismo R package: <https://rdrr.io/cran/dismo/src/R/biovars.R>
+:::
+
+::: {.callout-note}
+##### DRYAD repository
+
+We export in the DRYAD repository only the data that we then use in the paper analyses: climatic values not adjusted for elevation and averaged over the reference period 1901-1950. We export two datasets: `AnnualClimaticData_FromClimateDT_PopulationLocations.csv` with the annual climatic data between 1901 and 2021 (i.e., the raw climatic data from ClimateDT), and `AveragedClimaticVariables_ReferencePeriod_PopulationLocations.csv` with the averages of the climatic variables over the reference period 1901-1950.
+
+Note that we left in the dataset `AnnualClimaticData_FromClimateDT_PopulationLocations.csv` all climate variables except those whose full names and other information are not available on the ClimateDT website, i.e., the climate variables `MOP` and `AOP`.
+Note that we did not calculate the average over the reference periods for all the climatic variables available in ClimateDT, so the `AveragedClimaticVariables_ReferencePeriod_PopulationLocations.csv` file contains a subset of the climatic variables available in ClimateDT.
+:::
+
+
+```{r FunctionCalcAvgClimVar}
 # Function to calculate the average of the climatic variables at the location of the populations
+# Function based on the biovars function of the dismo R package
 source(here("scripts/functions/calc_avg_clim_var.R"))
+```
 
+
+
+```{r AveragingClimaticDataOverReferencePeriods, results="hide"}
 # Extracting CLONAPIN population names
 clonapin_name_pops <- pop_coord %>% 
   dplyr::filter(dataset=="CLONAPIN") %>% 
@@ -288,7 +327,12 @@ clim <- read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/
                 pop=ID,
                 SP=MSP) %>% # replace mean summer precipitation by summer precipitation
   dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
-  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) # the VAL-VMQ population is referred as VAL in the present study
+  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>%  # the VAL-VMQ population is referred as VAL in the present study
+  dplyr::filter(year %in% 1901:2021) %>% 
+  dplyr::select(-MOP, -AOP)
+
+# We save the annual climatic data for the DRYAD repository (climatic data not adjusted for elevation)
+if(adj=="noADJ"){clim %>% write_csv(here("data/DryadRepo/AnnualClimaticData_FromClimateDT_PopulationLocations.csv"))}
 
 # we create a list with each element corresponding to a reference period
 lapply(list_ref_periods, function(ref_period){
@@ -305,10 +349,29 @@ saveRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocatio
 })
 ```
 
+Below are the first 40 rows of the dataset `AnnualClimaticData_FromClimateDT_PopulationLocations.csv`.
+
+```{r ShowAnnualClimaticDataset, message=F}
+read_csv(here("data/DryadRepo/AnnualClimaticData_FromClimateDT_PopulationLocations.csv")) %>% 
+  .[1:50,] %>%  
+  kable_mydf()
+```
+
+We export in the DRYAD repository the averages of the climatic variables over the reference period 1901-1950 (dataset `AveragedClimaticVariables_ReferencePeriod_PopulationLocations.csv`) and we show this dataset below.
+
+```{r ExportAveragedClimaticVariablesDatasetReferencePeriodPopulationLocations}
+clim <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds"))[["ref_1901_1950"]]$ref_means
+
+clim %>% write_csv(here("data/DryadRepo/AveragedClimaticVariables_ReferencePeriod_PopulationLocations.csv"))
+
+clim %>% kable_mydf()
+```
+
 
 #### Future climates 
 
-> for the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and scenario  SSP3.7-0
+
+Using point estimate climatic data, we generate a dataset with the predicted average climatic variables over the period 2041-2070 with the GCM CMIP6 GFDL-ESM4 and under the scenario SSP3.7-0. This dataset is used in the report `3_CheckingPastFutureClimatesPopulationLocations.qmd` to check its similarity with the averaged climatic variables extracted from rasters (see next section); but this dataset is not used in the following analyses. So we do not export this dataset in the DRYAD repository.
 
 
 ```{r PredictionsFutureClimates}
@@ -338,7 +401,7 @@ calc_avg_clim_var(ref_period = c(2041,2070), clim_df = clim, id_spatial_points =
 
 ### Raster-extracted values
 
-
+We extract the values of the climatic variables from rasters which contain the predicted average of the climatic variables over the future period 2041-2070 from five different GCMs (namely GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL; one per raster) and under the shared-socio economic pathway SSP3.7-0.
 
 ```{r GenerateDatasetExtractedFutureClimaticValuesFromRasters}
 # function to extract the climatic values from rasters
@@ -394,36 +457,36 @@ clim_df %>% saveRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLo
 
 ```
 
-## Datasets in the DRYAD repository
+::: {.callout-note}
+##### DRYAD repository
 
+These climatic data will be used in the paper so we export the dataset in the DRYAD repository: file `AveragedClimaticVariables_FuturePeriod_PopulationLocations.csv`. 
+:::
 
-We include in the DRYAD repository the annual climatic data extracted at the location of the 34 CLONAPIN populations between 1901 and 2021 (point estimates): file `ClimateDT_Populations_PastClimates.csv`.
-
-
-```{r DryadRepoPastClimates}
-  read_csv(here(paste0("data/ClimaticData/MaritimePinePops/ClimateDTfiles/Extraction/ClimateDT_cmip6_GFDL-ESM4_POPcoordinates_noADJ.csv")), show_col_types = FALSE) %>% 
-  dplyr::rename(longitude=Longitude,
-                latitude=Latitude,
-                elevation=Elevation,
-                year=Year,
-                pop=ID,
-                SP=MSP) %>% # replace mean summer precipitation by summer precipitation
-  dplyr::filter(pop %in% clonapin_name_pops) %>% # we keep only CLONAPIN pops
-  dplyr::mutate(pop= ifelse(pop=="VAL-VMQ", "VAL",pop)) %>% # the VAL-VMQ population is referred as VAL in the present study
-  dplyr::filter(year %in% 1901:2021) %>% 
-  write_csv(here("data/DryadRepo/ClimateDT_Populations_PastClimates.csv"))
-```
-
-And we include in the DRYAD repository the predicted climatic data extracted from the rasters, which corresponds to averaged climatic values over the period 2041-2070 under the scenario  SSP3.7-0: file `ClimateDT_Populations_FutureClimates.csv`. 
+We show below the first 50 rows of the dataset.
 
 ```{r DryadRepoFutureClimates}
-clim_df <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationValuesExtractedFromRasters_FiveGCMs_2041-2070_SSP370.rds")) %>% 
+df <- readRDS(here("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationValuesExtractedFromRasters_FiveGCMs_2041-2070_SSP370.rds")) %>% 
   bind_rows() %>%
-  dplyr::select(pop,gcm,everything()) %>% 
-  write_csv(here("data/DryadRepo/ClimateDT_Populations_FutureClimates.csv"))
+  dplyr::select(pop,gcm,everything())
+
+
+df %>% write_csv(here("data/DryadRepo/AveragedClimaticVariables_FuturePeriod_PopulationLocations.csv"))
+  
+df[1:50,] %>%  kable_mydf()
 ```
 
 # Main gene pool of each population
+
+We load the dataset containing the proportion of belonging of each genotype to a given gene pool [ancestry coefficients estimated in @jaramillo2015molecular with the STRUCTURE software].
+
+We generate two datasets:
+
+  - a dataset indicating the main gene pool of each clone (i.e., genotype)
+  
+  - a dataset indicating the main gene pool of each population.
+  
+We attribute different colors to each gene pool that we will use for the figures. 
 
 ```{r LoadMainGPClone}
 # Incorporating gene pool information
@@ -445,8 +508,6 @@ gps_list <- gps %>%
   setNames(unique(gps$pop))
 ```
 
-
-
 We identify the populations for which the main gene pool is not the same for all genotypes:
 
 ```{r IdentifyPopsWithDifferentMainGPclonLevel}
@@ -465,7 +526,6 @@ gps_list %>%
 ```
 
 
-
 The LEI and QUA populations have some clones that belong to different gene pools:
 
   - Most clones of the LEI population belong to the Central Spain gene pool, except four clones that mostly belong to the Iberian Atlantic gene pool.
@@ -479,8 +539,9 @@ gps_list[["LEI"]] %>% kable_mydf(boldfirstcolumn = F)
 gps_list[["QUA"]] %>% kable_mydf(boldfirstcolumn = F)
 ```
 
+We show below the dataset with the main gene pool of each population. 
 
-```{r ExtractMainGPpop}
+```{r ExtractMainGPpoplevel}
 # Extracting the main gene pool of each population
 gp_poplevel <- gps_list %>% 
   modify(\(x) mutate(x, main_gp_pop= x$main_gp_clon  %>% table() %>% which.max() %>% names())) %>% 
@@ -496,14 +557,31 @@ gp_poplevel <- gps %>%
                 color_main_gp_pop=color_main_gp_clon) %>% 
   right_join(gp_poplevel,by="main_gp_pop") 
 
+gp_poplevel %>%  kable_mydf()
+```
+
+First 30 rows of the dataset with the main gene pool of each clone (i.e., genotype).
+
+```{r ExtractMainGPclonlevel}
 # Information of the main gene pool for each clone
 gps <- gp_poplevel %>% 
   right_join(gps, by="pop") %>% 
   arrange(clon) # The clone order has to be the same as in the genomic data
 
+gps[1:30,] %>%  kable_mydf()
+```
 
+We save the datasets.
+
+```{r SaveGPDatasets}
 list(pop_level=gp_poplevel,
      clon_level=gps) %>% 
 saveRDS(here("data/GenomicData/MainGenePoolInformation.rds"))
 ```
 
+
+# Session information
+
+```{r SessionInfo}
+devtools::session_info()
+```

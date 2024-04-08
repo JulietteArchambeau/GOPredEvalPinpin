@@ -230,7 +230,11 @@ nfi_data <- nfi_data %>%
 After these filtering steps, there are `r nrow(nfi_data)` plots left.
 
 
-We save the file for model comparison and we save a copy for the DRYAD repository.
+::: {.callout-note}
+#### DRYAD repository
+
+The dataset is saved in the DRYAD repository: `NFIdata_cleaned.csv` dataset.
+:::
 
 ```{r ExportNFIdataForModelComparisonAndDryadRepo}
 nfi_data %>% saveRDS(file=here("data/NFIdata/NFIdata_cleaned.rds"))
@@ -403,14 +407,13 @@ list(clim_ref = clim_ref,
      clim_survey = clim_survey) %>% 
   saveRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
 ```
- 
-We save the averaged climatic data at the locations of the NFI plots in the DRYAD repository:
 
-  - dataset `ClimateDT_NFIPlots_PastClimates.csv` for the averaged climates over the reference period 1901-1950.
-  
-  - dataset `ClimateDT_NFIPlots_SurveyClimates.csv"` for the averaged climates over the survey periods specific to each plot.
-  
-  
+::: {.callout-note}
+#### DRYAD repository
+
+We save the averaged climatic data at the locations of the NFI plots in the DRYAD repository: `ClimateDT_NFIPlots_PastClimates.csv` dataset for the averaged climates over the reference period 1901-1950 and `ClimateDT_NFIPlots_SurveyClimates.csv"` dataset for the averaged climates over the survey periods specific to each plot.
+:::
+
 ```{r SaveClimateDataInDryadRepo}
 clim_ref %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_PastClimates.csv"))
 clim_survey %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_SurveyClimates.csv"))

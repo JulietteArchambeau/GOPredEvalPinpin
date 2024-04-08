@@ -44,11 +44,13 @@ library(grateful)
 source(here("scripts/functions/kable_mydf.R"))
 ```
 
+In this report,  we generate a dataset with the average of the climatic variables at the location of the common gardens between the planting and the measurement date.
+
 # Extraction of the climatic data
 
 Climatic data at the locations of the common gardens was extracted with the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/).
 
-In the script below, we prepare a file in the format required by ClimateDT to extract climate data.
+We first prepare a file in the format required by ClimateDT to extract climate data.
 
 ```{r GeneratePreExtractionFile}
 coord <- read_csv(here("data/CommonGardenData/CommonGardenCoordinates.csv"), show_col_types = FALSE)
@@ -65,10 +67,14 @@ coord %>%
   write_csv(here("data/ClimaticData/CommonGardens/CommonGardensPreExtraction.csv"))
 ```
 
-The climatic data extracted from ClimateDT at the location of the common gardens between 2010 and 2018 is included in the DRYAD repository associated with the present paper in the dataset `ClimateDT_CommonGardens.csv`.
+::: {.callout-note}
+##### DRYAD repository
+The annual climatic data downloaded from ClimateDT at the location of the common gardens between 2010 and 2018 is included in the DRYAD repository: file `ClimateDT_CommonGardens.csv` (shown below).
+We leave in this dataset all the climatic variables provided by ClimateDT except `MOP` and `AOP` because their full names, units and calculation methods were not specified on the ClimateDT website.
+:::
 
 ```{r DryadRepoCommonGardenClimaticData}
-read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 
+df <- read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 
    dplyr::rename(cg=ID,
                 longitude=Longitude,
                 latitude=Latitude,
@@ -76,7 +82,11 @@ read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col
                 year=Year,
                 SP=MSP) %>% 
   dplyr::filter(year %in% 2010:2018) %>% 
-  write_csv(here("data/DryadRepo/ClimateDT_CommonGardens.csv"))
+  dplyr::select(-MOP, -AOP) # we remove the variables whose full names and other information are not available on the ClimateDT website
+  
+df %>%  write_csv(here("data/DryadRepo/ClimateDT_CommonGardens.csv"))
+
+df %>% kable_mydf()
 ```
 
 
@@ -120,6 +130,7 @@ months_to_rm <- list(asturias = list(first_year=c("01"),
 clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 ```
 
+We calculate the average of the climatic variables between the planting and the measurement date. We export the dataset for the following analyses.
 
 ```{r CalculateMeanClimateForEachCG, warning=F, message=F}
 # Function to calculate the average of the climatic variables at the location of the NFI plots
@@ -149,6 +160,7 @@ clim %>% saveRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))
 clim %>% dplyr::select(cg,any_of(clim_var)) %>% kable_mydf
 ```
 
+We show below the annual climatic data in each common garden for the years between the planting and the measurement date.
 
 ```{r ClimateCG}
 read_csv(here("data/ClimaticData/CommonGardens/ClimateDT_outputs.csv"), show_col_types = FALSE) %>% 

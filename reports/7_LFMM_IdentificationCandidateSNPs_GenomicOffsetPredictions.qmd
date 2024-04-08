@@ -1116,13 +1116,21 @@ p <- lapply(snp_sets, function(x) {
                      legend.position = "none")
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)}
+   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.png")), width=5,height=5)
+   
+   }
   
   if(x$set_code=="control") {
    p_SI <- p + theme(plot.title = element_blank())
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)}
+   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/LFMM/GOmap_",x$set_code,"_",cg_name,"_SI.png")), width=7,height=5)
+   
+   }
  
  
  

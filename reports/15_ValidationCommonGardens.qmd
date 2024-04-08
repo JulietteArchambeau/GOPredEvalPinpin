@@ -332,10 +332,14 @@ pop_heights <- mod_arch2022$fit %>%
 pop_heights[1:5,] %>% kable_mydf
 ```
 
-We export the height intercepts from @archambeau2022combining to the DRYAD repository.
+::: {.callout-note}
+#### DRYAD repository
+
+We export the height intercepts from @archambeau2022combining to the DRYAD repository: `HeightIntercepts_Archambeauetal2022.csv`
+:::
 
 ```{r HeightInterceptsInDryadRepo}
-pop_heights %>% write_csv(here("data/DryadRepo/HeightIntercepts_Archambeauetal2023.csv"))
+pop_heights %>% write_csv(here("data/DryadRepo/HeightIntercepts_Archambeauetal2022.csv"))
 ```
 
 ### Survival data 
@@ -2072,7 +2076,11 @@ height_data %>%
 
 # DRYAD repository
 
-We export mortality and height data in the DRYAD repository.
+::: {.callout-note}
+## DRYAD repository
+
+We export mortality and height data in the DRYAD repository: `CommonGardenData_cleaned.csv` dataset.
+:::
 
 ```{r PhenoDataInDryadRepo}
 pheno_data %>% 
