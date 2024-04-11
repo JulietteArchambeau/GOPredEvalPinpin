@@ -142,7 +142,7 @@ Some figures generated in this report:
 
 ## License
 
-The code of this repository is under the [MIT license](https://github.com/JulietteArchambeau/GOPredEvalPinpin/master/LICENSE.md)
+The code of this repository is under the [MIT license](https://github.com/JulietteArchambeau/GOPredEvalPinpin/blob/main/LICENSE.md)
 
 ### Disclaimer
 
