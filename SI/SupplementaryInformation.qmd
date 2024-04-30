@@ -65,7 +65,7 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 
 # Glossary 
 
-**ClimateDT**: Climate Downscaling Tool (https://www.ibbr.cnr.it/climate-dt/). Geo-web service providing a large number of climatic variables downscaled at 1-km resolution between 1901 and 2098. 
+**ClimateDT**: [Climate Downscaling Tool](https://www.ibbr.cnr.it/climate-dt/). Geo-web service providing a large number of climatic variables downscaled at 1-km resolution between 1901 and 2098. 
 
 **CTD**: Climatic transfer distance. This index is calculated for each climatic variable independently and corresponds to the absolute difference between the values of the climatic variable at the location of the populations and at the location of the common gardens.
 
