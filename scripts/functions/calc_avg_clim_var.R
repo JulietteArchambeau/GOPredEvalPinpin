@@ -11,7 +11,10 @@ library(SPEI)
 # Window function (needed for the calc_avg_clim_var function) 
 # ===========================================================
 
-# Function from the dismo R package
+# Function from the dismo R package, see https://cran.r-project.org/web/packages/dismo/. 
+
+# Under the GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007, see https://cran.r-project.org/web/licenses/GPL-3. 
+
 window <- function(x)  { 
   lng <- length(x)
   x <- c(x,  x[1:3])

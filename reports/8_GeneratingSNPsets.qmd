@@ -1,5 +1,6 @@
 ---
 title: "Generating sets of control and candidate SNPs"
+subtitle: "Identification of outlier SNPs in common among the different GEAs"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format: 
@@ -43,7 +44,6 @@ library(kableExtra)
 library(here)
 library(cowplot)
 library(ggVennDiagram)
-
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -126,10 +126,10 @@ plot_grid(p,pp,nrow=1)
 
 ## Gradient forest (GF)
 
-GF-based GEA was performed following @fitzpatrick2021experimental and @capblancq2023common, using 'raw' or *uncorrected* allele frequencies. Because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of the GF-based GEA, we ran 3 independent runs, identified the 0.5\% SNPs with the lowest empirical $p$-values for each run (i.e. 49 SNPs for each run) and then considered as outlier SNPs the SNPs identified in the three runs.
+GF-based GEA was performed following @fitzpatrick2021experimental and @capblancq2023common, using *raw* or *uncorrected* allele frequencies. Because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of the GF-based GEA, we ran 3 independent runs, identified the 0.5\% SNPs with the lowest empirical $p$-values for each run (i.e. 49 SNPs for each run) and then considered as outlier SNPs the SNPs identified in the three runs.
   
 ```{r GFoutliers, fig.width=12,fig.height=5}
-list_candidates$"GF"= readRDS(here::here("outputs/GF/gf_common_outliers_across_three_runs.rds"))
+list_candidates$"GF"= readRDS(here::here("outputs/GF/GFCommonOutliers_ThreeRuns_RawAlleleFrequencies.rds"))
 ```
 
 
@@ -231,6 +231,8 @@ ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", w
 
 # Genome position of candidate SNPs
 
+We load the dataset `genome_position.xlsx` containing information about the genome positions of the SNPs. In the DRYAD repository, this information is available in the `ListSNPs_withoutmaf.csv` and `ListSNPs_withmaf.csv` datasets.
+
 ```{r LoadGenomePositionData}
 snppos <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "base_table") %>% 
   dplyr::rename(snp_ID = Juliette_snp_ID,
@@ -318,6 +320,20 @@ set.seed(36)
 control_snps <- sample(no_candidates,nb_snps,replace = F)
 ```
 
+# Exporting the sets of SNPs
+
+We save three sets of SNPs: 
+
+  - the candidate SNPs, i.e., SNPs identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
+  
+  - the candidate SNPs with correction for population structure, i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
+  
+  - the control SNPs.
+  
+::: {.callout-note}
+In the paper and in the validation steps, we only use the candidate (i.e., those identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*) and control SNPs.
+:::
+
 
 ```{r SaveThreeSetsSNPs, eval=T}
 snp_sets <- list(cand = list(set_code = "cand",
@@ -331,6 +347,49 @@ snp_sets <- list(cand = list(set_code = "cand",
                                 set_snps = control_snps))
 
 saveRDS(snp_sets,here("outputs/list_snp_sets.rds"))
+```
+
+::: {.callout-note}
+##### DRYAD repository
+
+We update the dataset `data/GenomicData/SNPsInformation.csv` containing information of SNP position on the genome and the different SNP IDs used across studies/assays (see report `1_FormattingGenomicData.Rmd`) with information on outlier SNPs. This updated dataset is exported in the DRYAD repository: file `SNPsInformation_WithOutliers.csv`.
+:::
+
+Meaning of the columns:
+
+  1. `snp_ID`: SNP ID used in the present study.
+  2. `original_ID`: Original ID of the SNP.
+  3. `affx_ID`: SNP ID in the Axiom assay.
+  4. `infinium_ID`: SNP ID in the Infinium assay.
+  5. `scaffold/contig`: contig on which the SNP is located. The term scaffold is also used as some SNPs were obtained from the alignment of NGS short-reads from a pseudoreference genome in *Pinus pinaster* that were called scaffolds (even though there are not really scaffolds).
+  6. `genome_position`: position of the SNP on the scaffold/contig (in bp).
+  7. `annotation`: SNP name (including possible alternative names).
+  8. `MAF_filtering`: `REMOVED` for SNPs with minor allele frequencies, which are removed for GEAs analyses but not for estimating the neutral population genetic structure; `KEPT` otherwise.
+  9. `RDA_outliers`: `TRUE` if the SNP was identified as an outlier in the RDA; `FALSE` otherwise.
+  10. `pRDA_outliers`: `TRUE` if the SNP was identified as an outlier in the pRDA; `FALSE` otherwise.
+  11. `GF_outliers`: `TRUE` if the SNP was identified as an outlier with the GF algorithm; `FALSE` otherwise.
+  12. `LFMM_outliers`: `TRUE` if the SNP was identified as an outlier woth LFMM; `FALSE` otherwise.
+  13. `BayPass_outliers`: `TRUE` if the SNP was identified as an outlier with BayPass; `FALSE` otherwise.
+  14. `common_outliers`: `TRUE` if the SNP was a common outlier, i.e. an outlier identified by at least one GEA method among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise. These SNPs were used for GO predictions.
+  15. `control_snps`: `TRUE` if the SNP was included in the set of control SNPs; `FALSE` otherwise.
+  
+
+Below are shown the first 10 rows of the dataset.
+
+```{r ExportDRYADrepoListSNPsWithInformation}
+listsnps <- read_csv2(here("data/GenomicData/SNPsInformation.csv"),show_col_types = FALSE) %>%  
+  mutate(RDA_outliers = ifelse(snp_ID %in% list_candidates$`RDA (mahalanobis)`, TRUE, FALSE),
+         pRDA_outliers = ifelse(snp_ID %in% list_candidates$`pRDA (mahalanobis)`, TRUE, FALSE),
+         GF_outliers = ifelse(snp_ID %in% list_candidates$GF, TRUE, FALSE),
+         LFMM_outliers = ifelse(snp_ID %in% list_candidates$LFMM, TRUE, FALSE),
+         BayPass_outliers = ifelse(snp_ID %in% list_candidates$BayPass, TRUE, FALSE),
+         common_outliers = ifelse(snp_ID %in% common_cand, TRUE, FALSE),
+         control_snps = ifelse(snp_ID %in% control_snps, TRUE, FALSE))
+
+
+listsnps %>% write_csv2(here("data/DryadRepo/SNPsInformation_WithOutliers.csv"),append=FALSE)
+
+listsnps[1:10,] %>% kable_mydf()
 ```
 
 

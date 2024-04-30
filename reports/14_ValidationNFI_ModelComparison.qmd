@@ -1,5 +1,5 @@
 ---
-title: "Mortality models in the NFI plots"
+title: "Comparing Bayesian mortality models in the NFI plots"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 number-sections: true
@@ -65,8 +65,10 @@ col.alpha <- function (col, alpha=0.5)
 source(here("scripts/functions/kable_mydf.R"))
 ```
 
+We load the NFI data in the DRYAD repository.
+
 ```{r LoadNFIData}
-data <- readRDS(here("data/NFIdata/NFIdata_cleaned.rds"))
+data <- read_csv(here("data/DryadRepo/NFIdata_cleaned.csv"),show_col_types = FALSE)
 ```
 
 

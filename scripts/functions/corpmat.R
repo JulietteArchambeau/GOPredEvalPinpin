@@ -1,5 +1,8 @@
-# function to compute the matrix of p-value
-# From http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram
+# Function to compute the matrix of p-value
+
+# From Statistical Tools for High-throughput Data Analysis & Visualization (STHDA)
+# http://www.sthda.com/english/wiki/visualize-correlation-matrix-using-correlogram
+
 corpmat <- function(mat, ...) {
   mat <- as.matrix(mat)
   n <- ncol(mat)

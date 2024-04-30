@@ -602,12 +602,22 @@ p[[6]] <- get_legend(p[[1]])
 for(i in 1:5){p[[i]] <- p[[i]]  +  theme(legend.position = "none")} 
 
 
-plot_grid(plotlist=p, nrow = 3) %>% 
+p_grid <- plot_grid(plotlist=p, nrow = 3) 
+
+# We save the figure in pdf
+p_grid %>% 
   ggsave(here(paste0("figs/GDM/ScatterPlotEucliDistance_",set_i$set_code,".pdf")), 
          .,
          width=7,
          height=8,
          device="pdf")
+
+# we save the figure in png
+p_grid %>% 
+  ggsave(here(paste0("figs/GDM/ScatterPlotEucliDistance_",set_i$set_code,".png")), 
+         .,
+         width=7,
+         height=8)
 
 })
 ```
@@ -658,9 +668,11 @@ go_maps <-plot_grid(plotlist=go_maps)
 # =====================================================
 if(x$set_code=="cand"){ 
   ggsave(here("figs/GDM/GOMaps_PopLocations_CandidateSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+  ggsave(here("figs/GDM/GOMaps_PopLocations_CandidateSNPs_SI.png"), go_maps, width=10,height=6)
   
   } else if(x$set_code=="control"){
     ggsave(here("figs/GDM/GOMaps_PopLocations_ControlSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+    ggsave(here("figs/GDM/GOMaps_PopLocations_ControlSNPs_SI.png"), go_maps, width=10,height=6)
     }
 
 
@@ -729,7 +741,7 @@ lapply(snp_sets, function(x) x$go[[gcm]]) %>%
 
 To predict the genomic offset across the species range, we use climatic rasters for the reference period (1901-1950). These rasters were provided by Maurizio Marchi and come from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/). The values of climatic variables at the location of the populations match between the rasters and the spatial points (I checked it in the report `3_CheckingPastFutureClimatesPopulationLocations`).
 
-#### Option 1
+#### Maps with `raster` package
 
 ```{r PredictGOpopWithRasters, eval=F}
 # Past rasters
@@ -781,7 +793,7 @@ raster::plot(list_pred_rasts[[x]][[gcm]],
 })
 ```
 
-#### Option 2
+#### Maps with `ggplot2`
 
 We project the genomic offset predictions for the set of candidate SNPs and the mean genomic offset across the five GCMs. 
 
@@ -946,7 +958,9 @@ return(x)
 })
 ```
 
-> Map genomic offset predictions in the NFI plots 
+> Map genomic offset predictions at the location of the NFI plots 
+
+These figures are included in the Supplementary Information.
 
 ```{r MakeGOmapsNFIplots, fig.width=8,fig.height=8, results="hide"}
 source(here("scripts/functions/make_go_map.R"))
@@ -974,10 +988,12 @@ p <- make_go_map(
 if(x$set_code=="cand"){ 
   p_SI <- p + theme(plot.title = element_blank())
   ggsave(here("figs/GDM/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+  ggsave(here("figs/GDM/NFI_GOmap_CandidateSNPs_SI.png"), p_SI, width=8,height=8)
   
   } else if(x$set_code=="control"){
     p_SI <- p + theme(plot.title = element_blank())
     ggsave(here("figs/GDM/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+    ggsave(here("figs/GDM/NFI_GOmap_ControlSNPs_SI.png"), p_SI, width=8,height=8)
     }
 
 # Show maps in the Quarto document
@@ -1066,13 +1082,21 @@ p <- lapply(snp_sets, function(x) {
                      legend.position = "none")
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)}
+   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.png")),width=5,height=5)
+   }
   
   if(x$set_code=="control") {
    p_SI <- p + theme(plot.title = element_blank())
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)}
+   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GDM/GOmap_",x$set_code,"_",cg_name,"_SI.png")),width=7,height=5)
+   }
 
  p
  
@@ -1112,6 +1136,8 @@ lapply(function(set){
 
 })
 ```
+
+# Saving GO predictions
 
 Let's save the genomic offset predictions for comparison with the other methods.
 

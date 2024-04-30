@@ -101,11 +101,12 @@ clim_dfs <- generate_scaled_clim_datasets(clim_var,clim_ref_adj = FALSE)
 ```{r RunGF, message=F, results="hide"}
 snp_sets <- lapply(snp_sets, function(snp_set) {
 
-
 # Warning! Important to sort the SNP names, otherwise
   # the colors in the species (allele) cumulative plots 
   # do not correspond to the right alleles
 geno_sub <- geno %>% dplyr::select(all_of(sort(snp_set$set_snps)))
+
+set.seed(3) # for reproducibility, as the results of GF models vary from one run to another
 
 snp_set$gf_mod <- gradientForest(data.frame(clim_dfs$clim_ref[,-1], geno_sub), 
                                  predictor.vars=clim_var, 
@@ -460,9 +461,11 @@ go_maps <-plot_grid(plotlist=go_maps)
 # =====================================================
 if(x$set_code=="cand"){ 
   ggsave(here("figs/GF/GOMaps_PopLocations_CandidateSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+  ggsave(here("figs/GF/GOMaps_PopLocations_CandidateSNPs_SI.png"), go_maps, width=10,height=6)
   
   } else if(x$set_code=="control"){
     ggsave(here("figs/GF/GOMaps_PopLocations_ControlSNPs_SI.pdf"), go_maps, width=10,height=6, device="pdf")
+    ggsave(here("figs/GF/GOMaps_PopLocations_ControlSNPs_SI.png"), go_maps, width=10,height=6)
     }
 
 
@@ -583,6 +586,13 @@ clim_ref_df %>%
 df %>% saveRDS(here("outputs/GF/go_pred_rasters.rds"))
 ```
 
+::: {.callout-tip}
+#### Figure in the manuscript
+
+This figure corresponds to Figure 6b in the main manuscript.
+:::
+
+
 ```{r PlotMeanGOProjections, fig.height=8, fig.width=8}
 # Map options
 # ===========
@@ -684,10 +694,12 @@ lapply(snp_sets, function(x) {
 if(x$set_code=="cand"){ 
   p_SI <- p + theme(plot.title = element_blank())
   ggsave(here("figs/GF/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+  ggsave(here("figs/GF/NFI_GOmap_CandidateSNPs_SI.png"), p_SI, width=8,height=8)
   
   } else if(x$set_code=="control"){
     p_SI <- p + theme(plot.title = element_blank())
     ggsave(here("figs/GF/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
+    ggsave(here("figs/GF/NFI_GOmap_ControlSNPs_SI.png"), p_SI, width=8,height=8)
     }
 
 # Show maps in the Quarto document
@@ -974,7 +986,8 @@ list_plots <- lapply(list_plots, function(p){
 list_plots$legend <- plot_legend
 final_p <- plot_grid(plotlist = list_plots)
 
-ggsave(final_p, filename=here(paste0("figs/GF/NFI_ClimaticMaps_",x,".pdf")), width=12, height=10)
+ggsave(final_p, filename=here(paste0("figs/GF/NFI_ClimaticMaps_",x,".pdf")), width=12, height=10, device="pdf")
+ggsave(final_p, filename=here(paste0("figs/GF/NFI_ClimaticMaps_",x,".png")), width=12, height=10)
 
 final_p
 })
@@ -1065,13 +1078,23 @@ p <- lapply(snp_sets, function(x){
                      legend.position = "none")
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)}
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=5,height=5)
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.png")),width=5,height=5)
+   
+   }
   
   if(x$set_code=="control") {
    p_SI <- p + theme(plot.title = element_blank())
    
    p_SI %>% 
-   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)}
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.pdf")), device = "pdf",width=7,height=5)
+   
+   p_SI %>% 
+   ggsave(filename = here(paste0("figs/GF/GOmap_",x$set_code,"_",cg_name,"_SI.png")), width=7,height=5)
+   
+   }
 
  p
  
@@ -1110,6 +1133,9 @@ lapply(function(set){
 
 })
 ```
+
+
+# Saving GO predictions
 
 Let's save the genomic offset predictions for comparison with the other methods.
 

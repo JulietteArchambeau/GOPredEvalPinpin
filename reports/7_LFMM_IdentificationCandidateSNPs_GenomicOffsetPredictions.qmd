@@ -1,6 +1,6 @@
 ---
-title: "LFMM analyses"
-subtitle: "Candidate SNP identification & Genomic offset predictions"
+title: "Latent Factor Mixed Models (LFMM)"
+subtitle: "Identification of outlier SNPs & Genomic offset predictions"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 number-sections: true
@@ -65,8 +65,11 @@ The **latent factor mixed model** (LFMM) is a multivariate mixed regression mode
 
 # Population structure
 
-<span style="color: orange;">COMMENT: this section is not used in the paper (=> can be skipped!).</span> Indeed, the analyses in this section are only useful if we want to estimate the population structure and impute missing data with the `LEA` package. In our study, we use the population structure estimates (the ancestry coefficients) from @jaramillo2015molecular, and we impute the missing data based on the most common allele in the gene pool. And in the RDA, we do not use the ancestry coefficients to account for population structure; we use PC scores.
+::: {.callout-warning}
+## Code not included in the final version of the paper
 
+Indeed, the analyses in this section are only useful if we want to estimate the population structure and impute missing data with the `LEA` package. In our study, we use the population structure estimates (the ancestry coefficients) from @jaramillo2015molecular, and we impute the missing data based on the most common allele in the gene pool. And in the RDA, we do not use the ancestry coefficients to account for population structure; we use PC scores.
+:::
 
 From the `LEA` package manual: The function `snmf` of the `lfmm2` package estimates admixture coefficients using sparse Non-Negative Matrix Factorization algorithms, and provides STRUCTURE-like outputs. The input file has to be in the `geno` format, with one row for each SNP. Each row contains 1 character for each individual: 0 means zero copy of the reference allele. 1 means one copy of the reference allele. 2 means two copies of the reference allele. 9 means missing data.
 
@@ -366,11 +369,13 @@ The genetic gap is based on the estimates of environmental effect sizes obtained
 
 Below, we will estimate the genetic gap for:
   
-  - the sets of candidate SNPs
+  - the two sets of candidate SNPs (see report `8_GeneratingSNPsets.qmd`).
   
-  - the control set of SNPs
+  - the set of control SNPs
   
   - all SNPs (as advised by the developers of the `genetic.gap` function) 
+
+In the paper (and in the validation steps), only one of the two sets of candidate SNPs is used: the one with candidate SNPs identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
 
 ## Loading future climatic data
 
@@ -777,7 +782,7 @@ return(snp_set)
 })
 ```
 
-### Relatioship with Euclidean distance
+### Relationship with Euclidean climatic distance
 
 ```{r PlotSetSNPsEucliDistance, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
@@ -1182,6 +1187,12 @@ snp_sets %>% saveRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))
 
 
 # Corrected allele frequencies
+
+::: {.callout-warning}
+## Code not included in the final version of the paper
+
+The code below has not been used for the final version of the paper, as we finally did not use the Gradient Forest algorithm with allele frequencies corrected for population structure to identify outlier SNPs. 
+:::
 
 In a similar way to @gain2023quantitative and @capblancq2023common, we want to use **allele frequencies corrected for population structure** in the Gradient Forest analysis. Here we use the outputs from a latent factor mixed model (LFMM) to extract the corrected allele frequencies.
 

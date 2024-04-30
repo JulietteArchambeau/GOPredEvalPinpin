@@ -1,5 +1,5 @@
 ---
-title: "Baypass analysis"
+title: "BayPass - Identification of outlier SNPs"
 author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format: 

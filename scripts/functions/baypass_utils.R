@@ -1,10 +1,8 @@
-
-
 # Scripts associated with BayPass software
 
-# http://www1.montpellier.inra.fr/CBGP/software/baypass/index.html
+# https://forgemia.inra.fr/mathieu.gautier/baypass_public/-/blob/master/utils/baypass_utils.R?ref_type=heads
 
-
+# Under the license CeCILL-B FREE SOFTWARE LICENSE AGREEMENT. See https://forgemia.inra.fr/mathieu.gautier/baypass_public/-/blob/master/LICENSE.
 
 ###############################################
 ###function: Simulate under the inference model

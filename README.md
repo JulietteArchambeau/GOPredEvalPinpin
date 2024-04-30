@@ -136,9 +136,6 @@ Some figures generated in this report:
 
   - Generating figures for the Supplementary Information based on the PCA of the control and candidate SNPs: screeplots and PCA plots with the ALT and ARM populations highlighted.
 
-##### [RPackageCitations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/RPackageCitations.html) 
-
-  - Citations of the R packages used in the present study.
 
 ## License
 
@@ -158,7 +155,7 @@ The functions below come from other sources and may therefore only be reused und
 
 ## Software versions
 
-Analyses were undertaken with R version 4.3.3. R package versions are shown at the end of each script and in `RPackageCitations.html`.
+Analyses were undertaken with R version 4.3.3. R package versions are shown at the end of each report and in [RPackageCitations.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/RPackageCitations.html).
 
 ## References
 

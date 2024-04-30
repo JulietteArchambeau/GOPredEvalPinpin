@@ -594,7 +594,7 @@ df_freq[1:10,1:8] %>%
 
 ## List of SNPs{#ListSNPs}
 
-We export in the DRYAD repository two datasets (filtered or not for MAF) containing information about the different IDs and the genome position of each SNP. SNPs are in rows. 
+We create a dataset with information on the genome position and the different SNP IDs after the filtering steps (but including the SNPs with minor allele frequencies). This dataset will be updated with information on outlier SNPs identified in the GEAs and will then be exported in the DRYAD repository. SNPs are in rows.
 
 Meaning of the columns:
 
@@ -605,18 +605,23 @@ Meaning of the columns:
   5. `scaffold/contig`: contig on which the SNP is located. The term scaffold is also used as some SNPs were obtained from the alignment of NGS short-reads from a pseudoreference genome in *Pinus pinaster* that were called scaffolds (even though there are not really scaffolds).
   6. `genome_position`: position of the SNP on the scaffold/contig (in bp).
   7. `annotation`: SNP name (including possible alternative names).
+  8. `MAF_filtering`: `REMOVED` for SNPs with minor allele frequencies, which are removed for GEAs analyses but not for estimating the neutral population genetic structure; `KEPT` otherwise.
+  
+Below are show the first 10 rows.
   
 ```{r ListSelectedSNPsWithGenomePositionInformation}
-for(i in 1:length(list_geno)){
-  specMAF <- names(list_geno[i])[1] %>% str_sub(6, -1)
-  
-list_geno[[i]]$df %>% 
+snps_withMAF_removed <- setdiff(rownames(list_geno$list_withmaf$df),rownames(list_geno$list_withoutmaf$df))
+
+listsnps <- list_geno$list_withmaf$df %>% 
   rownames_to_column(var="snp_ID") %>%
   dplyr::select(snp_ID) %>% 
   inner_join(snppos, by="snp_ID") %>% 
   dplyr::rename("scaffold/contig"="scaffold") %>% 
-  write_csv(here(paste0("data/DryadRepo/ListSNPs_",specMAF,".csv")),append=FALSE)
-}
+  mutate(MAF_filtering=ifelse(snp_ID %in%snps_withMAF_removed, "REMOVED","KEPT")) %>% 
+  write_csv2(here("data/GenomicData/SNPsInformation.csv"),append=FALSE)
+
+
+listsnps[1:10,] %>% kable_mydf(font_size = 12, boldfirstcolumn = FALSE)
 ```
 
 
