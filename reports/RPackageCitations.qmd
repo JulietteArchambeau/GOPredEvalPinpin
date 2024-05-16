@@ -1,7 +1,6 @@
 ---
 title: "Citations of the R packages"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     code-fold: true
