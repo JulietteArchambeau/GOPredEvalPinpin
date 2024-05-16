@@ -1,7 +1,7 @@
 ---
-title: "Comparing Bayesian mortality models in the NFI plots"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+title: "Comparing the estimation accuracy of Bayesian mortality models in the NFI plots"
+subtitle: "With simulations"
+date: last-modified
 number-sections: true
 format: 
   html:
@@ -74,7 +74,7 @@ data <- read_csv(here("data/DryadRepo/NFIdata_cleaned.csv"),show_col_types = FAL
 
 # Introduction
 
-**Goal:** estimate the association between the genomic offset and the mortality rates in natural populations.
+**Goal:** determining which mathematical model will be used to estimate the association between genomic offset predictions and mortality rates in the NFI plots.
 
 ## Causal model
 
@@ -1008,7 +1008,7 @@ conf95 <- broom.mixed::tidyMCMC(mod,
 
 set.seed(495)
 
-lapply(1:nb_simulations, function(x) run_randomGO(stancode,data)) %>% saveRDS(here(paste0("outputs/ValidationNFI/Simulations/m3_truedata_randomGO_",nb_simulations,"simulations.rds")))
+lapply(1:nb_simulations, function(x) run_randomGO(stancode,data)) %>% saveRDS(here(paste0("outputs/ValidationNFI/Simulations/",nb_simulations,"simulations_m3_truedata_randomGO.rds")))
 ```
 
 ```{r TableCoeffM3TrueData, fig.height=12, fig.width = 8, eval=T}
@@ -1026,7 +1026,7 @@ count_overlapp_with_zero_across_sims <- function(x){
     bind_rows()}
 
 # Extract the outputs and identify the simulations in which the 95% and 80% credible intervals overlap with zero. 
-df <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/m3_truedata_randomGO_",nb_simulations,"simulations.rds"))) %>% 
+df <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/",nb_simulations,"simulations_m3_truedata_randomGO.rds"))) %>% 
   bind_rows(.id="sim_ID") %>% 
   dplyr::filter(term == "beta_GO") %>%
   mutate(conf80_include_zero = if_else(conf80_low<=0 & conf80_high>=0, TRUE,FALSE),
@@ -1049,10 +1049,7 @@ df %>%
   theme(axis.text.y = element_text(size=6))
 ```
 
-## M5: adding spatial autocorrelation
-
-
-### Balanced design
+## M5_1: adding spatial autocorrelation
 
 The code below is mostly based on the tutorial [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark.
 
@@ -1127,12 +1124,7 @@ ggplot(data.frame(GP = mu,
   theme_minimal()
 ```
 
-
-
-
-#### M5_1
-
-We then simulate the observed counts of dead trees.
+We then simulate the observed counts of dead trees, with a balanced sampling design (i.e., 30 sampled trees per plot).
 
 ```{r SimulateMortalityRatesM51, fig.height=5, fig.width=6}
 set.seed(492)
@@ -1173,12 +1165,12 @@ mod <- sampling(stancode, data = datalist,
                 save_warmup = FALSE,
                 pars=c("mu","beta_0","alpha","rho")) 
 
-mod %>% saveRDS(file=here("outputs/ValidationNFI/Simulations/m5_1.rds"))
+mod %>% saveRDS(file=here("outputs/ValidationNFI/Simulations/1simulation_m5_1_balanceddesign.rds"))
 ```
 
 
 ```{r ModelCoeffM51}
-mod <- readRDS(file=here("outputs/ValidationNFI/Simulations/m5_1.rds"))
+mod <- readRDS(file=here("outputs/ValidationNFI/Simulations/1simulation_m5_1_balanceddesign.rds"))
 
 # Model coefficients
 broom.mixed::tidyMCMC(mod,
@@ -1205,7 +1197,7 @@ mcmc_pairs(as.array(mod),
 
 Using the code from [*Stan Geostatistical Model*](https://rstudio-pubs-static.s3.amazonaws.com/1002171_81acf1988f794fb7a181a003ee8ea1c9.html) of Nicholas Clark, we visualize the posterior estimates for the spatial covariance kernel to see if the model captures the simulated covariance well. 
 
-```{r}
+```{r ComparingTrueVsEstimatedCovarianceKernel}
 # We define a function to compute the covariance kernel for each posterior draw
 quad_kernel = function(rho, alpha, distances){covs <- alpha^2 * exp(-0.5 * ((distances / rho)^2))}
 
@@ -1260,96 +1252,6 @@ lines(pred_vals,
 lines(pred_vals,
       true_kernel, lwd = 3, col = 'black')
 ```
-
-
-#### M5_2
-
-We then simulate the observed counts of dead trees.
-
-```{r SimulateMortalityRates, fig.height=5, fig.width=6, echo=F,eval=F}
-set.seed(492)
-nb_tot <- rep(30,N) # nb of trees per plot
-nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
-nb_country <- 2
-country <- c(rep(1,N/2),rep(2,N/2))
-beta_0 <- c(-7,-6) # country-specific intercepts
-beta_GO <- 0.5 # coeff of the genomic offset
-beta_C <- 1 # coeff of the basal area
-GO <- rnorm(N,0,1) # genomic offset
-GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
-C <- rnorm(N,0,1) # basal area
-C <- (C - mean(C)) / sd(C) # scaling the basal area
-eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) + mu # linear predictor
-p <- 1-exp(-exp(eta)) # probability of mortality in each plot
-nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
-
-
-ggplot(data.frame(Y = nb_dead,
-                  Longitude = lon,
-                  Latitude = lat),
-       aes(x = Latitude, y = Longitude, fill = Y)) +
-  geom_point(size = 5, shape = 21, col = 'white') +
-  scale_fill_continuous(type = "viridis", name = "nb dead trees") +
-  theme_minimal()
-```
-
-
-
-```{r SimulationM5BalancedDesign, echo=F,eval=F}
-nb_tot <- rep(30,N) # nb of trees per plot
-nb_years <- sample(5:15, N, replace=T) # random time periods between inventory dates (between 5 and 15 years)
-nb_country <- 2
-country <- c(rep(1,N/2),rep(2,N/2))
-beta_0 <- c(-7,-6) # country-specific intercepts
-beta_GO <- 0.5 # coeff of the genomic offset
-beta_C <- 1 # coeff of the basal area
-GO <- rnorm(N,0,1) # genomic offset
-GO <- (GO - mean(GO)) / sd(GO) # scaling the genomic offset
-C <- rnorm(N,0,1) # genomic offset
-C <- (C - mean(C)) / sd(C) # scaling the genomic offset
-eta <- beta_0[country] + beta_GO * GO + beta_C * C + log(nb_years) + sim_gp # linear predictor
-p <- 1-exp(-exp(eta)) # probability of mortality in each plot
-nb_dead <- rbinom(N,nb_tot, p) # nb of dead trees in each plot
-
-
-
-
-ggplot(data.frame(Y = nb_dead,
-                  Longitude = lon,
-                  Latitude = lat),
-       aes(x = Latitude, y = Longitude, fill = Y)) +
-  geom_point(size = 5, shape = 21, col = 'white') +
-  scale_fill_continuous(type = "viridis") +
-  theme_minimal()
-
-# Stan list
-datalist <- list(N=N,
-                 nb_dead=nb_dead,
-                 nb_tot=nb_tot,
-                 GO=GO,
-                 C=C,
-                 nb_country=nb_country,
-                 country=country,
-                 Dmat=m,
-                 log_nb_years=log(nb_years))
-
-# Stan code
-stancode = stan_model("scripts/StanModels/ValidationNFI_m4.stan")
-print(stancode)
-
-# Running stan model
-mod <- sampling(stancode, data = datalist, iter = 2000, chains = 4, cores = 4,init=0) 
-
-# Model coefficients
-broom.mixed::tidyMCMC(mod,
-                      droppars = NULL, 
-                      conf.level=0.95,
-                      estimate.method = "median", 
-                      ess = T, rhat = T, conf.int = T) %>% 
-  kable_mydf(round_number=3)
-```
-
-
 
 ## M3 + spatial autocorrelation
 
@@ -1444,7 +1346,7 @@ datalist <- list(N=N,
                  country=country,
                  log_nb_years=log(nb_years))
 
-# Running stan model
+# Running Stan model
 mod <- sampling(stancode, 
                 data = datalist, 
                 iter = 2000, chains = 4, cores = 4,init=0, 
@@ -1457,13 +1359,14 @@ make_coeff_table(mod,
 
 }) %>% 
   bind_rows(.id = "nb_sim") %>% 
-  saveRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_withspatialautocorrelation.rds"))
+  saveRDS(file=here(paste0("outputs/ValidationNFI/Simulations/",nb_simulations,"simulations_m3_balanceddesign_withspatialautocorrelation.rds")))
 ```
 
 The following table shows the coverage of the 80% and 95% credible intervals for the country-specific intercepts, $\beta_0$ and $\beta_{GO}$ coefficients from model M3 fitted on simulated data with autocorrelation:
 
 ```{r TableCoeffM3WithSPatialAutocorrelation}
-readRDS(file=here("outputs/ValidationNFI/Simulations/sim_m3_withspatialautocorrelation.rds")) %>% 
+readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/",
+                         nb_simulations,"simulations_m3_balanceddesign_withspatialautocorrelation.rds"))) %>% 
   calc_coverage_across_sims %>% 
   kable_mydf()
 ```
@@ -1962,7 +1865,7 @@ conf95 <- broom.mixed::tidyMCMC(mod,
 
 set.seed(4935)
 
-lapply(1:nb_simulations, function(x) run_randomGO(stancode,data)) %>% saveRDS(here(paste0("outputs/ValidationNFI/Simulations/m6_2_truedata_randomGO_",nb_simulations,"simulations.rds")))
+lapply(1:nb_simulations, function(x) run_randomGO(stancode,data)) %>% saveRDS(here(paste0("outputs/ValidationNFI/Simulations/",nb_simulations,"simulations_m6_2_truedata_randomGO.rds")))
 ```
 
 ```{r TableCoeffM62TrueData, fig.height=12, fig.width = 8, eval=T}
@@ -1980,7 +1883,7 @@ count_overlapp_with_zero_across_sims <- function(x){
     bind_rows()}
 
 # Extract the outputs and identify the simulations in which the 95% and 80% credible intervals overlap with zero. 
-df <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/m6_2_truedata_randomGO_",nb_simulations,"simulations.rds"))) %>% 
+df <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/",nb_simulations,"simulations_m6_2_truedata_randomGO.rds"))) %>% 
   bind_rows(.id="sim_ID") %>% 
   dplyr::filter(term == "beta_GO") %>%
   mutate(conf80_include_zero = if_else(conf80_low<=0 & conf80_high>=0, TRUE,FALSE),

@@ -1,7 +1,6 @@
 ---
 title: "Checking past and future climates at the location of the populations"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 number-sections: true
 format: 
   html:
@@ -34,9 +33,9 @@ table {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 7,fig.height = 5,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
+library(knitr)
+library(tidyverse)
+library(readxl)
 library(xtable)
 library(reshape2)
 library(kableExtra)
@@ -84,6 +83,7 @@ find . -name "MSP.tif" -execdir mv {} SP.tif \; # rename MSP.tif to SP.tif
 
 **Comment:** in all the plots below, the points corresponds to the 34 studied populations of maritime pine and the colors correspond to the main gene pool they belong to.
 
+Climatic data comes from the [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) described in @marchi2024climatedt.
 
 **Set of the climatic variables of interest:**
 

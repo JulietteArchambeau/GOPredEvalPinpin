@@ -1,7 +1,6 @@
 ---
-title: "Validation with mortality rates in NFI plots"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+title: "Validating genomic offset predictions with mortality rates in National Forest Inventory (NFI) plots"
+date: last-modified
 format: 
   html:
     toc: true
@@ -68,13 +67,15 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 # Introduction
 
 
-In this report, we aim to estimate the association between the genomic offset (GO) predictions and mortality rates in natural populations of maritime pine, used as a proxy of the absolute fitness of the populations. A positive association between GO predictions and the mortality rates would suggest that GO approaches capture maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
+**Goal:** Estimating the association between genomic offset (GO) predictions and mortality rates in natural populations of maritime pine (i.e., National Forest Inventory plots).
 
-For that, we use mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French data relies on temporary plots sampled between 2005 and 2014 while the Spanish data relies on permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
+Mortality rates in natural populations are considered as a proxy of the absolute fitness of the populations. A positive association between GO predictions and the mortality rates would suggest that GO captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
 
-The different census intervals among the plots as accounting for by modelling the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval $\Delta_i$ with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot $i$. The modeling approach was evaluated with simulations in the report `14_ValidationNFI_ModelComparison.qmd`. 
+We use mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French data relies on temporary plots sampled between 2005 and 2014 while the Spanish data relies on permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
 
-In the present report, we evaluate the relationship between mortality rates in the NFI plots and the G0 predictions with the two following models.
+The different census intervals among the plots are accounted for by modelling the proportion $p_{i}$ of maritime pines that died in the plot $i$ during the census interval $\Delta_i$ with the complementary log-log link and an offset on the logarithm of the census interval $\Delta_{i}$ for the plot $i$. The modeling approach was evaluated with simulations in the report `14_ValidationNFI_ModelComparison.qmd`, in which the estimation accuracy of different models was compared.
+
+In the present report, we evaluate the relationship between mortality rates and G0 predictions with the two following models.
 
 
 ## Model with competition as covariate
@@ -230,11 +231,8 @@ nfi_data <- nfi_data %>%
 After these filtering steps, there are `r nrow(nfi_data)` plots left.
 
 
-::: {.callout-note}
-#### DRYAD repository
+<span style="color: orange;">**DRYAD REPOSITORY:** The dataset is saved in the DRYAD repository: `NFIdata_cleaned.csv` dataset.</span>
 
-The dataset is saved in the DRYAD repository: `NFIdata_cleaned.csv` dataset.
-:::
 
 ```{r ExportNFIdataForModelComparisonAndDryadRepo}
 nfi_data %>% write_csv(here("data/DryadRepo/NFIdata_cleaned.csv"))
@@ -292,7 +290,7 @@ nfi_data %>%
 
 So, we need annual climatic data at the location of the NFI plots for the period 1972-2014.
 
-### Calculate climate for each plot
+## Calculate climate for each plot
 
 
 Once we have the annual climatic data at the location of the NFI plots, we generate two datasets:
@@ -330,7 +328,6 @@ clim_ref <- clim %>% calc_avg_clim_var(ref_period = c(1901,1950), id_spatial_poi
 
 
 ```{r ComparingWithCoordinatesClimateDT, eval=F}
-
 # !!Coding warning!! 
 ######################
 
@@ -355,7 +352,6 @@ range(comp_coord$diff_longitude)
 ```
 
 ```{r TimePeriodsForRasterExtraction, eval=F}
-
 # checking time periods for Maurizio
 # ==================================
 
@@ -406,11 +402,8 @@ list(clim_ref = clim_ref,
   saveRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
 ```
 
-::: {.callout-note}
-#### DRYAD repository
+<span style="color: orange;">**DRYAD REPOSITORY:** We save the averaged climatic data at the locations of the NFI plots in the DRYAD repository: `ClimateDT_NFIPlots_PastClimates.csv` dataset for the averaged climates over the reference period 1901-1950 and `ClimateDT_NFIPlots_SurveyClimates.csv"` dataset for the averaged climates over the survey periods specific to each plot.</span>
 
-We save the averaged climatic data at the locations of the NFI plots in the DRYAD repository: `ClimateDT_NFIPlots_PastClimates.csv` dataset for the averaged climates over the reference period 1901-1950 and `ClimateDT_NFIPlots_SurveyClimates.csv"` dataset for the averaged climates over the survey periods specific to each plot.
-:::
 
 ```{r SaveClimateDataInDryadRepo}
 clim_ref %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_PastClimates.csv"))
@@ -419,7 +412,7 @@ clim_survey %>% write_csv(here("data/DryadRepo/ClimateDT_NFIPlots_SurveyClimates
 
 
 
-# Climatic space covered
+## Climatic space covered
 
 We look at how the 34 sampled populations cover the climatic space of the NFI plots.
 
@@ -465,10 +458,10 @@ p <- df %>%
   geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        legend.position = c(0.82,0.87),
-        legend.text = element_text(size=14),
+        legend.position = c(0.81,0.87),
+        legend.text = element_text(size=16),
         legend.background = element_blank(),
-        axis.text = element_text(size=12),
+        axis.text = element_text(size=15),
         axis.title = element_text(size=18))
 
 p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf"),
@@ -496,10 +489,10 @@ p <- df %>%
   geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        legend.position = c(0.17,0.15),
-        legend.text = element_text(size=14),
+        legend.position = c(0.18,0.15),
+        legend.text = element_text(size=16),
         legend.background = element_blank(),
-        axis.text = element_text(size=12),
+        axis.text = element_text(size=15),
         axis.title = element_text(size=18))
 
 p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf"),
@@ -527,10 +520,10 @@ p <- df %>%
   geom_text_repel(data=df %>% filter(!subdf=="nfi")) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        legend.position = c(0.16,0.89),
-        legend.text = element_text(size=14),
+        legend.position = c(0.18,0.89),
+        legend.text = element_text(size=16),
         legend.background = element_blank(),
-        axis.text = element_text(size=12),
+        axis.text = element_text(size=15),
         axis.title = element_text(size=18))
 
 p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio4vsSHM.pdf"),
@@ -743,7 +736,7 @@ We can also note the very high association between mortality rates and the genom
 
 We evaluated the probability that the estimated relationship between the mortality rates and GO predictions could be obtained by chance. For that, we ran again the model on the NFI data but we replaced GO predictions by a randomly generated variable $X$ such as $X \sim \mathcal{N}(0,1)$. We repeated this step 100 times and obtained a distribution of $\beta_X$ coefficients capturing the relationship between mortality rates and a randomly generated variable. We then compared this distribution of $\beta_X$ coefficients to the estimated $\beta_{GO}$ coefficients capturing the relationship between the mortality rates and the GO predictions.
 
-```{r IntervalPlotsComparingRandomVsPredictedGOM3, fig.height= 10, fig.width=8}
+```{r IntervalPlotsComparingRandomVsPredictedGOM3, fig.height= 10, fig.width=8, eval=T}
 # Load the coefficient values of models with predicted GO
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM3_coefftab.rds")) %>% 
   mutate(run_ID=method,
@@ -752,7 +745,7 @@ coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM3_coefftab.rds")) %>%
   dplyr::select(run_ID, GO, mean, contains("conf"))
 
 # Load the coefficient values of models with random GO and merge with the predicted GO coefficient table
-coefftab <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/m3_truedata_randomGO_100simulations.rds"))) %>% 
+coefftab <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/100simulations_m3_truedata_randomGO.rds"))) %>% 
   bind_rows(.id="sim_ID") %>% 
   dplyr::filter(term == "beta_GO") %>%
   mutate(run_ID = paste0("sim ",sim_ID),#run_ID = paste0("Simulation ",sim_ID),
@@ -1177,7 +1170,7 @@ p
 
 We evaluated the probability that the estimated relationship between the mortality rates and GO predictions could be obtained by chance. For that, we ran again the model on the NFI data but we replaced GO predictions by a randomly generated variable $X$ such as $X \sim \mathcal{N}(0,1)$. We repeated this step 100 times and obtained a distribution of $\beta_X$ coefficients capturing the relationship between mortality rates and a randomly generated variable. We then compared this distribution of $\beta_X$ coefficients to the estimated $\beta_{GO}$ coefficients capturing the relationship between the mortality rates and the GO predictions.
 
-```{r IntervalPlotsComparingRandomVsPredictedGOM62, fig.height=12,fig.width=8}
+```{r IntervalPlotsComparingRandomVsPredictedGOM62, fig.height=12,fig.width=8, eval=T}
 # Load the coefficient values of models with predicted GO
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds")) %>% 
   mutate(run_ID=method,
@@ -1186,7 +1179,7 @@ coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds")) %>
   dplyr::select(run_ID, GO, mean, contains("conf"))
 
 # Load the coefficient values of models with random GO and merge with the predicted GO coefficient table
-coefftab <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/m6_2_truedata_randomGO_100simulations.rds"))) %>% 
+coefftab <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/100simulations_m6_2_truedata_randomGO.rds"))) %>% 
   bind_rows(.id="sim_ID") %>% 
   dplyr::filter(term == "beta_GO") %>%
   mutate(run_ID = paste0("sim ",sim_ID),#run_ID = paste0("Simulation ",sim_ID),
@@ -1317,6 +1310,7 @@ p <- ggplot() +
   xlab("") + ylab("") +
     ggtitle(ggtitle) +
     theme(legend.position = c(0.85,0.2),
+          axis.text = element_text(size=14),
           legend.box.background = element_rect(fill = "white", linewidth=0.6, colour="gray"))
 
 { 

@@ -1,6 +1,6 @@
 ---
 title: "Supplementary Information of the paper: 'Evaluating genomic offset predictions in a forest tree with high population genetic structure' "
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   pdf:
     keep-tex: true
@@ -65,15 +65,15 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 
 # Glossary 
 
-**ClimateDT**: [Climate Downscaling Tool](https://www.ibbr.cnr.it/climate-dt/). Geo-web service providing a large number of climatic variables downscaled at 1-km resolution between 1901 and 2098. 
+**ClimateDT**: [Climate Downscaling Tool](https://www.ibbr.cnr.it/climate-dt/). A geo-web service providing a large number of climatic variables downscaled at 1-km resolution between 1901 and 2098. 
 
-**CTD**: Climatic transfer distance. This index is calculated for each climatic variable independently and corresponds to the absolute difference between the values of the climatic variable at the location of the populations and at the location of the common gardens.
+**CTD**: Climatic transfer distance. An index calculated independently for each climatic variable and which is equal to the absolute difference between the values of the climatic variable at the location of the populations and at the location of the common gardens.
 
-**dbMEMs**: Distance-based Moran’s Eigenvector Maps. These indexes are calculated based on a geographic distance matrix and are orthogonal vectors maximizing the spatial autocorrelation (measured by Moran’s coefficient) of the sampled locations. 
+**dbMEMs**: Distance-based Moran’s Eigenvector Maps. Orthogonal vectors calculated based on a geographic distance matrix and maximizing the spatial autocorrelation (measured by Moran’s coefficient) of the sampled locations. 
 
-**GCM**: General circulation model (also called Global Climate Model). Numerical models representing physical processes in the atmosphere, ocean, cryosphere and land surface and simulating the response of the global climate system to increasing greenhouse gas concentrations. They are used for forecasting climate change under different scenarios of greenhouse gas emissions. In the present study, we used the five GCMs available in ClimateDT and based on UKCP18 projections, namely GFDL-ESM4,IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL.
+**GCM**: General circulation model (also called Global Climate Model). Numerical models representing physical processes in the atmosphere, ocean, cryosphere and land surface and simulating the response of the global climate system to increasing greenhouse gas concentrations. They are used for forecasting climate change under different scenarios of greenhouse gas emissions. In the present study, we used the five GCMs available in ClimateDT and based on UKCP18 projections, namely GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL.
 
-**GDM**: Generalized Dissimilarity Modelling. One of the methods used to generate GO predictions at the location of the populations, the common gardens and the NFI plots (section @sec-GOpred-GF).
+**GDM**: Generalized Dissimilarity Modelling. One of the methods used to generate GO predictions at the location of the populations, the common gardens and the NFI plots (section @sec-GOpred-GDM).
 
 **GF**: Gradient Forest. One of the methods used to estimate the gene-climate relationships (section @sec-GEA-GF) and to generate GO predictions at the location of the populations, the common gardens and the NFI plots (section @sec-GOpred-GF).
 
@@ -106,7 +106,7 @@ df_sum %>%
   kable_mydf()
 ```
 
-In the present study, we use `r length(unique(df$pop))` populations and `r length(unique(df$clon))` genotypes. There are between `r range(df_sum$count)[[1]]` and `r range(df_sum$count)[[2]]` genotypes per population, with an average of about `r mean(df_sum$count) %>% round(1)` genotypes per population.
+In the present study, we used `r length(unique(df$pop))` populations and `r length(unique(df$clon))` genotypes. There were between `r range(df_sum$count)[[1]]` and `r range(df_sum$count)[[2]]` genotypes per population, with an average of about `r mean(df_sum$count) %>% round(1)` genotypes per population.
 
 ## Population neutral genetic structure
 
@@ -123,7 +123,7 @@ The population neutral genetic structure was inferred with a PCA on a set of `r 
 
 # Selection of the climatic variables
 
-We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) (ClimateDT) developed within the framework of the [B4EST project](https://b4est.eu/). We used the time period 1901-1950 as reference period, i.e. which is expected to capture the climatic conditions under which the populations evolved and are currently locally adapted. We used predictions of future climates for the period 2041-2060 under the shared socio-economic pathway 3-7.0 (SSP3-7.0) and from five different GCMs.
+We extracted the climatic data from the [Climate Downscaling tool](https://www.ibbr.cnr.it/climate-dt/) (ClimateDT) developed within the framework of the [B4EST project](https://b4est.eu/). We used the time period 1901-1950 as reference period, i.e. which is expected to capture the climatic conditions under which the populations evolved and are currently locally adapted. We used predictions of future climates for the period 2041-2060 under the shared socio-economic pathway 3-7.0 (SSP3-7.0) and from five different GCMs, namely: GFDL-ESM4, IPSL-CM6A-LR, MPI-ESM1-2-HR, MRI-ESM2-0 and UKESM1-0-LL.
 
 ## Preselection step 
 
@@ -225,8 +225,10 @@ These analyses were conducted using the function `rda` of the `vegan` R package 
 #| label: tbl-VarPartGeo
 #| tbl-cap: Variance partioning using geographical coordinates to account for geography.
 
-readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_coordinates.rds"))[[2]] %>%
-kable_mydf(boldfirstcolumn = T, round_number = 4, font_size = 8)
+readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_coordinates.rds"))[[2]]  %>% 
+  mutate(across(where(is.numeric), \(x) round (x, 2))) %>%
+  kable(escape =T, format ="latex", booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
 ```
 
 
@@ -234,8 +236,10 @@ kable_mydf(boldfirstcolumn = T, round_number = 4, font_size = 8)
 #| label: tbl-VarPartMEMs
 #| tbl-cap: Variance partioning using dbMEMs with positive eigenvalues to account for geography.
 
-readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>%
-kable_mydf(boldfirstcolumn = T, round_number = 4, font_size = 8)
+readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>% 
+  mutate(across(where(is.numeric), \(x) round (x, 2))) %>%
+  kable(escape =T, format ="latex", booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
 ```
 
 
@@ -257,7 +261,7 @@ RDA was performed with the `vegan` R package v`r packageVersion("vegan")` [@vega
   
   - a partial RDA corrected for population structure (using the first three PC scores, see Figure S[-@fig-PCA]), hereafter referred as *pRDA*.
   
-Following @capblancqEvaluationRedundancyAnalysis2018, outlier SNPs were identified based on their extremeness along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using the first two RDA axes, i.e. the two axes that retain most of the genetic variation in our study. The $p$-values and $q$-values of the Mahalonobis distances were calculated using the `radapt` function from the [Github repository](https://github.com/Capblancq/RDA-landscape-genomics) associated with @capblancq2021redundancy. The `radapt` function relies on the `covRob` function from the `robust` R package v`r packageVersion("robust")` . [@robust] and the `qvalue` function from the `qvalue` R package [@qvalue]. We used a false discovery threshold (FDR) of 5% to identify the outliers, which means that 5% or less of the identified outliers may be false positives.
+Following @capblancqEvaluationRedundancyAnalysis2018, outlier SNPs were identified based on their extremeness along a distribution of Mahalanobis distances estimated between each locus and the center of the RDA space using the first two RDA axes, i.e. the two axes that retain most of the genetic variation in our study. The $p$-values and $q$-values of the Mahalonobis distances were calculated using the `radapt` function from the [Github repository](https://github.com/Capblancq/RDA-landscape-genomics) associated with @capblancq2021redundancy. The `radapt` function relies on the `covRob` function from the `robust` R package v`r packageVersion("robust")` [@robust] and the `qvalue` function from the `qvalue` R package [@qvalue]. We used a false discovery threshold (FDR) of 5% to identify the outliers, which means that 5% or less of the identified outliers may be false positives.
 
 
 ::: {#fig-SIoutlierPlotsRDAs layout-nrow=2, fig-pos='H'}
@@ -272,13 +276,15 @@ Visualization of the outlier SNPs identified with the RDA. Left panels: RDA spac
 ## Gradient Forest (GF) {#sec-GEA-GF}
 
 
-We identified outlier SNPs with the GF algorithm following @fitzpatrick2021experimental and @capblancq2023common. GF models were fitted to each locus individually. We then compared the importance ($R^2$) value of each locus to the $R^2$ distribution of 2000 randomly selected SNPs (sampled among  the entire set of SNPs, except the SNPs identified as candidate SNPs). For that, as described in @lotterhos2014evaluation, we calculated the empirical $p$-value $\hat{p}$ of each locus $l$ such as:
+We identified outlier SNPs with the GF algorithm following @fitzpatrick2021experimental and @capblancq2023common. GF models were fitted to each locus individually. We then compared the importance ($R^2$) value of each locus to the $R^2$ distribution of all SNPs by calculating empirical $p$-values, an approach described in @lotterhos2014evaluation. More specifically, the empirical $p$-value $\hat{p}$ of each locus $l$ is calculated as follows:
 
-$$\hat{p}_l = 1 - (r_l / 2000)$$
+$$\hat{p}_l = 1 - (r_l / N)$$
 
-with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the 2000 randomly selected SNPs. 
+with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the all SNPs ($N$ SNPs). 
 
-We ran three independent runs and identified the SNPs that were in the 0.5% SNPs with the lowest empirical $p$-values across the three runs. 
+Note that selecting the SNPs based on the rank of their empirical $p$-value is equivalent to selecting them based on the rank of their $R^2$ value, i.e., the 0.5% of the SNPs with the highest $R^2$ should match the 0.5% of the SNPs with the lowest empirical $p$-value.
+
+We ran three independent GF runs and identified the SNPs that were in the 0.5% SNPs with the lowest empirical $p$-values across the three runs. 
 
 ```{r VennDiagramGF, fig.width=6, fig.height=6}
 #| label: fig-GFCommonOutliersAcross3Runs
@@ -286,13 +292,11 @@ We ran three independent runs and identified the SNPs that were in the 0.5% SNPs
 #| out-width: "70%"
 
 # We load the outliers of the three independent runs:
-gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
-gf_out_1 <- readRDS(here::here("outputs/GF/gf_outliers_1.rds"))
-gf_out_2 <- readRDS(here::here("outputs/GF/gf_outliers_2.rds"))
+list_gf_outliers <- readRDS(here::here("outputs/GF/GFoutliers_ThreeRuns.rds"))
 
-list("Run #1"=gf_out_1$gf_raw$outliers_rank005,
-     "Run #2"=gf_out_2$gf_raw$outliers_rank005,
-     "Run #3"=gf_out$gf_raw$outliers_rank005) %>% 
+list("Run #1"=list_gf_outliers[[1]]$gf_raw$outliers_epv_rank_005,
+     "Run #2"=list_gf_outliers[[2]]$gf_raw$outliers_epv_rank_005,
+     "Run #3"=list_gf_outliers[[3]]$gf_raw$outliers_epv_rank_005) %>% 
   ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
   scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
   scale_color_manual(values = rep("darkgoldenrod1",6)) + 
@@ -304,11 +308,11 @@ list("Run #1"=gf_out_1$gf_raw$outliers_rank005,
   scale_x_continuous(expand = expansion(mult = .2))
 ```
 
-40 SNPs were identified as outliers in the three runs (i.e. were among the 0.5% SNPs with the lowest empirical $p$-values) and were kept for the following analyses.
+40 SNPs were identified as outliers in the three runs and were kept for the following analyses.
 
-**Comment:** To our knowledge, GF has only been used once as a genome scan (@capblancq2023common) and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. We performed several runs of GF models as a genome scan and there was little overlap in the outliers identified across runs. This is in part why we only considered SNPs as outliers if they were identified by at least two GEA methods. Like that, if a SNP was identified as an outlier only with the GF algorithm, it was not included in the set of outliers used to estimate the GO.
+**Comment:** To our knowledge, GF has only been used once as a genome scan [@capblancq2023common] and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. We performed several runs of GF models as a genome scan and there was little overlap in the outliers identified across runs. This is in part why we only considered SNPs as outliers if they were identified by at least two GEA methods. Like that, if a SNP was identified as an outlier only with the GF algorithm, it was not included in the set of outliers used to estimate the GO.
 
-GF models were implemented with the `gradientForest` R package (@gradientForest) and the scripts available from the [Github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental.
+GF models were implemented with the `gradientForest` R package [@gradientForest] and the scripts available from the [Github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental.
 
 ## Latent factor mixed models (LFMM) {#sec-GEA-LFMM}
 
@@ -317,7 +321,7 @@ A latent factor mixed model (LFMM) is a multivariate mixed regression model that
 ![Cross-entropy criterion based on the genomic data not filtered for minor allele frequencies (MAF).](../figs/LFMM/CrossEntropyPlot.pdf){#fig-CrossEntropyPlot}
 
 We used the function `lfmm2.test` to calculate the $p$-values with the default options `genomic.control=TRUE` (i.e. $p$-values are recalibrated after correction for confounding) and `full=TRUE` (i.e. $p$-values are calculated for the full set of climatic variables using Fisher tests).
-Outlier SNPs were then identified with a FDR threshold of 5% ().
+Outlier SNPs were then identified with a FDR threshold of 5%.
 
 ![Manhattan plot showing the outlier SNPs identified with LFMM (SNPs with a red circle). The orange line corresponds to the Bonferroni threshold.](../figs/LFMM/SI_ManhattanPlot.pdf){#fig-ManhattanPlotLFMM}
 
@@ -336,7 +340,7 @@ Using the core model without covariate from <span style="font-variant:small-caps
 ```{r Outliers}
 outliers <- list(RDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[3]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
                  pRDA = readRDS(here::here("outputs/RDA/RDA_outliers.rds"))[[4]]$outliers %>% dplyr::filter(maha_meth==T) %>% pull(snp),
-                 GF = readRDS(here::here("outputs/GF/gf_common_outliers_across_three_runs.rds")),
+                 GF = readRDS(here::here("outputs/GF/GFCommonOutliers_ThreeRuns_RawAlleleFrequencies.rds")),
                  LFMM = readRDS(here::here("outputs/LFMM/candidates.rds")),
                  BayPass = readRDS(here("outputs/BayPass/baypass_outliers.rds")))
 
@@ -381,7 +385,7 @@ p
 
 For the following analyses, we kept the `r length(common_cand)` outlier SNPs identified by at least two GEAs. Our goal was to get a set of candidate SNPs enriched for loci involved in adaptation to climate, with a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). Selecting SNPs identified by at least two GEAs also allowed us to select candidate SNPs that can only be identified with GEAs that correct for population structure (pRDA, LFMM, BayPass), or candidate SNPs that can only be identified with methods that do not correct for population structure (RDA and GF).
 
-Among the `r length(common_cand)` outlier SNPs, we identified outlier SNPs located on the same scaffold (i.e. set of contigs separated by gaps and for which the relative orientation and distance is known). If two (or more) outlier SNPs were located on the same scaffold, we keep the SNPs with the lowest $p$-value in the RDA.
+Among the `r length(common_cand)` outlier SNPs, we identified outlier SNPs located on the same scaffold/contig (a scaffold/contig measuring approximately between 400 and 10,000 bp). If two (or more) outlier SNPs were located on the same scaffold/contig, we kept the SNP with the lowest $p$-value in the RDA.
 
 After this filtering step, there were `r length(snp_sets$cand$set_snps)` candidate SNPs left.
 
@@ -411,25 +415,23 @@ When calculating based on the set of candidate SNPs, this index can be considere
 
 ::: {#fig-AImaps layout-nrow=2, fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.pdf){#fig-AImapCandidates}
+![Candidate SNPs.](../figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.png){#fig-AImapCandidates}
 
-![Control SNPs.](../figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.pdf){#fig-AImapControl}
+![Control SNPs.](../figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.png){#fig-AImapControl}
 
-Spatial projection of the genetic turnover through extrapolation of the RDA model across maritime pine range. Pixels with similar colors are expected to have a similar genetic composition based on the set of SNPs used to fit the RDA model.
+Spatial projection of the predicted current genomic composition through extrapolation of the RDA model across maritime pine range. Pixels with similar colors are expected to have a similar genetic composition.
 :::
 
-We then used the RDA models to predict the disruption of the past gene-climate relationships under climate change. For that, an optimal genetic index (adaptive index for the set of candidate SNPs) was calculated for each pixel of interest (i.e. each pixel within the maritime pine range) under past and future climates. The GO corresponds to the difference between the two indexes, calculated respectively under current and future climates (@fitzpatrick2015ecological; @capblancq2020genomic).
-
-If the gene-climate relationships were estimated with a set of potential candidate SNPs for adaptation to climate, the predicted disruption of the current gene-climate relationships may capture a shift in the adaptive optimum induced by climate change, and thus the adaptive change required to track climate change.
+The RDA-based genetic indexes were estimated for both present and future climates across the maritime pine range, and for both control and candidate SNPs. The GO was then calculated for each pixel of the maritime pine range and corresponds to the difference between the genetic indexes calculated for present and future climates.
 
 
 :::{#fig-RDAGOmapsPopLocations layout-nrow=2 fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-RDAGOmapsPopLocationsCandidates height=3in width=6in}
+![Candidate SNPs.](../figs/RDA/GOmaps_PopLocations_CandidateSNPs_SI.png){#fig-RDAGOmapsPopLocationsCandidates height=3in width=6in}
 
-![Control SNPs.](../figs/RDA/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-RDAGOmapsPopLocationsControl height=3in width=6in}
+![Control SNPs.](../figs/RDA/GOmaps_PopLocations_ControlSNPs_SI.png){#fig-RDAGOmapsPopLocationsControl height=3in width=6in}
 
-GO predictions with RDA.
+GO predictions with RDA at the location of the studied populations.
 :::
 
 
@@ -437,11 +439,11 @@ GO predictions with RDA.
 
 :::{#fig-RDAGOmaps layout-nrow=2 fig-pos='H' }
 
-![Candidate SNPs.](../figs/RDA/GOmap_CandidateSNPs_SI.pdf){#fig-RDAGOmapsCandidates height=3in width=6in}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_SI.png){#fig-RDAGOmapsCandidates height=3in width=6in}
 
-![Control SNPs.](../figs/RDA/GOmap_ControlSNPs_SI.pdf){#fig-RDAGOmapsControl height=3in width=6in}
+![Control SNPs.](../figs/RDA/GOmap_control_SI.png){#fig-RDAGOmapsControl height=3in width=6in}
 
-GO predictions with RDA across the maritime pine range using the period 1901-1950 as reference period (i.e. past climates under which the populations evolved) and the predictions of five GCMs (one per panel) under the period 2041-2060 for the future climates (SSP3.7-0).
+GO predictions with RDA projected across the maritime pine range using the period 1901-1950 as reference period (i.e. past climates under which the populations evolved) and the predictions of five GCMs (one per panel) under the period 2041-2060 for the future climates (SSP3.7-0).
 :::
 
 
@@ -514,25 +516,25 @@ $\mathcal{R}^2$  measure of the fit of the random forest model for each SNPs.
 
 :::{#fig-GFGOmapsPopLocations layout-nrow=2 fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-GFGOmapsPopLocationsCandidates height=3in width=6in}
+![Candidate SNPs.](../figs/GF/GOmaps_PopLocations_CandidateSNPs_SI.png){#fig-GFGOmapsPopLocationsCandidates}
 
-![Control SNPs.](../figs/GF/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-GFGOmapsPopLocationsControl height=3in width=6in}
+![Control SNPs.](../figs/GF/GOmaps_PopLocations_ControlSNPs_SI.png){#fig-GFGOmapsPopLocationsControl}
 
-GO predictions with GF.
+GO predictions with GF at the location of the studied populations.
 :::
 
 
 ## Latent factor mixed models (LFMM) {#sec-GOpred-LFMM}
 
-![GO predictions with LFMM and all SNPs.](../figs/LFMM/GOMaps_PopLocations_AllSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsAllSNPs}
+![GO predictions with LFMM and all SNPs.](../figs/LFMM/GOMaps_PopLocations_AllSNPs_SI.png){#fig-LFMMGOmapsPopLocationsAllSNPs}
 
 :::{#fig-LFMMGOmapsPopLocations layout-nrow=2 fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsCandidates height=3in width=6in}
+![Candidate SNPs.](../figs/LFMM/GOmaps_PopLocations_CandidateSNPs_SI.png){#fig-LFMMGOmapsPopLocationsCandidates height=3in width=6in}
 
-![Control SNPs.](../figs/LFMM/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-LFMMGOmapsPopLocationsControl height=3in width=6in}
+![Control SNPs.](../figs/LFMM/GOmaps_PopLocations_ControlSNPs_SI.png){#fig-LFMMGOmapsPopLocationsControl height=3in width=6in}
 
-GO predictions with LFMM and the sets of control and candidate SNPs.
+GO predictions with LFMM at the location of the studied populations.
 :::
 
 
@@ -560,11 +562,11 @@ Similarly to the interpretation of the GF turnover functions, @fitzpatrick2015ec
 
 :::{#fig-GDMGOmapsPopLocations layout-nrow=2 fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmaps_PopLocations_CandidateSNPs_SI.pdf){#fig-GDMGOmapsPopLocationsCandidates height=3in width=6in}
+![Candidate SNPs.](../figs/GDM/GOmaps_PopLocations_CandidateSNPs_SI.png){#fig-GDMGOmapsPopLocationsCandidates}
 
-![Control SNPs.](../figs/GDM/GOmaps_PopLocations_ControlSNPs_SI.pdf){#fig-GDMGOmapsPopLocationsControl height=3in width=6in}
+![Control SNPs.](../figs/GDM/GOmaps_PopLocations_ControlSNPs_SI.png){#fig-GDMGOmapsPopLocationsControl}
 
-GO predictions with GDM for the two set of SNPs.
+GO predictions with GDM at the location of the studied populations.
 :::
 
 ## Relationship with Euclidean distance
@@ -576,25 +578,25 @@ D_{p} = \sqrt{\sum_{i=1}^{N} (X_{ref,i,p} - X_{fut,i,p})^2}
 $$
 
 
-with $N$ the number of selected climatic variables (in our case, five), $X_{past,i}$ the mean value of the climatic variable $i$ across the reference period 1901-1950 for the population $p$ and $X_{fut,i}$ the predicted mean value of the climatic variable $i$ across the future period 2041-2070 for the population $p$.
+with $N$ the number of selected climatic variables (in our case, five), $X_{ref,i,p}$ the mean value of the climatic variable $i$ across the reference period 1901-1950 for the population $p$ and $X_{fut,i,p}$ the predicted mean value of the climatic variable $i$ across the future period 2041-2070 for the population $p$.
 
-![Linear association between GO predictions with RDA and the control SNPs and the Euclidean climatic distances.](../figs/RDA/ScatterPlotEucliDistance_control.pdf)
+![Linear association between GO predictions with RDA and the control SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/RDA/ScatterPlotEucliDistance_control.pdf)
 
-![Linear association between GO predictions with RDA and the candidate SNPs and the Euclidean climatic distances.](../figs/RDA/ScatterPlotEucliDistance_cand.pdf)
+![Linear association between GO predictions with RDA and the candidate SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/RDA/ScatterPlotEucliDistance_cand.pdf)
 
-![Linear association between GO predictions with GF and the control SNPs and the Euclidean climatic distances.](../figs/GF/ScatterPlotEucliDistance_control.pdf)
+![Linear association between GO predictions with GF and the control SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/GF/ScatterPlotEucliDistance_control.pdf)
 
-![Linear association between GO predictions with GF and the candidate SNPs and the Euclidean climatic distances.](../figs/GF/ScatterPlotEucliDistance_cand.pdf)
+![Linear association between GO predictions with GF and the candidate SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/GF/ScatterPlotEucliDistance_cand.pdf)
 
-![Linear association between GO predictions with LFMM and all SNPs and the Euclidean climatic distances.](../figs/LFMM/ScatterPlotEucliDistance_AllSNPs.pdf)
+![Linear association between GO predictions with LFMM and all SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/LFMM/ScatterPlotEucliDistance_AllSNPs.pdf)
 
-![Linear association between GO predictions with LFMM and the control SNPs and the Euclidean climatic distances.](../figs/LFMM/ScatterPlotEucliDistance_control.pdf)
+![Linear association between GO predictions with LFMM and the control SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/LFMM/ScatterPlotEucliDistance_control.pdf)
 
-![Linear association between GO predictions with LFMM and the candidate SNPs and the Euclidean climatic distances.](../figs/LFMM/ScatterPlotEucliDistance_cand.pdf)
+![Linear association between GO predictions with LFMM and the candidate SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/LFMM/ScatterPlotEucliDistance_cand.pdf)
 
-![Linear association between GO predictions with GDM and the control SNPs and the Euclidean climatic distances.](../figs/GDM/ScatterPlotEucliDistance_control.pdf)
+![Linear association between GO predictions with GDM and the control SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/GDM/ScatterPlotEucliDistance_control.pdf)
 
-![Linear association between GO predictions with GDM and the candidate SNPs and the Euclidean climatic distances.](../figs/GDM/ScatterPlotEucliDistance_cand.pdf)
+![Linear association between GO predictions with GDM and the candidate SNPs and the Euclidean climatic distances. Populations are colored based on their main gene pool.](../figs/GDM/ScatterPlotEucliDistance_cand.pdf)
 
 
 ## Variability in GO predictions
@@ -681,45 +683,41 @@ To extrapolate GO predictions at the location of the NFI plots, we used:
   
 ### Climatic space
 
-Projections of the GO predictions outside of the climatic space covered by the sampled populations have to be taken with caution. The figures below (and Figure 4.a in the main manuscript) show the climatic space covered by the NFI plots and the 34 sampled populations for the reference period 1901-1950.
+Projections of the GO predictions outside of the climatic space covered by the sampled populations have to be taken with caution. The figures below (and Figure 4a in the main manuscript) show the climatic space covered by the NFI plots and the 34 sampled populations for the reference period 1901-1950.
 
 ![Annual precipitation and mean annual temperature at the location of the NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool). Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf)
 
 
 ![Isothermality and precipitation seasonality at the location of the NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool).  Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf)
 
-<!-- ![Summer heat moisture index and temperature seasonality at the location of the NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool).](../figs/ValidationNFI/ClimaticCoverage_Bio4vsSHM.pdf) -->
   
 ### GO predictions with RDA
 
 
-![GO predictions with RDA and the candidate SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-RDAGOpredictionsNFIplotsCandidates}
+![GO predictions with RDA and the candidate SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_CandidateSNPs_SI.png){#fig-RDAGOpredictionsNFIplotsCandidates}
 
-![GO predictions with RDA and the control SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_ControlSNPs_SI.pdf){#fig-RDAGOpredictionsNFIplotsControl}
+![GO predictions with RDA and the control SNPs at the location of the NFI plots.](../figs/RDA/NFI_GOmap_ControlSNPs_SI.png){#fig-RDAGOpredictionsNFIplotsControl}
   
   
 ### GO predictions with GF
 
 GO predictions with GF and the candidate SNPs are shown in Figure 4c of the main manuscript.
 
-<!-- Figure below is in the main manuscript -->
-<!-- ![GF-based GO predictions using candidate SNPs at the location of the NFI plots.](../figs/GF/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-GFGOpredictionsNFIplotsCandidates} -->
-
-![GO predictions with GF and the control SNPs at the location of the NFI plots.](../figs/GF/NFI_GOmap_ControlSNPs_SI.pdf){#fig-RGFGOpredictionsNFIplotsControl}
+![GO predictions with GF and the control SNPs at the location of the NFI plots.](../figs/GF/NFI_GOmap_ControlSNPs_SI.png){#fig-RGFGOpredictionsNFIplotsControl}
 
 ### GO predictions with LFMM
 
-![GO predictions with LFMM and all SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_AllSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsAllSNPs}
+![GO predictions with LFMM and all SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_AllSNPs_SI.png){#fig-LFMMGOpredictionsNFIplotsAllSNPs}
 
-![GO predictions with LFMM and the candidate SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsCandidates}
+![GO predictions with LFMM and the candidate SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_CandidateSNPs_SI.png){#fig-LFMMGOpredictionsNFIplotsCandidates}
 
-![GO predictions with LFMM and the control SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_ControlSNPs_SI.pdf){#fig-LFMMGOpredictionsNFIplotsControl}
+![GO predictions with LFMM and the control SNPs at the location of the NFI plots.](../figs/LFMM/NFI_GOmap_ControlSNPs_SI.png){#fig-LFMMGOpredictionsNFIplotsControl}
 
 ### GO predictions with GDM
 
-![GO predictions with GDM and the candidate SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_CandidateSNPs_SI.pdf){#fig-GDMGOpredictionsNFIplotsCandidates}
+![GO predictions with GDM and the candidate SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_CandidateSNPs_SI.png){#fig-GDMGOpredictionsNFIplotsCandidates}
 
-![GO predictions with GDM and the control SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_ControlSNPs_SI.pdf){#fig-GDMGOpredictionsNFIplotsControl}
+![GO predictions with GDM and the control SNPs at the location of the NFI plots.](../figs/GDM/NFI_GOmap_ControlSNPs_SI.png){#fig-GDMGOpredictionsNFIplotsControl}
 
 ## Modelling approach
 
@@ -837,45 +835,45 @@ In the graphs below, the points correspond the sampled populations of maritime p
 
 :::{#fig-RDAGOmapsAsturias layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmap_cand_asturias_SI.pdf){#fig-RDAGOmapsAsturiasCandidates}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_asturias_SI.png){#fig-RDAGOmapsAsturiasCandidates}
 
-![Control SNPs.](../figs/RDA/GOmap_control_asturias_SI.pdf){#fig-RDAGOmapsAsturiasControl}
+![Control SNPs.](../figs/RDA/GOmap_control_asturias_SI.png){#fig-RDAGOmapsAsturiasControl}
 
 GO predictions with RDA in the common garden of Asturias, Spain (black asterisk).
 :::
 
 :::{#fig-RDAGOmapsBordeaux layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmap_cand_bordeaux_SI.pdf){#fig-RDAGOmapsBordeauxCandidates}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_bordeaux_SI.png){#fig-RDAGOmapsBordeauxCandidates}
 
-![Control SNPs.](../figs/RDA/GOmap_control_bordeaux_SI.pdf){#fig-RDAGOmapsBordeauxControl}
+![Control SNPs.](../figs/RDA/GOmap_control_bordeaux_SI.png){#fig-RDAGOmapsBordeauxControl}
 
 GO predictions with RDA in the common garden of Bordeaux, France (black asterisk).
 :::
 
 :::{#fig-RDAGOmapsCaceres layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmap_cand_caceres_SI.pdf){#fig-RDAGOmapsCaceresCandidates}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_caceres_SI.png){#fig-RDAGOmapsCaceresCandidates}
 
-![Control SNPs.](../figs/RDA/GOmap_control_caceres_SI.pdf){#fig-RDAGOmapsCaceresControl}
+![Control SNPs.](../figs/RDA/GOmap_control_caceres_SI.png){#fig-RDAGOmapsCaceresControl}
 
 GO predictions with RDA in the common garden of Cáceres, Spain (black asterisk).
 :::
 
 :::{#fig-RDAGOmapsMadrid layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmap_cand_madrid_SI.pdf){#fig-RDAGOmapsMadridCandidates}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_madrid_SI.png){#fig-RDAGOmapsMadridCandidates}
 
-![Control SNPs.](../figs/RDA/GOmap_control_madrid_SI.pdf){#fig-RDAGOmapsMadridControl}
+![Control SNPs.](../figs/RDA/GOmap_control_madrid_SI.png){#fig-RDAGOmapsMadridControl}
 
 GO predictions with RDA in the common garden of Madrid, Spain (black asterisk).
 :::
 
 :::{#fig-RDAGOmapsPortugal layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/RDA/GOmap_cand_portugal_SI.pdf){#fig-RDAGOmapsPortugalCandidates}
+![Candidate SNPs.](../figs/RDA/GOmap_cand_portugal_SI.png){#fig-RDAGOmapsPortugalCandidates}
 
-![Control SNPs.](../figs/RDA/GOmap_control_portugal_SI.pdf){#fig-RDAGOmapsPortugalControl}
+![Control SNPs.](../figs/RDA/GOmap_control_portugal_SI.png){#fig-RDAGOmapsPortugalControl}
 
 GO predictions with RDA in the common garden of Fundão, Portugal (black asterisk).
 :::
@@ -884,45 +882,45 @@ GO predictions with RDA in the common garden of Fundão, Portugal (black asteris
 
 :::{#fig-GFGOmapsAsturias layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmap_cand_asturias_SI.pdf){#fig-GFGOmapsAsturiasCandidates}
+![Candidate SNPs.](../figs/GF/GOmap_cand_asturias_SI.png){#fig-GFGOmapsAsturiasCandidates}
 
-![Control SNPs.](../figs/GF/GOmap_control_asturias_SI.pdf){#fig-GFGOmapsAsturiasControl}
+![Control SNPs.](../figs/GF/GOmap_control_asturias_SI.png){#fig-GFGOmapsAsturiasControl}
 
 GO predictions with GF in the common garden of Asturias, Spain (black asterisk).
 :::
 
 :::{#fig-GFGOmapsBordeaux layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmap_cand_bordeaux_SI.pdf){#fig-GFGOmapsBordeauxCandidates}
+![Candidate SNPs.](../figs/GF/GOmap_cand_bordeaux_SI.png){#fig-GFGOmapsBordeauxCandidates}
 
-![Control SNPs.](../figs/GF/GOmap_control_bordeaux_SI.pdf){#fig-GFGOmapsBordeauxControl}
+![Control SNPs.](../figs/GF/GOmap_control_bordeaux_SI.png){#fig-GFGOmapsBordeauxControl}
 
 GO predictions with GF in the common garden of Bordeaux, France (black asterisk).
 :::
 
 :::{#fig-GFGOmapsCaceres layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmap_cand_caceres_SI.pdf){#fig-GFGOmapsCaceresCandidates}
+![Candidate SNPs.](../figs/GF/GOmap_cand_caceres_SI.png){#fig-GFGOmapsCaceresCandidates}
 
-![Control SNPs.](../figs/GF/GOmap_control_caceres_SI.pdf){#fig-GFGOmapsCaceresControl}
+![Control SNPs.](../figs/GF/GOmap_control_caceres_SI.png){#fig-GFGOmapsCaceresControl}
 
 GO predictions with GF in the common garden of Cáceres, Spain (black asterisk).
 :::
 
 :::{#fig-GFGOmapsMadrid layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmap_cand_madrid_SI.pdf){#fig-GFGOmapsMadridCandidates}
+![Candidate SNPs.](../figs/GF/GOmap_cand_madrid_SI.png){#fig-GFGOmapsMadridCandidates}
 
-![Control SNPs.](../figs/GF/GOmap_control_madrid_SI.pdf){#fig-GFGOmapsMadridControl}
+![Control SNPs.](../figs/GF/GOmap_control_madrid_SI.png){#fig-GFGOmapsMadridControl}
 
 GO predictions with GF in the common garden of Madrid, Spain (black asterisk).
 :::
 
 :::{#fig-GFGOmapsPortugal layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GF/GOmap_cand_portugal_SI.pdf){#fig-GFGOmapsPortugalCandidates}
+![Candidate SNPs.](../figs/GF/GOmap_cand_portugal_SI.png){#fig-GFGOmapsPortugalCandidates}
 
-![Control SNPs.](../figs/GF/GOmap_control_portugal_SI.pdf){#fig-GFGOmapsPortugalControl}
+![Control SNPs.](../figs/GF/GOmap_control_portugal_SI.png){#fig-GFGOmapsPortugalControl}
 
 GO predictions with GF in the common garden of Fundão, Portugal (black asterisk).
 :::
@@ -933,24 +931,24 @@ GO predictions with GF in the common garden of Fundão, Portugal (black asterisk
 
 :::{#fig-LFMMGOmapsAllSNPsCGs layout-nrow=2 fig-pos='H'}
 
-![Asturias (Spain)](../figs/LFMM/GOmap_allSNPs_asturias_SI.pdf){#fig-LFMMGOmapAllSNPsAsturias}
+![Asturias (Spain)](../figs/LFMM/GOmap_allSNPs_asturias_SI.png){#fig-LFMMGOmapAllSNPsAsturias}
 
-![Bordeaux (France)](../figs/LFMM/GOmap_allSNPs_bordeaux_SI.pdf){#fig-LFMMGOmapAllSNPsBordeaux}
+![Bordeaux (France)](../figs/LFMM/GOmap_allSNPs_bordeaux_SI.png){#fig-LFMMGOmapAllSNPsBordeaux}
 
-![Cáceres (Spain)](../figs/LFMM/GOmap_allSNPs_caceres_SI.pdf){#fig-LFMMGOmapAllSNPsCaceres}
+![Cáceres (Spain)](../figs/LFMM/GOmap_allSNPs_caceres_SI.png){#fig-LFMMGOmapAllSNPsCaceres}
 
-![Madrid (Spain)](../figs/LFMM/GOmap_allSNPs_madrid_SI.pdf){#fig-LFMMGOmapAllSNPsAsturias}
+![Madrid (Spain)](../figs/LFMM/GOmap_allSNPs_madrid_SI.png){#fig-LFMMGOmapAllSNPsAsturias}
 
-![Fundão (Portugal)](../figs/LFMM/GOmap_allSNPs_portugal_SI.pdf){#fig-LFMMGOmapAllSNPsPortugal}
+![Fundão (Portugal)](../figs/LFMM/GOmap_allSNPs_portugal_SI.png){#fig-LFMMGOmapAllSNPsPortugal}
 
 GO predictions with LFMM and all SNPs for the five common gardens.
 :::
 
 :::{#fig-LFMMGOmapsAsturias layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmap_cand_asturias_SI.pdf){#fig-LFMMGOmapsAsturiasCandidates}
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_asturias_SI.png){#fig-LFMMGOmapsAsturiasCandidates}
 
-![Control SNPs.](../figs/LFMM/GOmap_control_asturias_SI.pdf){#fig-LFMMGOmapsAsturiasControl}
+![Control SNPs.](../figs/LFMM/GOmap_control_asturias_SI.png){#fig-LFMMGOmapsAsturiasControl}
 
 GO predictions with LFMM in the common garden in Asturias, Spain (black asterisk).
 :::
@@ -958,36 +956,36 @@ GO predictions with LFMM in the common garden in Asturias, Spain (black asterisk
 
 :::{#fig-LFMMGOmapsBordeaux layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmap_cand_bordeaux_SI.pdf){#fig-LFMMGOmapsBordeauxCandidates}
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_bordeaux_SI.png){#fig-LFMMGOmapsBordeauxCandidates}
 
-![Control SNPs.](../figs/LFMM/GOmap_control_bordeaux_SI.pdf){#fig-LFMMGOmapsBordeauxControl}
+![Control SNPs.](../figs/LFMM/GOmap_control_bordeaux_SI.png){#fig-LFMMGOmapsBordeauxControl}
 
 GO predictions with LFMM in the common garden of Bordeaux, France (black asterisk).
 :::
 
 :::{#fig-LFMMGOmapsCaceres layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmap_cand_caceres_SI.pdf){#fig-LFMMGOmapsCaceresCandidates}
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_caceres_SI.png){#fig-LFMMGOmapsCaceresCandidates}
 
-![Control SNPs.](../figs/LFMM/GOmap_control_caceres_SI.pdf){#fig-LFMMGOmapsCaceresControl}
+![Control SNPs.](../figs/LFMM/GOmap_control_caceres_SI.png){#fig-LFMMGOmapsCaceresControl}
 
 GO predictions with LFMM in the common garden of Cáceres, Spain (black asterisk).
 :::
 
 :::{#fig-LFMMGOmapsMadrid layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmap_cand_madrid_SI.pdf){#fig-LFMMGOmapsMadridCandidates}
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_madrid_SI.png){#fig-LFMMGOmapsMadridCandidates}
 
-![Control SNPs.](../figs/LFMM/GOmap_control_madrid_SI.pdf){#fig-LFMMGOmapsMadridControl}
+![Control SNPs.](../figs/LFMM/GOmap_control_madrid_SI.png){#fig-LFMMGOmapsMadridControl}
 
 GO predictions with LFMM in the common garden of Madrid, Spain (black asterisk).
 :::
 
 :::{#fig-LFMMGOmapsPortugal layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/LFMM/GOmap_cand_portugal_SI.pdf){#fig-LFMMGOmapsPortugalCandidates}
+![Candidate SNPs.](../figs/LFMM/GOmap_cand_portugal_SI.png){#fig-LFMMGOmapsPortugalCandidates}
 
-![Control SNPs.](../figs/LFMM/GOmap_control_portugal_SI.pdf){#fig-LFMMGOmapsPortugalControl}
+![Control SNPs.](../figs/LFMM/GOmap_control_portugal_SI.png){#fig-LFMMGOmapsPortugalControl}
 
 GO predictions with LFMM in the common garden of Fundão, Portugal (black asterisk).
 :::
@@ -997,45 +995,45 @@ GO predictions with LFMM in the common garden of Fundão, Portugal (black asteri
 
 :::{#fig-GDMGOmapsAsturias layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmap_cand_asturias_SI.pdf){#fig-GDMGOmapsAsturiasCandidates}
+![Candidate SNPs.](../figs/GDM/GOmap_cand_asturias_SI.png){#fig-GDMGOmapsAsturiasCandidates}
 
-![Control SNPs.](../figs/GDM/GOmap_control_asturias_SI.pdf){#fig-GDMGOmapsAsturiasControl}
+![Control SNPs.](../figs/GDM/GOmap_control_asturias_SI.png){#fig-GDMGOmapsAsturiasControl}
 
 GO predictions with GDM in the common garden of Asturias, Spain (black asterisk).
 :::
 
 :::{#fig-GDMGOmapsBordeaux layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmap_cand_bordeaux_SI.pdf){#fig-GDMGOmapsBordeauxCandidates}
+![Candidate SNPs.](../figs/GDM/GOmap_cand_bordeaux_SI.png){#fig-GDMGOmapsBordeauxCandidates}
 
-![Control SNPs.](../figs/GDM/GOmap_control_bordeaux_SI.pdf){#fig-GDMGOmapsBordeauxControl}
+![Control SNPs.](../figs/GDM/GOmap_control_bordeaux_SI.png){#fig-GDMGOmapsBordeauxControl}
 
 GO predictions with GDM in the common garden of Bordeaux, France (black asterisk).
 :::
 
 :::{#fig-GDMGOmapsCaceres layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmap_cand_caceres_SI.pdf){#fig-GDMGOmapsCaceresCandidates}
+![Candidate SNPs.](../figs/GDM/GOmap_cand_caceres_SI.png){#fig-GDMGOmapsCaceresCandidates}
 
-![Control SNPs.](../figs/GDM/GOmap_control_caceres_SI.pdf){#fig-GDMGOmapsCaceresControl}
+![Control SNPs.](../figs/GDM/GOmap_control_caceres_SI.png){#fig-GDMGOmapsCaceresControl}
 
 GO predictions with GDM in the common garden of Cáceres, Spain (black asterisk).
 :::
 
 :::{#fig-GDMGOmapsMadrid layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmap_cand_madrid_SI.pdf){#fig-GDMGOmapsMadridCandidates}
+![Candidate SNPs.](../figs/GDM/GOmap_cand_madrid_SI.png){#fig-GDMGOmapsMadridCandidates}
 
-![Control SNPs.](../figs/GDM/GOmap_control_madrid_SI.pdf){#fig-GDMGOmapsMadridControl}
+![Control SNPs.](../figs/GDM/GOmap_control_madrid_SI.png){#fig-GDMGOmapsMadridControl}
 
 GO predictions with GDM in the common garden of Madrid, Spain (black asterisk).
 :::
 
 :::{#fig-GDMGOmapsPortugal layout="[[41.6,58.4]]" fig-pos='H'}
 
-![Candidate SNPs.](../figs/GDM/GOmap_cand_portugal_SI.pdf){#fig-GDMGOmapsPortugalCandidates}
+![Candidate SNPs.](../figs/GDM/GOmap_cand_portugal_SI.png){#fig-GDMGOmapsPortugalCandidates}
 
-![Control SNPs.](../figs/GDM/GOmap_control_portugal_SI.pdf){#fig-GDMGOmapsPortugalControl}
+![Control SNPs.](../figs/GDM/GOmap_control_portugal_SI.png){#fig-GDMGOmapsPortugalControl}
 
 GO predictions with GDM in the common garden of Fundão, Portugal (black asterisk).
 :::

@@ -1,8 +1,7 @@
 ---
 title: "Generating sets of control and candidate SNPs"
 subtitle: "Identification of outlier SNPs in common among the different GEAs"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -54,11 +53,11 @@ source(here("scripts/functions/kable_mydf.R"))
 # function to make the Venn diagrams
 make_venndiagram <- function(list_candidates,
                              caption="",
-                             label = "both",
+                             label="both",
                              title=""){
 
 list_candidates %>% 
-    ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0) + 
+    ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0, edge_size = 0.4) + 
   scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
   scale_color_manual(values = rep("darkgoldenrod1",6)) + 
   guides(fill = "none") + 
@@ -126,7 +125,7 @@ plot_grid(p,pp,nrow=1)
 
 ## Gradient forest (GF)
 
-GF-based GEA was performed following @fitzpatrick2021experimental and @capblancq2023common, using *raw* or *uncorrected* allele frequencies. Because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of the GF-based GEA, we ran 3 independent runs, identified the 0.5\% SNPs with the lowest empirical $p$-values for each run (i.e. 49 SNPs for each run) and then considered as outlier SNPs the SNPs identified in the three runs.
+GF-based GEA was performed following @fitzpatrick2021experimental and @capblancq2023common, using *raw* or *uncorrected* allele frequencies. Because the SNPs with the lowest empirical $p$-values (i.e. the highest $R^2$) were not exactly the same across independent runs of the GF-based GEA, we ran 3 independent runs, identified the 0.5\% SNPs with the lowest empirical $p$-values for each run (i.e. 49 SNPs for each run) and then considered as outlier SNPs the SNPs identified in the three runs.
   
 ```{r GFoutliers, fig.width=12,fig.height=5}
 list_candidates$"GF"= readRDS(here::here("outputs/GF/GFCommonOutliers_ThreeRuns_RawAlleleFrequencies.rds"))
@@ -225,7 +224,7 @@ names(selected_methods) <- c("RDA (nc)", "pRDA (c)", "LFMM (c)", "BayPass (c)", 
 
 make_venndiagram(selected_methods,
                  label="count") %>% 
-ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", width = 6, height = 5.3)
+ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", width = 6.5, height = 6.5)
 ```
 
 

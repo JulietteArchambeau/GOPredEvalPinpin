@@ -1,7 +1,6 @@
 ---
 title: "BayPass - Identification of outlier SNPs"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -33,9 +32,9 @@ table {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width = 5,fig.height = 4,cache=F)
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(tidyverse)  # CRAN v1.3.0
-library(readxl)     # CRAN v1.3.1
+library(knitr)
+library(tidyverse)
+library(readxl)
 library(xtable)
 library(reshape2)
 library(kableExtra)
@@ -57,7 +56,6 @@ source(here("scripts/functions/baypass_utils.R"))
 In this document, we identify candidate SNPs using the **gene-environment association analysis** provided by the **<span style="font-variant:small-caps;">BayPass</span> software**. 
 
 In previous analyses based on a subset of the genomic data (i.e. only SNPs genotyped in the Infinium assay, that is 5,165 SNPs), we found that the results of the **standard covariate model** were more robust using the **Important Sampling (IS) approximation** (default) than with the MCMC algorithm. So we only use the IS approximation in this document. 
-
 
 
 # Load and format data

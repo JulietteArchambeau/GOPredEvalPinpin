@@ -1,8 +1,7 @@
 ---
 title: "Populatin coordinates, elevation and climatic data"
 subtitle: "Checking population information - Extracting climatic data with ClimateDT"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -489,8 +488,7 @@ We generate two datasets:
 We attribute different colors to each gene pool that we will use for the figures. 
 
 ```{r LoadMainGPClone}
-# Incorporating gene pool information
-# -----------------------------------
+# We load the dataset FormattedFilteredGenomicData_AlleleCounts_withmaf.csv which is generated in the report 1_FormattingGenomicData.Rmd
 genotypes <- read_csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withmaf.csv"),show_col_types = FALSE) %>% 
   dplyr::select(-snp_ID) %>% 
   colnames() 

@@ -1,6 +1,5 @@
 ---
 title: "Formatting, exploring and imputing genomic data"
-author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   bookdown::html_document2:

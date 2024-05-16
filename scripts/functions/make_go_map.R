@@ -19,7 +19,8 @@ make_go_map <- function(dfcoord,
                         x_limits = c(-10, 12),
                         y_limits = c(33, 50),
                         legend_position = "right",
-                        legend_box_background = "white",# "gray80"
+                        legend_box_background = "gray",# "gray80"
+                        axis_text_size = 14,
                         go_limits=NULL,
                         ggtitle=NULL,
                         type="pop", # either "NFI", "CG" or "pop"
@@ -51,7 +52,9 @@ make_go_map <- function(dfcoord,
     xlab("") + ylab("") +
     ggtitle(ggtitle) +
     theme(legend.position = legend_position,
-          legend.box.background = element_rect(colour = legend_box_background, linewidth=0.6))  +
+          axis.text = element_text(size=axis_text_size),
+          legend.box.background = element_rect(colour = legend_box_background, linewidth=0.6, fill="white"),
+          )  +
     scale_color_gradientn(name = "Genomic offset", colours = rev(rainbow(5)), limits=go_limits)
   
   if(type=="CG"){

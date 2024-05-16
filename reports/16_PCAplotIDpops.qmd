@@ -1,8 +1,7 @@
 ---
 title: "Scree plots and PCA plots of the two sets of SNPs"
 subtitle: "With ALT and ARM populations highlighted"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 number-sections: true
 format: 
   html:

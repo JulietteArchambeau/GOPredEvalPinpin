@@ -1,7 +1,6 @@
 ---
 title: "Gradient Forest - Identification of outlier SNPs"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -63,9 +62,9 @@ make_venndiagram <- function(list_candidates,
                              title=""){
 
 list_candidates %>% 
-    ggVennDiagram(lty="solid", size=0.2) + 
-  scale_fill_gradient2(low = "white", high = 'gray40') + 
-  scale_color_manual(values = rep("gray80",4)) + 
+    ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0,edge_size = 0.7) + 
+  scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
+  scale_color_manual(values = rep("darkgoldenrod1",6)) + 
   guides(fill = "none") + 
   labs(caption=caption) +
   ggtitle(title) +
@@ -78,41 +77,41 @@ list_candidates %>%
 # Introduction
 
 
-Most analyses conducted in the present report were conducted following @fitzpatrick2021experimental and @capblancq2023common, and the R code are based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
+The analyses conducted in the present report were conducted following @fitzpatrick2021experimental and @capblancq2023common, and the R code is based on [the github repository](https://github.com/fitzLab-AL/geneticOffsetR) associated with @fitzpatrick2021experimental. 
 
 
-**Goal:** Identify candidate SNPs for local adaptation to climate using the **Gradient Forest (GF) algorithm**. 
+**Goal:** Identify outlier SNPs that show association with climatic variables and may be considered as potential candidates for local adaptation to climate using the Gradient Forest (GF) algorithm. 
 
 To this goal, we will apply the GF algorithm to:
   
-  - the 'raw' or *uncorrected* allele frequencies (**GF-raw** in @fitzpatrick2021experimental and @capblancq2023common).
+  - the *raw* or *uncorrected* allele frequencies (*GF-raw* in @fitzpatrick2021experimental and @capblancq2023common).
   
-  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population reladness. In @fitzpatrick2021experimental and @capblancq2023common, they use the population genetic variance-covariance matrix from Bayenv 2 to correct for population structure and called the matrix of corrected allele frequencies **GF-X**. From @fitzpatrick2021experimental: 'The GF-X approach was included to explore a more robust approach to allele frequency estimation that corrects for finite sampling and population relatedness prior to feeding into GF for outlier detection.' In our case, we extract the matrix of corrected allele frequencies using the latent factor mixed model (LFMM) approach; see section 5 'Corrected allele frequencies' in the `6_LEAanalysis.qmd` report. 
+  - the *corrected* allele frequencies, i.e. the allele frequencies corrected for population structure = corrected for population relatedness. In @fitzpatrick2021experimental and @capblancq2023common, they use the population genetic variance-covariance matrix from Bayenv 2 to correct for population structure and called the matrix of corrected allele frequencies *GF-X*. From @fitzpatrick2021experimental: 'The GF-X approach was included to explore a more robust approach to allele frequency estimation that corrects for finite sampling and population relatedness prior to feeding into GF for outlier detection.' In our case, we extract the matrix of corrected allele frequencies using the latent factor mixed model (LFMM) approach; see section 5 'Corrected allele frequencies' in the `6_LEAanalysis.qmd` report. 
 
 
-**Strengths** of the GF algorithm: nonparametric (nonlinear allele frequency gradients), makes no assumption about the particular form of the gene–environment relationship, incorporates multivariate predictors, interactions among predictors.
+**Strengths** of the GF algorithm: nonparametric (nonlinear allele frequency gradients), makes no assumption about the particular form of the gene–climate relationships, incorporates multivariate predictors, interactions among predictors.
 
 **Weakness**: not controlling for demographic history.
 
 From @gain2023quantitative: 'Nonlinearity makes the GF model more flexible than linear models, but the additional degrees of freedom may not always be desirable when resolving bias-variance trade-offs.'
 
-GF models are fitted to each locus individually and a $R^2$ is obtained for each locus. Empirical p-values are then calculated.
 
-The **empirical p-value approach** is described in @lotterhos2014evaluation: '[...] if the set of neutral loci is large enough, the statistical significance of a putatively selected outlier locus could be assessed by its quantile in the empirical distribution of differentiation measures obtained from the neutral set.'
+**The approach with empirical $p$-values**
 
+In @fitzpatrick2021experimental and @capblancq2023common, GF models are fitted to each locus individually and $R^2$ is calculated for each locus. Empirical $p$-values are then calculated. The empirical $p$-value approach is described in @lotterhos2014evaluation: '[...] if the set of neutral loci is large enough, the statistical significance of a putatively selected outlier locus could be assessed by its quantile in the empirical distribution of differentiation measures obtained from the neutral set.'
+
+In @fitzpatrick2021experimental, the authors use a set of intergenic SNPs to obtain a distribution of $R^2$ values, which is considered as the empirical null distribution of $R^2$ values. They calculate the empirical $p$-values by determining the rank of the $R^2$ value for each locus within the distribution of $R^2$ values from the intergenic SNPs.
+
+In the present report, we use all SNPs to build the distribution of $R^2$ values that we then compare with the $R^2$ value of each locus. Thus, the empirical $p$-value $\hat{p}$ of the locus $l$ is equal to:
+
+$$\hat{p}_l = 1 - (r_l / N)$$
+ with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of all SNPs ($N$ SNPs). 
  
-In @fitzpatrick2021experimental, the authors use a set of intergenic SNPs to obtain a distribution of $R^2$ values, which is considered as the empirical null distribution of $R^2$ values. They calculate the empirical p-values by determining the rank of the $R^2$ value for each locus within the distribution of $R^2$ values from the intergenic SNPs.
-
-In the present report, we randomly sample $n$ SNPs and we compare $R^2$ value of each locus to the $R^2$ distribution of the $n$ randomly selected SNPs. Thus, the **empirical p-value** $\hat{p}$ of the locus $l$ is equal to:
-
-$$\hat{p}_l = 1 - (r_l / n)$$
- with $r_l$ being the rank of the $R^2$ value of locus $l$ within the distribution of $R^2$ values of the  $n$ randomly selected SNPs. 
+However, if I'm not misleading, selecting the SNPs based on the rank of their empirical $p$-value is equivalent to selecting them based on the rank of their $R^2$, i.e., the 0.2% or 0.5% of the SNPs with the highest $R^2$ should match the 0.2% or 0.5% of the SNPs with the lowest empirical $p$-value. We check in this report that this is the case. 
  
- **<span style="color: red;">Warning:</span>** Gradient Forest has only been used once as a genome scan [@capblancq2023common] and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. This method does not provide a significance level for each SNPs that we can use to select the candidate SNPs and therefore we have to use empirical $p$-values, which may be less robust. Moreover, when we performed several runs of GF as a genome scan, we did not obtain the same exact set of candidate SNPs each time. A final observation that made us skeptical of GF is that no common candidates were found between GF and GF-X (although we do not expect much overlap, it is still unexpected that there is no overlap at all). 
+ **<span style="color: red;">Warning:</span>** Gradient Forest has only been used once as a genome scan [@capblancq2023common] and its ability to identify loci underlying local adaptation has still not been evaluated and confronted to other GEAs. This method does not provide a significance level for each SNPs that we can use to select the candidate SNPs and therefore we have to use empirical $p$-values, which may be less robust. Moreover, when we performed several runs of GF as a genome scan, we did not obtain the same exact set of candidate SNPs each time. Another observation that made us skeptical of GF is that no common candidates were found between GF and GF-X (although we do not expect much overlap, it is still unexpected that there is no overlap at all). 
  
-For these reasons, we have to be careful when using this method as a GEA. <span style="color: red;">In our study, we finally did not use **GF-X**. And because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of **GF-raw**, we ran 3 independent runs, identified the 0.5\% with the lowest empirical $p$-values for each run (i.e. 49 SNPs) and then considered as outlier SNPs the SNPs identified in the three runs.</span>
-
-
+For these reasons, we have to be careful when using this method as a GEA. <span style="color: red;">In our study, we finally did not use *GF-X*. And because the SNPs with the lowest empirical $p$-values were not exactly the same across independent runs of *GF-raw*, we ran 3 independent runs, identified the 0.5\% with the lowest empirical $p$-values for each run (i.e. 49 SNPs) and then considered as outlier SNPs the SNPs identified in the three runs.</span>
 
 
 # Options, parameters and functions
@@ -131,19 +130,15 @@ Inputs:
   - `genodata`: the genomic dataset with SNPs in columns and populations in rows (with population names as row names)
   - `selected_snps`: SNPs selected for the analysis. If 'all', all SNPs are selected.
   - `rm_rare_alleles`: specify whether rare alleles are removed or not. The rare alleles are the alleles that are polymorphic in fewer than five populations.
-  - `selected_random_snps`: number of random SNPs selected for the analysis. If `selected_random_snps` = 0,  > 0, no random SNPs are selected.
 
 ```{r FunctionFormatGeno}
-format_geno <- function(genodata, selected_snps, rm_rare_alleles, selected_random_snps){
+format_geno <- function(genodata, selected_snps, rm_rare_alleles){
 
   # run GF on all SNPs or a subset of selected SNPs?
   if(length(selected_snps)>1){genodata <- genodata %>% dplyr::select(all_of(selected_snps))}
   
   # remove SNPs that are polymorphic in fewer than five populations?
   if(rm_rare_alleles==T){genodata  <- genodata %>% dplyr::select(which(unlist(lapply(lapply(., unique), length))>=6))}
-  
-  # run GF on a random subset of SNPs?
-  if(selected_random_snps>0){genodata <- genodata %>% dplyr::select(sample(colnames(.),selected_random_snps))}
   
   return(genodata)
   }
@@ -223,9 +218,9 @@ Inputs:
  
 
 ```{r FunctionExtractPvals}
-extract_pvals <- function(gf_outputs, neutral_snps){
+extract_pvals <- function(gf_outputs){
 
-# extract the R2 importance values from the GF outputs and arrange them in a
+# Extract the R2 importance values from the GF outputs and arrange them in a
   # dataframe with a row for each SNP with R2>0 and a column with the R2 of each climatic variable
 gf_R2 <-  gf_outputs@gf_impts %>% 
     bind_rows() %>% 
@@ -234,8 +229,9 @@ gf_R2 <-  gf_outputs@gf_impts %>%
     mutate(totalR2 = sum(c_across(where(is.numeric)))) %>% 
     arrange(snp)
 
-# extend the table to all the SNPs used in the GF analysis
-  dat <- gf_outputs@gf_data %>% 
+# Extend the table to all the SNPs used in the GF analysis
+  # attributing R2 = 0 to SNPs that were not included in gf_outputs because they did not have R2>0 
+dat <- gf_outputs@gf_data %>% 
     t() %>% 
     as.data.frame() %>% 
     rownames_to_column("snp") %>% 
@@ -244,21 +240,17 @@ gf_R2 <-  gf_outputs@gf_impts %>%
     left_join(gf_R2, by="snp") %>% 
     mutate(across(where(is.numeric), ~replace_na(.x, 0)))
   
-  
-# subset of random SNPs considered as the 'neutral' SNPs
-  neutral_snps_R2 <- dat %>% 
-    filter(snp %in% neutral_snps)
-  
-pV <- sapply(1:nrow(dat), function(x, dat, neutral_snps, neutral_snps_R2){
-    snps2Rank <- rbind(dat[x,], neutral_snps_R2) %>% 
+# Using all SNPs to build the distribution of random SNPs
+pV <- sapply(1:nrow(dat), function(x, dat){
+    snps2Rank <- rbind(dat[x,], dat) %>% 
       distinct() %>% 
       dplyr::select(-snp)
     P <- apply(snps2Rank, 2, function(y){
       rankSNP <- frank(y)
       return(1-rankSNP[1]/length(rankSNP))
-    })}, dat, neutral_snps, neutral_snps_R2)
+    })}, dat)
   
-  # format output as data.frame
+# Format output as data.frame
   pV <- t(pV)
   colnames(pV) <- paste("pval_", colnames(pV), sep="")
   pV <- data.frame(dat, pV)
@@ -287,29 +279,27 @@ identify_GFoutliers <- function(genodata,
                                 ntree, 
                                 rm_rare_alleles, 
                                 selected_snps, 
-                                cores, 
-                                selected_random_snps,
-                                nb_neutral_snps){
+                                cores){
 
-# for reproductibility
+# For reproductibility
 set.seed(set_seed)
-set_seed_df <- tibble(seed_ID = c("neutral_snps",colnames(genodata)),
-                      seed_nb = sample(1:100000, ncol(genodata)+1, replace=F))
+set_seed_df <- tibble(seed_ID = colnames(genodata),
+                      seed_nb = sample(1:100000, ncol(genodata), replace=F))
   
+# Filter the genomic data (allow to subset the SNPs and remove the polymorphic SNPs)
 genodata <- format_geno(genodata,
                         selected_snps,
-                        rm_rare_alleles,
-                        selected_random_snps)
+                        rm_rare_alleles)
 
-# we sample random SNPs that are considered as neutral SNPs
-set.seed(set_seed_df$seed_nb[set_seed_df$seed_ID=="neutral_snps"])
-neutral_snps <- sample(colnames(genodata),nb_neutral_snps,replace = F)
+# # we sample random SNPs that are considered as neutral SNPs
+# set.seed(set_seed_df$seed_nb[set_seed_df$seed_ID=="neutral_snps"])
+# neutral_snps <- sample(colnames(genodata),nb_neutral_snps,replace = F)
 
 # We run the GF models individually for each SNP
 gf_outputs <-  run_gf_ind(genodata = genodata, climdata = climdata, clim_var = clim_var, ntree = ntree, cores, set_seed_df = set_seed_df)
 
 # We calculate the empirical p-values for each SNP
-gf_pvals <- extract_pvals(gf_outputs=gf_outputs,neutral_snps=neutral_snps)
+gf_pvals <- extract_pvals(gf_outputs=gf_outputs)
   
 gf_out <- list(genodata = genodata,
                clim_var= clim_var,
@@ -394,7 +384,7 @@ clim_ref <- generate_scaled_clim_datasets(clim_var)[[1]]
 ```
 
 
-# Run GF models and calculate p-values
+# Run GF models and calculate empirical $p$-values
 
 We run the GF models successively for each SNP, and for both the raw allele frequencies and the corrected allele frequencies. Empirical p-values are then calculated based on the $R^2$ obtained for each locus. 
 
@@ -416,9 +406,7 @@ identify_GFoutliers(genodata = geno,
                     set_seed = set_seed,
                     selected_snps = "all", 
                     ntree=500,
-                    cores = 4, 
-                    selected_random_snps = 0,
-                    nb_neutral_snps = 2000)) %>% 
+                    cores = 8)) %>% 
   setNames(c("gf_raw","gf_X"))
 
 saveRDS(gf_out, here(paste0("outputs/GF/GFmodels_seed",set_seed,".rds")))
@@ -428,13 +416,15 @@ saveRDS(gf_out, here(paste0("outputs/GF/GFmodels_seed",set_seed,".rds")))
 
 # Identify outliers
 
-Different possible thresholds to identify the candidate SNPs:
+We try different thresholds to identify the outlier SNPs:
 
-  - $p$-value threshold: $p$-value < 0.005 or $p$-value < 0.001.
+  - threshold based on the value of the empirical $p$-values: $p$-value < 0.005 or $p$-value < 0.001.
   
-  - rank-based threshold. e.g. the 0.2% or 0.5% of the SNPs with the lowest p-values (i.e. 19 or 49 SNPs in our study). As done in @capblancq2023common and @fitzpatrick2021experimental.
+  - threshold based on the rank of the empirical $p$-value: 0.2% or 0.5% of the SNPs with the lowest p-values (i.e. 19 or 49 SNPs in our study). As done in @capblancq2023common and @fitzpatrick2021experimental.
   
-  - Bonferroni threshold.
+  - Bonferroni threshold based on the value of the empical $p$-values.
+  
+  - threshold based on the rank of each locus based on its $R^2$: 0.2% or 0.5% of the SNPs with the highest $R^2$. We expect this threshold to be the same as the threshold based on the rank of the empirical $p$-values. 
 
 
 ```{r IdentifyOutliers}
@@ -446,40 +436,67 @@ list_gf_outliers <- lapply(list_gf_out, function(gf_out){
 
 gf_outliers <- lapply(gf_out, function(x){
 
-# Thresholds based on the p-values
-outliers_pv05 <- x$gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp) # this threshold is not enough strict
-outliers_pv01 <- x$gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
+# Thresholds based on the empirical p-values
+outliers_epv_005 <- x$gf_pvals %>% filter(pval_totalR2<0.05) %>% pull(snp) # this threshold is not enough strict
+outliers_epv_001 <- x$gf_pvals %>% filter(pval_totalR2<0.01) %>% pull(snp)
 
 # Thresholds based the p-value rank of the SNPs
 # 0.2% with the lowest p-value (19 SNPs)
-outliers_rank002 <- x$gf_pvals %>% 
+outliers_epv_rank_002 <- x$gf_pvals %>% 
   arrange(pval_totalR2) %>% 
   slice(1:(dim(list_geno[[1]])[[2]]*0.002)) %>% 
   pull(snp)
 
 # 0.5% with the lowest p-value (49 SNPs)
-outliers_rank005 <- x$gf_pvals %>% 
+outliers_epv_rank_005 <- x$gf_pvals %>% 
   arrange(pval_totalR2) %>% 
   slice(1:(dim(list_geno[[1]])[[2]]*0.005)) %>% 
   pull(snp)
 
 # Threshold with a Bonferroni correction
-outliers_bonf <- x$gf_pvals %>% 
+outliers_epv_bonf <- x$gf_pvals %>% 
   filter(pval_totalR2<0.01/length(x$gf_pvals$snp)) %>% 
   pull(snp)
   
-list(outliers_pv05 = outliers_pv05,
-     outliers_pv01 = outliers_pv01,
-     outliers_rank002 = outliers_rank002,
-     outliers_rank005 = outliers_rank005,
-     outliers_bonf = outliers_bonf)
+# Threshold based on the R2 rank of the SNPs
+# 0.2% with the highest R2 (19 SNPs)
+outliers_R2_rank_002 <- x$gf_pvals %>% 
+  arrange(desc(totalR2)) %>% 
+  slice(1:(dim(list_geno[[1]])[[2]]*0.002)) %>% 
+  pull(snp)
 
+# 0.5% with the highest R2 (49 SNPs)
+outliers_R2_rank_005 <- x$gf_pvals %>% 
+  arrange(desc(totalR2)) %>% 
+  slice(1:(dim(list_geno[[1]])[[2]]*0.005)) %>% 
+  pull(snp)
 
+list(outliers_epv_005 = outliers_epv_005,
+     outliers_epv_001 = outliers_epv_001,
+     outliers_epv_rank_002 = outliers_epv_rank_002,
+     outliers_epv_rank_005 = outliers_epv_rank_005,
+     outliers_epv_bonf = outliers_epv_bonf,
+     outliers_R2_rank_002 = outliers_R2_rank_002,
+     outliers_R2_rank_005 = outliers_R2_rank_005)
 })
 
 })
 
 saveRDS(list_gf_outliers, here::here("outputs/GF/GFoutliers_ThreeRuns.rds"))
+```
+
+We check that the outlier SNPs identified with 0.2% or 0.5% highest $R^2$ are the same as the one identified with the 0.2% or 0.5% lowest empirical $p$-values. 
+
+```{r CheckEqualityThresholds}
+lapply(list_gf_outliers, function(run_i){
+  
+  lapply(run_i, function(x){
+    
+identical(sort(run_i$x$outliers_R2_rank_002),sort(run_i$x$outliers_epv_rank_002))
+identical(sort(run_i$x$outliers_R2_rank_005),sort(run_i$x$outliers_epv_rank_005))
+
+  })
+}) %>% setNames(paste0("run",1:3))
 ```
 
 
@@ -492,32 +509,28 @@ The Venn diagrams below show the number of SNPs in common across the three indep
 ```{r ConsistenceAcrossRuns, eval=T}
 list_gf_outliers <- readRDS(here::here("outputs/GF/GFoutliers_ThreeRuns.rds"))
 
-gf_out <- readRDS(here::here("outputs/GF/gf_outliers.rds"))
-gf_out_1 <- readRDS(here::here("outputs/GF/gf_outliers_1.rds"))
-gf_out_2 <- readRDS(here::here("outputs/GF/gf_outliers_2.rds"))
-
-list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_rank005,
-     "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_rank005,
-     "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_rank005) %>% 
+list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_epv_rank_005,
+     "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_epv_rank_005,
+     "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_epv_rank_005) %>% 
   make_venndiagram(title="0.5% SNPs with the lowest empirical p-values")
 
-list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_rank002,
-     "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_rank002,
-     "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_rank002) %>% 
+list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_epv_rank_002,
+     "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_epv_rank_002,
+     "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_epv_rank_002) %>% 
   make_venndiagram(title="0.2% SNPs with the lowest empirical p-values")
 ```
 
 ##  Corrected allele frequencies
 
 ```{r ConsistenceAcrossRunsAlleleFreqCorrectedForPS, eval=T}
-list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_rank005,
-     "run 2"=list_gf_outliers[[2]]$gf_X$outliers_rank005,
-     "run 3"=list_gf_outliers[[3]]$gf_X$outliers_rank005) %>% 
+list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_epv_rank_005,
+     "run 2"=list_gf_outliers[[2]]$gf_X$outliers_epv_rank_005,
+     "run 3"=list_gf_outliers[[3]]$gf_X$outliers_epv_rank_005) %>% 
   make_venndiagram(title="0.5% SNPs with the lowest empirical p-values")
 
-list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_rank002,
-     "run 2"=list_gf_outliers[[2]]$gf_X$outliers_rank002,
-     "run 3"=list_gf_outliers[[3]]$gf_X$outliers_rank002) %>% 
+list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_epv_rank_002,
+     "run 2"=list_gf_outliers[[2]]$gf_X$outliers_epv_rank_002,
+     "run 3"=list_gf_outliers[[3]]$gf_X$outliers_epv_rank_002) %>% 
   make_venndiagram(title="0.2% SNPs with the lowest empirical p-values")
 ```
 
@@ -529,9 +542,9 @@ list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_rank002,
 <span style="color: red;">For the following analyses, we keep the common outliers across the three runs based on raw allele frequencies, i.e., outlier SNPs that were among the 0.5% SNPs with the lowest empirical $p$-values in each of the three successive runs.</span>
 
 ```{r CommonCandidatesThreeRunsRawAlleleFrequencies}
-cand <- list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_rank005,
-             "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_rank005,
-             "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_rank005)%>% 
+cand <- list("run 1"=list_gf_outliers[[1]]$gf_raw$outliers_epv_rank_005,
+             "run 2"=list_gf_outliers[[2]]$gf_raw$outliers_epv_rank_005,
+             "run 3"=list_gf_outliers[[3]]$gf_raw$outliers_epv_rank_005)%>% 
   Reduce(intersect, .)
 
 saveRDS(cand, here::here("outputs/GF/GFCommonOutliers_ThreeRuns_RawAlleleFrequencies.rds"))
@@ -542,9 +555,9 @@ In the following steps, we use those <span style="color: red;">`r length(cand)` 
 ## Corrected allele frequencies
 
 ```{r CommonCandidatesThreeRunsCorrectedAlleleFrequencies}
-cand_X <- list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_rank005,
-               "run 2"=list_gf_outliers[[2]]$gf_X$outliers_rank005,
-               "run 3"=list_gf_outliers[[3]]$gf_X$outliers_rank005)%>% 
+cand_X <- list("run 1"=list_gf_outliers[[1]]$gf_X$outliers_epv_rank_005,
+               "run 2"=list_gf_outliers[[2]]$gf_X$outliers_epv_rank_005,
+               "run 3"=list_gf_outliers[[3]]$gf_X$outliers_epv_rank_005)%>% 
   Reduce(intersect, .)
 ```
 
@@ -557,13 +570,13 @@ We use the outliers in common across the three successive runs (those identified
 **No outliers in common** between those identified with raw allele frequencies and those identified with corrected allele frequencies!
 
 ```{r CommonOutliersCorrectedVsRawAlleleFrequencies, fig.width=6}
-list("GF raw"=list(list_gf_outliers[[1]]$gf_raw$outliers_rank005,
-                                   list_gf_outliers[[2]]$gf_raw$outliers_rank005,
-                                   list_gf_outliers[[3]]$gf_raw$outliers_rank005) %>% 
+list("GF raw"=list(list_gf_outliers[[1]]$gf_raw$outliers_epv_rank_005,
+                                   list_gf_outliers[[2]]$gf_raw$outliers_epv_rank_005,
+                                   list_gf_outliers[[3]]$gf_raw$outliers_epv_rank_005) %>% 
        Reduce(intersect, .),
-     "GF corrected"=list(list_gf_outliers[[1]]$gf_X$outliers_rank005,
-                                         list_gf_outliers[[2]]$gf_X$outliers_rank005,
-                                         list_gf_outliers[[3]]$gf_X$outliers_rank005) %>% 
+     "GF corrected"=list(list_gf_outliers[[1]]$gf_X$outliers_epv_rank_005,
+                                         list_gf_outliers[[2]]$gf_X$outliers_epv_rank_005,
+                                         list_gf_outliers[[3]]$gf_X$outliers_epv_rank_005) %>% 
        Reduce(intersect, .)) %>% 
    make_venndiagram()
 ```

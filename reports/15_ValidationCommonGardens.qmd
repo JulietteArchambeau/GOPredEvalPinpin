@@ -1,7 +1,6 @@
 ---
-title: "Evaluation of genomic offset predictions in common gardens"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+title: "Validating genomic offset predictions with mortality and height data from common gardens"
+date: last-modified
 number-sections: true
 format: 
   html:
@@ -66,10 +65,6 @@ source(here("scripts/functions/kable_mydf.R"))
 
 # Colors for the coefficients
 colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
-
-# Images for the SI
-cloudpng <- readPNG(here('reports/cloud.png'))
-# sunpng <- readPNG(here('reports/sun.png'))
 
 
 #################################################
@@ -332,11 +327,8 @@ pop_heights <- mod_arch2022$fit %>%
 pop_heights[1:5,] %>% kable_mydf
 ```
 
-::: {.callout-note}
-#### DRYAD repository
+<span style="color: orange;">**DRYAD REPOSITORY:** We export the height intercepts from @archambeau2022combining to the DRYAD repository: `HeightIntercepts_Archambeauetal2022.csv`.</span>
 
-We export the height intercepts from @archambeau2022combining to the DRYAD repository: `HeightIntercepts_Archambeauetal2022.csv`
-:::
 
 ```{r HeightInterceptsInDryadRepo}
 pop_heights %>% write_csv(here("data/DryadRepo/HeightIntercepts_Archambeauetal2022.csv"))
@@ -355,7 +347,6 @@ survival_data <- pheno_data %>%
 
 survival_data[1:5,] %>% kable_mydf
 ```
-
 
 ## Run the models
 
@@ -587,9 +578,12 @@ annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax
                                           xmin = xmin, xmax = xmax, 
                                           ymin = ymin, ymax = ymax))}
 
-# ========
+# ============================================
 # Option 1 - same image, different image sizes
-# ========
+# ============================================
+
+# loading the picture of a cloud
+cloudpng <- readPNG(here('reports/cloud.png'))
 
 df_coord_png <- p %>% 
   dplyr::select(cg) %>%
@@ -630,9 +624,9 @@ ggsave(p_SNPs_1,
        width=8)
 
 
-# ========
+# ============================================
 # Option 2 - different images, same image size
-# ========
+# ============================================
 
 df_png <- p %>% 
   dplyr::select(cg) %>%
@@ -1286,6 +1280,7 @@ return(ggplots)
   
   
 ```{r MakePolyPlotsV2, fig.width=12, fig.height=7, eval=F, echo=F}
+# Old version of the function to generate the quadratic relationships between tree height and the GO predictions / CTD.
 generate_poly_plots <- function(model_i){
 
 coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
@@ -1365,6 +1360,7 @@ lapply(unique(ggtab$method), function(method_i){
 
 }
 ```
+
 ## Model 1
 
 ### Model equation and code 
@@ -1453,8 +1449,6 @@ generate_poly_plots(model_i="M1")
 ```
 
 ### Interpretation
-
-<span style="color: orange;">Interpretation</span>
 
 Higher genomic offset predictions are consistently associated with lower tree height only in Asturias. Most genomic offset predictions are also associated with lower tree height in Bordeaux.
 
@@ -1886,8 +1880,8 @@ params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_
 ```
 
 
-```{r RunHeightyModel3, eval=F}
-coefftab <- lapply(unique(height_data$cg), function(site_i){
+```{r RunHeightModel3, eval=F}
+lapply(sites, function(site_i){
   
   lapply(unique(df$method), function(method_i){
   
@@ -1914,7 +1908,7 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                     pars = params_to_estimate) 
   
 # Model coefficients
-    broom.mixed::tidyMCMC(mod,
+ coeffs <- broom.mixed::tidyMCMC(mod,
                           pars=params_to_estimate,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
@@ -1930,12 +1924,22 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
            method=method_i,
            .before=1)
     
-    
-  }) %>% bind_rows()
-  
-}) %>% bind_rows()
+    coeffs %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M3/coefftab_M3_",site_i,"_",method_i,".rds")))
 
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M3.rds"))
+  })
+})
+```
+
+```{r TableCoeffM3}
+# We merge all the coefficients in ien table
+lapply(unique(height_data$cg), function(site_i){
+lapply(unique(df$method), function(method_i){
+
+readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M3/coefftab_M3_",site_i,"_",method_i,".rds")))
+
+}) %>% bind_rows()
+}) %>% bind_rows() %>% 
+saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M3.rds"))
 ```
 
 ### Model coefficients
@@ -1987,7 +1991,7 @@ params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_
 
 
 ```{r RunHeightModel4, eval=F}
-coefftab <- lapply(unique(height_data$cg), function(site_i){
+lapply(sites, function(site_i){
   
   lapply(unique(df$method), function(method_i){
   
@@ -2014,7 +2018,7 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                     pars = params_to_estimate) 
   
 # Model coefficients
-    broom.mixed::tidyMCMC(mod,
+    coeffs <- broom.mixed::tidyMCMC(mod,
                           pars=params_to_estimate,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
@@ -2030,13 +2034,26 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
            method=method_i,
            .before=1)
     
-    
-  }) %>% bind_rows()
-  
-}) %>% bind_rows()
 
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M4.rds"))
+coeffs %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M4/coefftab_M4_",site_i,"_",method_i,".rds")))
+
+    
+  })
+})
 ```
+
+```{r TableCoeffM4}
+# We merge all the coefficients in ien table
+lapply(unique(height_data$cg), function(site_i){
+lapply(unique(df$method), function(method_i){
+
+readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M4/coefftab_M4_",site_i,"_",method_i,".rds")))
+
+}) %>% bind_rows()
+}) %>% bind_rows() %>% 
+saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M4.rds"))
+```
+
 
 ### Model coefficients
 
@@ -2076,11 +2093,7 @@ height_data %>%
 
 # DRYAD repository
 
-::: {.callout-note}
-## DRYAD repository
-
-We export mortality and height data in the DRYAD repository: `CommonGardenData_cleaned.csv` dataset.
-:::
+<span style="color: orange;">**DRYAD REPOSITORY:** We export mortality and height data in the DRYAD repository: `CommonGardenData_cleaned.csv` dataset.</span>
 
 ```{r PhenoDataInDryadRepo}
 pheno_data %>% 

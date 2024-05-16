@@ -1,9 +1,7 @@
 ---
 title: "Redundancy analysis (RDA)"
 subtitle: "Selection of the climatic variables, variance partitionning & identification of outlier SNPs"
-author: "Juliette Archambeau"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output_dir: "docs"
 output:
   bookdown::html_document2:
     df_print: kable

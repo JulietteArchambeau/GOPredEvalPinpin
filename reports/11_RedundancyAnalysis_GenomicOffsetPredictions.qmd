@@ -1,7 +1,6 @@
 ---
 title: "RDA - Genomic offset predictions"
-author: "xxx"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -257,22 +256,15 @@ dev.off()
 # ==================================================
 
 # Candidate SNPs
-pdf(here("figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.pdf"), width=9,height=4.9)
-ai_maps[[1]] + theme(plot.title = element_blank())
-dev.off()
-
-png(here("figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.png"), width=9,height=4.9)
-ai_maps[[1]] + theme(plot.title = element_blank())
-dev.off()
+p <- ai_maps[[1]] + theme(plot.title = element_blank())
+ggsave(here("figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.png"), p, width=9,height=4.9)
+ggsave(here("figs/RDA/AdaptiveIndexMap_CandidateSNPs_SI.pdf"), p, width=9,height=4.9)
 
 # Control SNPs
-pdf(here("figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.pdf"), width=9,height=4.9)
-ai_maps[[3]] + theme(plot.title = element_blank())
-dev.off()
+p <- ai_maps[[3]] + theme(plot.title = element_blank())
+ggsave(here("figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.png"), p, width=9,height=4.9)
+ggsave(here("figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.pdf"), p, width=9,height=4.9)
 
-png(here("figs/RDA/AdaptiveIndexMap_ControlSNPs_SI.png"), width=9,height=4.9)
-ai_maps[[3]] + theme(plot.title = element_blank())
-dev.off()
 
 # Show AI maps
 # ============
@@ -393,7 +385,6 @@ gps <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrang
 ```{r MakeEucliPlots, fig.width=12, results="hide"}
 par(mfrow=c(1,2))
 
-
 lapply(snp_sets, function(x) {
 
 lapply(names(list_dist_env), function(gcm){
@@ -494,6 +485,7 @@ make_go_map(dfcoord=pop_coord,
             gcm=gcm,
             ggtitle=gcm,
             go_limits = go_limits,
+            legend_box_background = "white",
             point_size = 3)
 
 })
@@ -750,32 +742,29 @@ if(method == "loadings"){
   go_global_proj[!is.na(go_global_proj)] <- unlist(lapply(1:nrow(ref_proj_weighted), function(x) dist(rbind(ref_proj_weighted[x,], fut_proj_weighted[x,]), method = "euclidean")))
   names(go_global_proj) <- "global_offset"
   
-  # Return projections for current and future climates for each RDA axis, prediction of genetic offset for each RDA axis and a global genetic offset 
+  # Return :
+    # projections of AI for current and future climates for each RDA axis
+    # prediction of genomic offset for each RDA axis
+    # a global genomic offset, which incorporates the K first axes weighted by their eigen values
+    # weights of the RDA axes
   return(list(ref_proj = ref_proj, fut_proj = fut_proj, go_proj = go_proj, go_global_proj = go_global_proj, weights = weights[1:K]))
+  
+  # We can chose to return only the global genomic offset, so that the function output is smaller:
+  #  return(list(go_global_proj = go_global_proj))
+
 }
 ```
 
-```{r GenerateGORasters, eval=T}
-# For each snp set and each GCM, we generate a list of rasters with:
-  # the projection of AI for reference_period and future climates
-  # genomic offset predictions for each RDA axis 
-  # genomic offset predictions incorporating the K first axes weighted by their eigen values
+```{r GenerateGORasters, message=F, results="hide", warning=F, eval=F}
+# For each snp set and each GCM, we apply the function pred_GO_rasters
 go_rasters <- snp_sets %>% lapply(function(snp_set){
   lapply(names(clim_dfs$clim_pred), function(gcm){
   
   pred_GO_rasters(snp_set,clim_var,K=2,gcm)}) %>% 
     setNames(names(clim_dfs$clim_pred)) %>% 
     saveRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_set$set_code,".rds")))
-  
   })
 
-#go_rasters %>% saveRDS(file=here("outputs/RDA/go_rasters.rds"))
-```
-
-
-
-```{r VizGORasters, fig.width=14, fig.height=9.5, message=F, results="hide", warning=F}
-#go_rasters <- readRDS(file=here("outputs/RDA/go_rasters.rds"))
 
 # Map options
 # ===========
@@ -805,7 +794,7 @@ go_limits[[1]] <- 0
 
 # Mapping
 # =======
-go_maps <- names(snp_sets) %>% lapply(function(x){
+names(snp_sets) %>% lapply(function(x){
 
 go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,".rds"))) 
 
@@ -842,50 +831,36 @@ go_maps <- lapply(go_maps, function(y) y + theme(legend.position = "none"))
 
 go_maps$legend_maps <- legend_maps
 
-go_maps <-plot_grid(plotlist=go_maps)
+go_maps <- plot_grid(plotlist=go_maps)
 
-
-# We save the maps for the Supplementary Information
-# ==================================================
-if(x=="cand"){ 
-  ggsave(here("figs/RDA/GOMap_CandidateSNPs_SI.pdf"), go_maps, width=11,height=7, device="pdf")
-  ggsave(here("figs/RDA/GOMap_CandidateSNPs_SI.png"), go_maps, width=11,height=7)
-} else if(x=="control"){
-  ggsave(here("figs/RDA/GOMap_ControlSNPs_SI.pdf"), go_maps, width=11,height=7, device="pdf")
-  ggsave(here("figs/RDA/GOMap_ControlSNPs_SI.png"), go_maps, width=11,height=7)
-}
-
-# Add title
-# =========
-title <- ggdraw() + 
-  draw_label(
-    snp_sets[[x]]$set_name,
-    fontface = 'bold',
-    x = 0,
-    hjust = 0) +
-  theme(plot.margin = margin(0, 0, 0, 7))
-
-# merge title and plots
-plot_grid(title, go_maps, ncol = 1,rel_heights = c(0.1, 1))
+ggsave(here(paste0("figs/RDA/GOMap_",x,"_SI.pdf")), go_maps, width=11,height=7, device="pdf")
+ggsave(here(paste0("figs/RDA/GOMap_",x,"_SI.png")), go_maps, width=11,height=7)
   
 })
-
-# We save the maps for the Github repository
-# ==========================================
-pdf(here("figs/RDA/GOmaps.pdf"), width=14,height=9.5)
-lapply(go_maps, function(x) x)
-dev.off()
-
-go_maps %>%  saveRDS(file=here("outputs/RDA/GOmaps.rds"))
 ```
 
-```{r ShowGOmaps}
-go_maps <- readRDS(file=here("outputs/RDA/GOmaps.rds"))
+We visualize the generated maps. 
 
-# Show GO maps
-# ============
-lapply(go_maps, function(x) x)
-```
+> Candidate SNPs
+
+This figure is included in the Supplementary Information.
+
+![](../figs/RDA/GOMap_cand_SI.png)
+
+
+> Control SNPs
+
+This figure is included in the Supplementary Information.
+
+![](../figs/RDA/GOMap_control_SI.png)
+
+> Candidate SNPs with correction for population structure
+
+i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
+
+![](../figs/RDA/GOMap_cand_corrected_SI.png)
+
+
 
 
 ### Corr btw predictions with rasters or spatial points 
@@ -899,8 +874,10 @@ We check that the genomic offset predictions we obtained with the spatial points
 names(snp_sets) %>% lapply(function(x){
   
 cor_go <- lapply(names(clim_dfs$clim_pred), function(gcm){
+
+go_rasters <- readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,".rds"))) 
   
-go_rast <- raster::extract(go_rasters[[x]][[gcm]]$go_global_proj, pop_coord[,c("longitude","latitude")])
+go_rast <- raster::extract(go_rasters[[gcm]]$go_global_proj, pop_coord[,c("longitude","latitude")])
 
 cor(snp_sets[[x]]$go[[gcm]],go_rast,use= "complete.obs")
   
@@ -958,21 +935,21 @@ p <- make_go_map(
   type="NFI",
   point_size = 0.5,
   go_limits = go_limits,
-  legend_position = c(0.85,0.15),
-  legend_box_background = "gray80",
+  legend_position = c(0.85,0.2),
+  legend_box_background = "gray",
   y_limits = c(35, 51))
 
 # Figure for the SI
 # =================
 if(x$set_code=="cand"){ 
   p_SI <- p + theme(plot.title = element_blank())
-  ggsave(here("figs/RDA/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
-  ggsave(here("figs/RDA/NFI_GOmap_CandidateSNPs_SI.png"), p_SI, width=8,height=8)
+  ggsave(here("figs/RDA/NFI_GOmap_CandidateSNPs_SI.pdf"), p_SI, width=6,height=6, device="pdf")
+  ggsave(here("figs/RDA/NFI_GOmap_CandidateSNPs_SI.png"), p_SI, width=6,height=6)
   
   } else if(x$set_code=="control"){
     p_SI <- p + theme(plot.title = element_blank())
-    ggsave(here("figs/RDA/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=8,height=8, device="pdf")
-    ggsave(here("figs/RDA/NFI_GOmap_ControlSNPs_SI.png"), p_SI, width=8,height=8)
+    ggsave(here("figs/RDA/NFI_GOmap_ControlSNPs_SI.pdf"), p_SI, width=6,height=6, device="pdf")
+    ggsave(here("figs/RDA/NFI_GOmap_ControlSNPs_SI.png"), p_SI, width=6,height=6)
     }
 
 # Show maps in the Quarto document

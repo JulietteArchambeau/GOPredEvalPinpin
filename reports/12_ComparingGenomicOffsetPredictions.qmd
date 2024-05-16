@@ -1,7 +1,6 @@
 ---
 title: "Comparing genomic offset predictions"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -34,8 +33,8 @@ table {
 knitr::opts_chunk$set(dev.args = list(png = list(type = "cairo")))
 knitr::opts_chunk$set(cache=F, size="tiny")
 options(width = 300)
-library(knitr)      # CRAN v1.26
-library(kableExtra) # CRAN v1.1.0
+library(knitr)
+library(kableExtra)
 library(tidyverse)
 library(here)
 library(cowplot)
@@ -239,7 +238,7 @@ p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
   scale_y_reverse(breaks = 1:nrow(sub)) +
   scale_color_manual(values = my_palette) +
   geom_text(data = sub %>% filter(x_axis == sub$x_axis[[length(sub$x_axis)]] & pop %in% high_go_pops),
-            aes(label = pop, x = 9.1) , hjust = 0.15, color = "gray20", size = 3) +#color = "#888888",
+            aes(label = pop, x = 9.1) , hjust = 0.15, color = "gray20", size = 5) +#color = "#888888",
   theme_bw() +
   ylab("Population rank") +
   ggtitle(plot_title) +
@@ -247,14 +246,17 @@ p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank(),
         legend.position = "none",
+        axis.text.y = element_text(size=12),
+        axis.text.x = element_text(size=11),
+        axis.title.y = element_text(size=16),
         axis.title.x = element_blank())
 
-ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf", width=12)
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf", width=13)
 
 if(unique(x$gcm)=="GCMs_average"){
   p_manuscript <- p + ggtitle("") 
   ggsave(p_manuscript, 
-         filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),"_notitle.pdf")), device = "pdf", width=12)} 
+         filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),"_notitle.pdf")), device = "pdf", width=13)} 
 
 p
 
@@ -318,13 +320,16 @@ p <- df %>% ggplot(aes(x = gcm, y = rank, group = pop)) +
   scale_y_reverse(breaks = 1:nrow(go_df_gcm)) +
   scale_color_manual(values = my_palette) +
   geom_text(data = df %>% filter(gcm == "UKESM1-0-LL" & pop %in% high_go_pops),
-            aes(label = pop, x = 6.1) , hjust = 0.15, color = "gray20", size = 3) +#color = "#888888",
+            aes(label = pop, x = 6.1) , hjust = 0.15, color = "gray20", size = 5) +#color = "#888888",
   theme_bw() +
   ylab("Population rank") +
   ggtitle(paste0(method_snpset_names[unique(x$meth_snpset)])) +
   theme(panel.grid.minor.y = element_blank(),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank(),
+        axis.text.y = element_text(size=12),
+        axis.text.x = element_text(size=12),
+        axis.title.y = element_text(size=16),
         legend.position = "none",
         axis.title.x = element_blank())
 

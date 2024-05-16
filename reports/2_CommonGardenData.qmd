@@ -1,7 +1,6 @@
 ---
 title: "Climatic data in the common gardens"
-author: "Juliette Archambeau"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
 format: 
   html:
     toc: true
@@ -38,7 +37,6 @@ library(knitr)
 library(kableExtra)
 library(tidyverse)
 library(here)
-library(grateful)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))

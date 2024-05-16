@@ -337,7 +337,7 @@ This dataset contains the population height intercepts calculated across the fiv
 
 `5_GradientForest_IdentificationCandidateSNPs.qmd`
 
-  - Identification of outlier SNPs with the Gradient Forest (GF) algorithm, using either raw allele frequencies (GF-raw) or allele frequencies after correction for population relatedness (GF-X), as described in Fitzpatrick et al. (2021) and Capblancq et al. (2023).
+  - Identification of outlier SNPs with the Gradient Forest (GF) algorithm, using either raw allele frequencies (GF-raw) or allele frequencies after correction for population relatedness (GF-X), as described in Fitzpatrick et al. (2021) and Capblancq et al. (2023). Note that only outlier SNPs identified with *GF-raw* were used to select the potential candidate SNPs for adaptation to climate, which were then used to calculate the genomic offset.
 
 `6_BaypassAnalysis_IdentificationCandidateSNPs.qmd` 
 
