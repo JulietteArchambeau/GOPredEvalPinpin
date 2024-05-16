@@ -1,7 +1,7 @@
 # Data and code for the paper: 'Evaluating genomic offset predictions in a forest tree with high population genetic structure'
 
 
-Juliette Archambeau<sup>1,2</sup>, Marta Benito-Garzón<sup>1</sup>, Marina de-Miguel<sup>1,3</sup>, Alexandre Changenet<sup>1</sup>, Francesca Bagnoli<sup>4</sup>, Frédéric Barraquand<sup>5</sup>, Maurizio Marchi<sup>4</sup>, Giovanni G. Vendramin<sup>4</sup>, Stephen Cavers<sup>2</sup>, Annika Perry<sup>2</sup> and Santiago C. González-Martínez<sup>1</sup>
+Juliette Archambeau^1,2^, Marta Benito-Garzón^1^, Marina de-Miguel^1,3^, Alexandre Changenet^1^, Francesca Bagnoli^4^, Frédéric Barraquand^5^, Maurizio Marchi^4^, Giovanni G. Vendramin^4^, Stephen Cavers^2^, Annika Perry^2^ and Santiago C. González-Martínez^1^
 
 **1** INRAE, Univ. Bordeaux, BIOGECO, F-33610 Cestas, France
 
@@ -119,7 +119,7 @@ Imputed allele frequencies of the populations. SNPs in columns and populations i
 
 #### SNP information
 
-Information of the SNP position on the genome, the different SNP IDs used across studies/assays, the identification of the SNPs by the different gene-environment association (GEA) methods (GF, RDA, pRDA, LFMM and BayPass), and the inclusion of the SNPs in the final set of candidate SNPs (i.e., common outlier SNPs across GEA methods) or the set of control SNPs. SNPs are in rows.
+`SNPsInformation_WithOutliers.csv`. Information of the SNP position on the genome, the different SNP IDs used across studies/assays, the identification of the SNPs by the different gene-environment association (GEA) methods (GF, RDA, pRDA, LFMM and BayPass), and the inclusion of the SNPs in the final set of candidate SNPs (i.e., common outlier SNPs across GEA methods) or the set of control SNPs. SNPs are in rows.
 
   1. `snp_ID`: SNP ID used in the present study.
   2. `original_ID`: Original ID of the SNP.
@@ -402,23 +402,11 @@ The code of this repository is under the MIT license.
 
 Copyright (c) 2024 Authors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### Disclaimer
 
