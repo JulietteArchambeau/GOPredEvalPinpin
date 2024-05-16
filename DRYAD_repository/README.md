@@ -1,7 +1,7 @@
 # Data and code for the paper: 'Evaluating genomic offset predictions in a forest tree with high population genetic structure'
 
+Juliette Archambeau<sup>1,2</sup>, Marta Benito-Garzón<sup>1</sup>, Marina de-Miguel<sup>1,3</sup>, Alexandre Changenet<sup>1</sup>, Francesca Bagnoli<sup>4</sup>, Frédéric Barraquand<sup>5</sup>, Maurizio Marchi<sup>4</sup>, Giovanni G. Vendramin<sup>4</sup>, Stephen Cavers<sup>2</sup>, Annika Perry<sup>2</sup> and Santiago C. González-Martínez<sup>1</sup>
 
-Juliette Archambeau^1,2^, Marta Benito-Garzón^1^, Marina de-Miguel^1,3^, Alexandre Changenet^1^, Francesca Bagnoli^4^, Frédéric Barraquand^5^, Maurizio Marchi^4^, Giovanni G. Vendramin^4^, Stephen Cavers^2^, Annika Perry^2^ and Santiago C. González-Martínez^1^
 
 **1** INRAE, Univ. Bordeaux, BIOGECO, F-33610 Cestas, France
 
