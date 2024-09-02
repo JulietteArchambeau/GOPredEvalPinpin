@@ -43,6 +43,7 @@ library(kableExtra)
 library(here)
 library(cowplot)
 library(ggVennDiagram)
+library(UpSetR)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -216,9 +217,12 @@ In @capblancq2023common, they selected the SNPs that were in the top 0.2% for at
 
 ### Figure 2 of the manuscript
 
+
+#### Venn diagram (first version)
+
 We generate the figure for the main manuscript (Figure 2).
 
-```{r GeneratingFigure2Manuscript}
+```{r GeneratingFigure2ManuscriptVennDiagram}
 selected_methods <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")]
 names(selected_methods) <- c("RDA (nc)", "pRDA (c)", "LFMM (c)", "BayPass (c)", "GF (nc)")
 
@@ -227,6 +231,18 @@ make_venndiagram(selected_methods,
 ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", width = 6.5, height = 6.5)
 ```
 
+#### Upset plot
+
+Following a reviewer’s comment, we updated Figure 2 from a Venn diagram to a more comprehensive [upset plot](https://r-graph-gallery.com/upset-plot.html). 
+
+
+```{r GeneratingFigure2ManuscriptUpsetPlot, fig.width=7, fig.height=7}
+pdf(file=here("figs/UpsetPlot_CommonOutliers.pdf"), onefile=FALSE, width = 5, height = 5)
+upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1)
+dev.off()
+
+upset(fromList(selected_methods),order.by = "freq")
+```
 
 # Genome position of candidate SNPs
 
