@@ -1847,6 +1847,67 @@ ggsave(here("figs/RDA/VennDiagramOutliers.pdf"),venn_diagrams, width = 9, height
 venn_diagrams
 ```
 
+# RDA corrected with PCs estimated without MAF
+
+One reviewer from *The American Naturalist* raised concerns regarding the inclusion of minor allele frequencies when estimating the PCA (the one that was then used to extract the PCs used for correcting for population structure in the RDA). Here is the reviewer comment: 
+
+"I do believe that minor allele frequencies can be informative for fine population structure, but did this exceed 1% MAF? If so, were any coverage depth or genotype quality metrics increased in thresholds (ie more strict than for filtering SNPS with MAF >1%) to ensure adequate estimation of allele frequencies?"
+
+In response to this concern, we identified outlier SNPs based on a RDA corrected for population structure using PCs estimated with population allele frequencies that did not include MAF, hereafter referred to as "RDA corrected *without* MAF". We then compared those outlier SNPs with the outliers identified when using a RDA corrected with PCs estimated with population allele frequencies that included MAF, hereafter referred to as "RDA corrected *with* MAF".
+
+```{r RDAcoorectedWithPCAwithoutMAF, fig.height=10, fig.width=10}
+# run the PCA with population allele frequencies that did not include MAF
+pca <- rda(geno_pop, scale=T)
+
+# Screeplot of the PCA eigenvalues
+screeplot(pca, type = "barplot", npcs=10, main="PCA Eigenvalues")
+
+# Build the datatsets with the explanatory variables: climate and PCs
+df_pcs <- data.frame(pop = rownames(geno_pop), # population id
+                     PCs = scores(pca, choices=c(1:3), display="sites", scaling="none")) %>% #
+  setNames(c("pop", "PC1", "PC2", "PC3")) %>% 
+  inner_join(clim, by="pop") %>% 
+  dplyr::mutate(across(where(is.numeric), ~ (. - mean(.)) / sd(.))) %>% 
+  right_join(gps$pop_level,by="pop")
+
+
+rda_mod <- runRDA(df = df_pcs,
+                  geno_pop = geno_pop,
+                  selected_var = set2_var,
+                  pop_structure_correction = TRUE)
+
+# Viz RDA outputs
+viz_RDAsummary(rda_mod)
+
+# Viz RDA space
+plot_RDA(df=df_pcs,x=rda_mod,GPs=GPs)
+
+# Identify the outliers
+outliers_withoutMAF <- identify_outliers(rda_model = rda_mod, 
+                                         explanatory_data = df_pcs, 
+                                         geno_data = geno_pop)
+
+# load the outliers identified when using population allele frequencies with MAF to estimate the PCA and extract the PCs
+rda_outliers <- readRDS(here("outputs/RDA/RDA_outliers.rds"))[[4]]
+
+# Look at the difference between the two sets of SNPs
+snps_identifiedwithoutMAF_notwithMAF <- setdiff(outliers_withoutMAF$outliers$snp, rda_outliers$outliers$snp)
+snps_identifiedwithMAF_notwithoutMAF <- setdiff(rda_outliers$outliers$snp,outliers_withoutMAF$outliers$snp)
+```
+
+`r length(snps_identifiedwithoutMAF_notwithMAF)` SNPs were identified in the RDA corrected *without* MAF but not in the RDA corrected *with* MAF.
+
+```{r}
+snps_identifiedwithoutMAF_notwithMAF
+```
+
+
+`r length(snps_identifiedwithMAF_notwithoutMAF)` SNPs were identified in the RDA corrected *with* MAF but not in the RDA corrected *without* MAF. 
+
+```{r}
+snps_identifiedwithMAF_notwithoutMAF
+```
+
 # Export climatic variable names
 
 We export the names of the selected climatic variables for the other GEA analyses.
