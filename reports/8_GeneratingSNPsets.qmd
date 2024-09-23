@@ -44,6 +44,7 @@ library(here)
 library(cowplot)
 library(ggVennDiagram)
 library(UpSetR)
+library(magrittr)
 
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
@@ -317,6 +318,8 @@ common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
 
 # Control SNPs
 
+## with random frequencies
+
 We *randomly* sample a set of SNPs (the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
 
 ```{r ControlSNPs, eval=T}
@@ -334,6 +337,70 @@ no_candidates <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_Alle
 set.seed(36)
 control_snps <- sample(no_candidates,nb_snps,replace = F)
 ```
+
+## with similar allele frequencies
+
+We select control SNPs randomly but with similar allele frequencies that the candidate SNPs.
+
+```{r}
+# Set a seed for reproducibility
+set.seed(96)
+
+# Load the allele counts
+geno <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"), row.names = 1)
+
+# Calculate the SNP frequencies by summing alleles for each SNP across all samples
+# This is done by transposing the data, summing non-missing values, and dividing by 2 * (number of samples - missing values)
+snp_freq <- geno %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  summarise_all(~sum(., na.rm = TRUE)/((n()-sum(is.na(.)))*2)) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rownames_to_column() %>% 
+  set_colnames(c("snps","freq")) %>% 
+  as_tibble()
+
+# Filter for SNPs that were identified in none of the GEAs (a dataset of non-candidate SNPs)
+no_candidates_freq <- snp_freq %>%  
+  dplyr::filter(snps %in% no_candidates)
+
+# Initialize an empty list to store random SNPs with similar frequencies
+list_random_snps_with_similar_freq <- list()
+
+# Loop through each SNP in the "common_cand" list
+  for (i in common_cand) {
+    
+    # Extract the frequency of the current SNP
+    freq_i <- snp_freq %>%  
+      dplyr::filter(snps == i) %>% 
+      .[["freq"]]
+    
+    # Find SNPs from the non-candidate dataset that have a frequency similar to the current SNP
+    # A threshold of ± 0.001 is used to find SNPs with similar frequencies
+    snps_with_similar_freq <-  no_candidates_freq %>% 
+      dplyr::filter(!freq >freq_i + 0.001) %>% 
+      dplyr::filter(!freq <freq_i - 0.001) 
+  
+    # Randomly select one SNP from the list of SNPs with similar frequencies
+    selected_snp <- sample(snps_with_similar_freq$snps, 1)
+    
+    # Remove the selected SNP from the non-candidate dataset to avoid re-selecting it
+    no_candidates_freq <- no_candidates_freq %>% 
+      dplyr::filter(!snps == selected_snp)
+
+    # Add the selected SNP to the list of random SNPs for this candidate SNP
+    list_random_snps_with_similar_freq[[i]] <- selected_snp
+  }
+  
+# Combine the list into a vector of randomly selected SNPs with similar frequencies to the candidate SNPs
+random_snps_with_similar_freq <- list_random_snps_with_similar_freq %>% unlist(use.names = F)
+
+# Check for duplicated SNPs in the final list of random SNPs (there shouldn't be any, but we check just in case)
+dups <- duplicated(random_snps_with_similar_freq)
+random_snps_with_similar_freq[dups]
+```
+
 
 # Exporting the sets of SNPs
 
@@ -359,7 +426,10 @@ snp_sets <- list(cand = list(set_code = "cand",
                                        set_snps = common_cand_corrected),
                  control = list(set_code = "control",
                                 set_name = "Control SNPs",
-                                set_snps = control_snps))
+                                set_snps = control_snps),
+                 control_simfreq = list(set_code = "control_simfreq", 
+                                        set_name = "Control SNPs with similar frequencies",
+                                        set_snps = random_snps_with_similar_freq))
 
 saveRDS(snp_sets,here("outputs/list_snp_sets.rds"))
 ```
