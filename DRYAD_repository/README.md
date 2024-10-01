@@ -23,7 +23,7 @@ Predicting how tree populations will respond to climate change is an urgent soci
 
 ***
 
-## Data in the DRYAD repository
+## Data
 
 ### Genomic data
 
@@ -300,8 +300,9 @@ This dataset contains the population height intercepts calculated across the fiv
 
 ***
 
-## SCRIPTS
+## Main scripts
 
+Quarto (or rmarkdown) and html versions of these scripts are available in the DRYAD repository.
 
 `0_FormattingPopulationCoordinatesElevationClimateData.qmd` 
 
@@ -393,6 +394,16 @@ This dataset contains the population height intercepts calculated across the fiv
 `RPackageCitations.qmd` 
 
   - Citations of the R packages used in the present study.
+
+## Additional scripts
+
+Available in the `/scripts` folder.
+
+R functions used in the main scripts: `baypass_utils.R`, `calc_avg_clim_var.R`, `corpmat.R`, `detectoutliers.R`, `extract_climatedt_metadata.R`, `extract_clim_from_rasters.R`, `generate_scaled_clim_datasets.R`, `generate_scaled_nfi_clim_datasets.R`, `kable_mydf.R`, `make_eucli_plot.R`, `make_go_map.R`, `make_high_go_pop_maps.R`, `project_adaptive_index.R` and `rdadapt.R`.
+
+Files with the extension `.stan` contain the Stan code of the Bayesian models used in the validation steps.
+
+***
 
 ## License
 
