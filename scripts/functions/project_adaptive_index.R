@@ -47,7 +47,15 @@ project_adaptive_index <- function(clim_var,
                                    K,
                                    range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp')),
                                    ref_period = "ref_1901_1950",
-                                   method="loadings"){
+                                   pop_structure,
+                                   method){
+  
+  # 
+  if(pop_structure == "corrected"){
+    selected_mod <- snp_set$rda_model_corrected
+  } else {
+    selected_mod <- snp_set$rda_model_uncorrected
+  }
   
   # Load point estimate climatic data of the reference period
   if(clim_ref_adj==TRUE){adj <- "ADJ"} else {adj <- "noADJ"}  
@@ -89,7 +97,7 @@ project_adaptive_index <- function(clim_var,
   # predicting pixels genetic component based on RDA axes
   if(method == "loadings"){
     for(i in 1:K){
-      ai_rast <- rasterFromXYZ(data.frame(vals[,c("x","y")], Z = as.vector(apply(vals[,clim_var], 1, function(x) sum( x * snp_set$rda_model$CCA$biplot[,i])))), crs = crs(ref_rasts))
+      ai_rast <- rasterFromXYZ(data.frame(vals[,c("x","y")], Z = as.vector(apply(vals[,clim_var], 1, function(x) sum( x * selected_mod$CCA$biplot[,i])))), crs = crs(ref_rasts))
       names(ai_rast) <- paste0("RDA", as.character(i))
       ai_proj[[i]] <- ai_rast
       names(ai_proj)[i] <- paste0("RDA", as.character(i))
@@ -98,7 +106,7 @@ project_adaptive_index <- function(clim_var,
   
   # Prediction with RDA model and linear combinations
   if(method == "predict"){ 
-    pred <- predict(snp_set$rda_model, vals[,clim_var], type = "lc")
+    pred <- predict(selected_mod, vals[,clim_var], type = "lc")
     for(i in 1:K){
       ai_rast <- rasterFromXYZ(data.frame(vals[,c("x","y")], Z = as.vector(pred[,i])), crs = crs(ref_rasts))
       names(ai_rast) <- paste0("RDA", as.character(i))
