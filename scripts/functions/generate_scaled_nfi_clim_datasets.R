@@ -2,7 +2,8 @@
 # function generate_scaled_nfi_clim_datasets 
 ##########################################
 
-# Function to scale the climatic variables at the location of the NFI plots using the scaling parameters used to estimate the genomic offset 
+# Function to scale the climatic variables (i.e. center and divide by SD)
+  # at the location of the NFI plots using the scaling parameters used to estimate the gene-climate relationships
   # i.e., the mean and variance of the climatic variables at the location of the populations under the reference period 1901-1950
 
 # Function arguments:
