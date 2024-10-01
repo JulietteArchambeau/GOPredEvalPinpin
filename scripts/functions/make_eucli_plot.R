@@ -41,10 +41,7 @@ make_ggscatterplot <- function(x,y,title, max_go, range_eucli){
     annotate("text",
              x = -Inf, y = Inf,
              hjust = -0.2, vjust = 1.5,
-             label=TeX(paste0("$R^2$ = ",format(summary(lm(y ~ x, df))$r.squared, digits = 3)))) +
-    # geom_text(x=-Inf, y=Inf,
-    #           hjust = -0.2, vjust = 1.5,
-    #          label=TeX(paste0("$R^2$ = ",format(summary(lm(y ~ x, df))$r.squared, digits = 3)))) +
+             label =paste0("R² = ", format(summary(lm(y ~ x, df))$r.squared, digits = 3))) +
     geom_point(aes(colour=GP)) +
     xlab("Euclidean distance") +
     ylab("Genomic offset") +
