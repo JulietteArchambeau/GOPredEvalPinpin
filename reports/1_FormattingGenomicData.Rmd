@@ -291,8 +291,13 @@ list(df=df,tab=tab)
 list_geno <- lapply(list_geno,remove_NA_perSNP)
 ```
 
+In the dataset without MAF:
 
-`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<20,])` SNPs have less than 20% missing data and `r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<15,])` have less than 15% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<20,])` SNPs have less than 20% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<15,])` SNPs have less than 15% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<10,])` SNPs have less than 10% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<5,])` SNPs have less than 5% missing data.
+`r nrow(list_geno$list_withoutmaf$tab[list_geno$list_withoutmaf$tab$na_freq<1,])` SNPs have less than 1% missing data.
 
 **<span style="color: red;">We keep SNPs with less than 20% missing data and so there are `r nrow(list_geno$list_withoutmaf$df)` SNPs left in the dataset without MAF and `r nrow(list_geno$list_withmaf$df)` in the dataset with MAF.</span>**
 
@@ -303,6 +308,9 @@ plot(list_geno$list_withoutmaf$tab$id,list_geno$list_withoutmaf$tab$na_freq,
      xlab="SNP number",
      ylab="Percentage of missing data per SNP",
      main="Genomic dataset without MAF")
+
+# Add horizontal lines at 20% and 15%
+abline(h = 20, col = "red", lty = 2)  # Red dashed line at 20%
 ```
 
 

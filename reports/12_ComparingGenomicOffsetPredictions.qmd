@@ -58,7 +58,7 @@ We compare the genomic offset predictions from the four following methods:
 
 ```{r}
 # Method names
-meth_names <- c("GDM","LFMM","GF","RDA")
+meth_names <- c("GDM","LFMM","GF","RDA", "pRDA")
 
 # population names
 pop_names <- readRDS(here("data/GenomicData/MainGenePoolPopulations.rds")) %>%  arrange(pop) %>% pull(pop)
@@ -69,7 +69,7 @@ snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
 
 # Comparing population ranks
 
-In this section, we compare GO predictions from the different methods (GF, GDM, RDA and LFMM), SNP sets (candidates, control and all SNPs for LFMM) and GCMs. For that, for each combination of method/SNP set/GCM, we ranked the populations based on the GO predictions, i.e. populations with the lowest rank had the highest GO predictions.
+In this section, we compare GO predictions from the different methods (GF, GDM, RDA and LFMM), SNP sets (candidates, control and all SNPs) and GCMs. For that, for each combination of method/SNP set/GCM, we ranked the populations based on the GO predictions, i.e. populations with the lowest rank had the highest GO predictions.
 
 ### Across methods/SNP sets
 
@@ -78,19 +78,19 @@ In the plots below, we colored the populations that were among the three populat
 
 
 ```{r CalcRankPop, message=FALSE}
+#################################################################
 # Ranking the populations for each combination method/SNP set/GCM
-# ===============================================================
+#################################################################
 
-go_df <- lapply(meth_names, function(meth_name) {
-  
-if(meth_name=="LFMM"){
-  
-  go_predictions <- readRDS(file=here(paste0("outputs/LFMM/go_predictions_snpsets.rds")))} else {
+# Extracting the genomic offset predictions from LFMM, GFM and GF
+# ===============================================================
+sub_meth_names <- c("LFMM", "GF", "GDM")
+
+go_df <- lapply(sub_meth_names, function(meth_name) {
   
   go_predictions <- readRDS(file=here(paste0("outputs/",meth_name,"/go_predictions.rds")))
-  }
   
-go_predictions <-  go_predictions %>% 
+  go_predictions %>% 
     lapply(function(snp_set) {
 
     snp_set$go %>% 
@@ -105,36 +105,65 @@ go_predictions <-  go_predictions %>%
         
     }) %>% bind_rows(.id="snp_set")
 
-if(meth_name=="LFMM"){
-  
-go_predictions <-    readRDS(file=here(paste0("outputs/LFMM/go_predictions_allsnps.rds")))$go %>% 
-    lapply(function(gcm){
-          
-        tibble(pop = pop_names,
-               go = gcm,
-               snp_set = "all") %>%
-            arrange(go) %>% 
-            mutate(rank = rev(1:length(pop_names)))
-        
-      }) %>% 
-    bind_rows(.id="gcm") %>% 
-    bind_rows(go_predictions)
-  
-  
-  } 
-
-go_predictions
 
 }) %>% 
-  setNames(meth_names) %>% 
+  setNames(sub_meth_names) %>% 
   bind_rows(.id="method")
 
 
+# Extracting the genomic offset predictions from the RDA and pRDA
+# ===============================================================
+
+# Which method do we use for the RDA? 
+RDA_method <- "predict" # "loadings" or "predict"
+
+# loading the genomic offset predictions from the RDA
+rda_pred <- readRDS(file=here(paste0("outputs/RDA/go_predictions_",RDA_method,".rds")))
+
+# pRDA (RDA corrected for population structure)
+prda_pred <- lapply(names(snp_sets), function(set_i){
+  
+  rda_pred[[set_i]]$go_corrected %>% 
+    
+    lapply(function(gcm){ 
+      
+      tibble(pop = pop_names,
+             go = gcm) %>%
+             arrange(go) %>% 
+             mutate(rank = rev(1:length(pop_names)),
+                    snp_set = set_i,
+                    method = "pRDA")
+        
+      }) %>% bind_rows(.id="gcm")
+        
+    }) %>% bind_rows()
+
+# RDA (RDA not corrected for population structure)
+go_df <- lapply(names(snp_sets), function(set_i){
+  
+  rda_pred[[set_i]]$go_uncorrected %>% 
+    
+    lapply(function(gcm){ 
+      
+      tibble(pop = pop_names,
+             go = gcm) %>%
+             arrange(go) %>% 
+             mutate(rank = rev(1:length(pop_names)),
+                    snp_set = set_i,
+                    method = "RDA")
+        
+      }) %>% bind_rows(.id="gcm")
+        
+    }) %>% 
+   bind_rows() %>% 
+   bind_rows(prda_pred) %>% 
+   bind_rows(go_df)
+
 
 # ============================================================================================================
 # ============================================================================================================
 
-# For each combination of method (GF, GDM, LFMM and RDA) and SNP set (candidates, control and all SNPs for LFMM), 
+# For each combination of method (GF, GDM, LFMM, pRDA and RDA) and SNP set, 
 # we calculate the average of the GO predictions across the five GCMs, 
 # and then we rank the populations based on their GO predicted value.
 
@@ -177,25 +206,35 @@ go_df <- go_df %>%
 # FIGURE TITLE AND LABELS
 
 # We create a vector that we will use for the x-axis labels and the plot title
+go_df <- lapply(snp_sets, function(set_i){
+  lapply(meth_names, function(meth_i){
+    tibble(method_snpset_names = paste0(meth_i, " - ", set_i$set_name),
+           meth_snpset = paste0(meth_i, "_", set_i$set_code),
+           snpset_names = set_i$set_name,
+           method = meth_i,
+           snp_set = set_i$set_code)
+    })
+  }) %>% 
+  bind_rows %>% 
+  left_join(go_df, by = c("method", "snp_set"))
 
-method_snpset_names <- c("GDM (candidates)",
-                         "GDM (control)",
-                         "GF (candidates)",
-                         "GF (control)",
-                         "LFMM (all SNPs)",
-                         "LFMM (candidates)",
-                         "LFMM (control)",
-                         "RDA (candidates)",
-                         "RDA (control)",
-                         "Average across methods and SNP sets")
-
-names(method_snpset_names) <- go_df %>% 
-  filter(! (snp_set == "cand_corrected")) %>%
-  mutate(meth_snpset = paste0(method, "_", snp_set)) %>% 
-  pull(meth_snpset) %>% 
-  unique() %>% 
-  c(.,"method_snpset_average")
+# save for the shiny app
+saveRDS(go_df, here("shiny/PredictionVariability/go_df.rds"))
 ```
+
+```{r}
+# Which method do we show on the graph? 
+selected_meth <- meth_names
+
+# Which SNP set do we show? 
+selected_sets <- names(snp_sets)[c(1,6)]
+
+# Subseting the dataset to keep only the method and SNP sets that we want for the figures
+sub_df <- go_df %>% 
+  filter(snp_set %in% selected_sets,
+         method %in% selected_meth)
+```
+
 
 
 ```{r BumpChartsSplittingPerMethSnpSet, results='hide', message=FALSE, fig.width=12, fig.height=7}
@@ -203,20 +242,16 @@ names(method_snpset_names) <- go_df %>%
 # Code the generate the bump charts
 # =================================
 
-
 # the colors I will use to color the populations with high GO
-my_colors <- c(brewer.pal(n=12, "Paired"),"#FF40EE")
+my_colors <- c(brewer.pal(n=12, "Paired"),"#FF40EE","cyan","yellow")
 
-bump_charts <- go_df %>% 
-  filter(! (snp_set == "cand_corrected")) %>% 
-  mutate(x_axis = method_snpset_names[paste0(method, "_", snp_set)]) %>%
+bump_charts <- sub_df %>% 
+  #filter(! (snp_set == "cand_corrected")) %>% 
+  # mutate(x_axis = method_snpset_names[paste0(method, "_", snp_set)]) %>%
   group_split(gcm) %>% 
   lapply(function(x){
     
-high_go_pops <- x %>% 
-  filter(rank < 4) %>% 
-  pull(pop) %>% 
-  unique()    
+high_go_pops <- x %>% filter(rank < 4) %>% pull(pop) %>% unique()    
 
 my_palette <- c(my_colors[1:length(high_go_pops)],"#E8E8E8")
 
@@ -232,13 +267,15 @@ sub <- x %>%
   mutate(pop = factor(pop, levels=c(setdiff(unique(x$pop),high_go_pops),high_go_pops)),
          pop_col = factor(pop_col, levels = c(high_go_pops,"Others")))
 
-p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
+p <- sub %>% ggplot(aes(x = method_snpset_names, y = rank, group = pop)) +
   geom_point(aes(color = pop_col), size = 2, alpha = 0.9) +
   geom_line(aes(color = pop_col), linewidth = 2, alpha = 0.8) +
   scale_y_reverse(breaks = 1:nrow(sub)) +
   scale_color_manual(values = my_palette) +
-  geom_text(data = sub %>% filter(x_axis == sub$x_axis[[length(sub$x_axis)]] & pop %in% high_go_pops),
-            aes(label = pop, x = 9.1) , hjust = 0.15, color = "gray20", size = 5) +#color = "#888888",
+  geom_text(data = sub %>% filter(method_snpset_names == last(levels(factor(sub$method_snpset_names))) & 
+                                    pop %in% high_go_pops),
+            aes(label = pop, x = length(unique(sub$method_snpset_names)) + 0.1) , 
+            hjust = 0.15, color = "gray20", size = 3) +#color = "#888888",
   theme_bw() +
   ylab("Population rank") +
   ggtitle(plot_title) +
@@ -246,12 +283,12 @@ p <- sub %>% ggplot(aes(x = x_axis, y = rank, group = pop)) +
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank(),
         legend.position = "none",
-        axis.text.y = element_text(size=12),
-        axis.text.x = element_text(size=11),
+        axis.text.y = element_text(size=10),
+        axis.text.x = element_text(size=11, angle = 60, hjust = 1),
         axis.title.y = element_text(size=16),
         axis.title.x = element_blank())
 
-ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf", width=13)
+ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_",unique(x$gcm),".pdf")), device = "pdf", width=11, height = 7)
 
 if(unique(x$gcm)=="GCMs_average"){
   p_manuscript <- p + ggtitle("") 
@@ -262,7 +299,7 @@ p
 
   })
 
-pdf(here("figs/PredictionVariability/BumpCharts_PerMethSnpSet.pdf"), width=12)
+pdf(here("figs/PredictionVariability/BumpCharts_PerMethSnpSet.pdf"), width=11, height = 7)
 lapply(bump_charts, function(x) x)
 dev.off()
 
@@ -276,17 +313,10 @@ We then compared the population ranks from the different GCMs (or from the avera
 
 In the plots below, we colored the populations that were among the three populations with the highest genomic offset in at least one GCM. 
 
-
-```{r BumpChartsSplittingPerGCM, results='hide', message=FALSE, fig.width=10, fig.height=7}
-go_df_gcm <- go_df %>% 
-  filter(! (snp_set == "cand_corrected")) %>% 
-  mutate(meth_snpset = paste0(method, "_", snp_set)) %>% 
-  dplyr::select(-method,-snp_set)
-  
-  
-bump_charts <- go_df_gcm %>% 
-  group_by(pop,gcm) %>% 
-  summarise(go =mean(go)) %>% 
+```{r BumpChartsSplittingPerGCM, fig.width=10, fig.height=7}
+bump_charts <- sub_df %>% 
+  group_by(pop, gcm) %>% 
+  summarise(go = mean(go)) %>% 
   ungroup() %>% 
   group_split(gcm) %>% 
   lapply(function(x){
@@ -295,8 +325,9 @@ bump_charts <- go_df_gcm %>%
       mutate(rank = rev(1:length(pop_names)))
   }) %>% 
   bind_rows() %>% 
-  mutate(meth_snpset = "method_snpset_average") %>% 
-  bind_rows(go_df_gcm) %>% 
+  mutate(meth_snpset = "method_snpset_average",
+         method_snpset_names = "Average across methods and SNP sets") %>% 
+  bind_rows(sub_df) %>% 
   group_split(meth_snpset) %>% 
   lapply(function(x){
 
@@ -310,20 +341,21 @@ my_palette <- c(my_colors[1:length(high_go_pops)],"#E8E8E8")
 df <- x %>% 
   mutate(flag = ifelse(pop %in% high_go_pops, TRUE, FALSE),
          pop_col = if_else(flag == TRUE, pop, "Others")) %>% 
-  mutate(pop = factor(pop, levels=c(setdiff(unique(go_df_gcm$pop),high_go_pops),high_go_pops)),
+  mutate(pop = factor(pop, levels=c(setdiff(unique(sub_df$pop),high_go_pops),high_go_pops)),
          pop_col = factor(pop_col, levels = c(high_go_pops,"Others")))
 
 
-p <- df %>% ggplot(aes(x = gcm, y = rank, group = pop)) +
+p <- df %>% 
+  ggplot(aes(x = gcm, y = rank, group = pop)) +
   geom_point(aes(color = pop_col), size = 2, alpha = 0.9) +
   geom_line(aes(color = pop_col), linewidth = 2, alpha = 0.8) +
-  scale_y_reverse(breaks = 1:nrow(go_df_gcm)) +
+  scale_y_reverse(breaks = 1:nrow(sub_df)) +
   scale_color_manual(values = my_palette) +
   geom_text(data = df %>% filter(gcm == "UKESM1-0-LL" & pop %in% high_go_pops),
             aes(label = pop, x = 6.1) , hjust = 0.15, color = "gray20", size = 5) +#color = "#888888",
   theme_bw() +
   ylab("Population rank") +
-  ggtitle(paste0(method_snpset_names[unique(x$meth_snpset)])) +
+  ggtitle(df$method_snpset_names) +
   theme(panel.grid.minor.y = element_blank(),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -338,8 +370,6 @@ ggsave(p, filename = here(paste0("figs/PredictionVariability/BumpChart_PopRank_"
 p
   })
 
-
-
 pdf(here("figs/PredictionVariability/BumpCharts_PerGCM.pdf"), width=10)
 lapply(bump_charts, function(x) x)
 dev.off()
@@ -350,14 +380,12 @@ bump_charts
 # Correlations
 
 ```{r CorrelationsPlots, fig.width=7, fig.height=7, results='hide'}
-go_df %>% 
-  filter(! (snp_set == "cand_corrected")) %>% 
-  mutate(meth_snpset = method_snpset_names[paste0(method, "_", snp_set)]) %>% 
+sub_df %>% 
   group_split(gcm) %>% 
   lapply(function(x){
     
     df_cor <- x %>% 
-      pivot_wider(id_cols=pop, values_from = go, names_from = meth_snpset)  %>% 
+      pivot_wider(id_cols = pop, values_from = go, names_from = method_snpset_names)  %>% 
       dplyr::select(-pop) %>% 
       cor()
     
@@ -381,7 +409,7 @@ go_df %>%
 
 # Maps
 
-```{r}
+```{r eval=F}
 list_highpops <- list(LFMM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
                       RDA = readRDS(here("outputs/RDA/high_go_pops.rds"))[[2]],
                       GDM = readRDS(here("outputs/GDM/high_go_pops.rds"))[[2]],

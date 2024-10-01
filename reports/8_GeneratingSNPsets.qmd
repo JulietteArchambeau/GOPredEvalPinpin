@@ -1,5 +1,5 @@
 ---
-title: "Generating sets of control and candidate SNPs"
+title: "Defining the sets of control and candidate SNPs"
 subtitle: "Identification of outlier SNPs in common among the different GEAs"
 date: last-modified
 format: 
@@ -56,17 +56,25 @@ source(here("scripts/functions/kable_mydf.R"))
 make_venndiagram <- function(list_candidates,
                              caption="",
                              label="both",
-                             title=""){
+                             title="",
+                             title_size = 10,
+                             set_size = 4){
 
 list_candidates %>% 
-    ggVennDiagram(lty="solid", size=0.2, label = "count", label_alpha=0, edge_size = 0.4) + 
+    ggVennDiagram(lty="solid", 
+                  ize=0.2, 
+                  label = "count", 
+                  label_alpha=0, 
+                  edge_size = 0.4,
+                  set_size = set_size) + 
   scale_fill_gradient2(low = "white", high = 'darkgoldenrod3') + 
   scale_color_manual(values = rep("darkgoldenrod1",6)) + 
   guides(fill = "none") + 
   labs(caption=caption) +
   ggtitle(title) +
-  theme(text = element_text(size=16),
-        plot.caption = element_text(hjust=0.5, size=rel(1.2))) + 
+  theme(text = element_text(size= 16),
+        plot.caption = element_text(hjust=0.5, size=rel(1.2)),
+        title = element_text(size = title_size)) + 
   scale_x_continuous(expand = expansion(mult = .2))
 }
 ```
@@ -156,18 +164,24 @@ list_candidates$"BayPass" <- readRDS(here("outputs/BayPass/baypass_outliers.rds"
 
 
 
-# Common candidate SNPs
+# Defining the sets of candidate SNPs
 
-Let's look at the common candidates across the different GEA methods. 
+Let's look at the common candidates across the different GEA methods and define which sets of candidates we will use for genomic offset predictions.
 
 
-```{r VennDiagramCommoncandidates,fig.height=5,fig.width=8}
+```{r VennDiagramCommoncandidates,fig.height=5,fig.width=5}
 # generating the Venn diagrams showing common candidates across GEA methods
 make_venndiagram(list_candidates[c("RDA (mahalanobis)","GF")],
-                 caption = "GEA methods not correcting for population structure",label="count")
+                 caption = "GEA methods not correcting for population structure",
+                 label="count",
+                 title_size = 10)
 make_venndiagram(list_candidates[c("pRDA (mahalanobis)","LFMM","BayPass")],
-                 caption = "GEA methods correcting for population structure",label="count")
+                 caption = "GEA methods correcting for population structure",
+                 label="count",
+                 title_size = 10)
 
+# All candidate SNPs
+all_cand <- list_candidates[c("RDA (mahalanobis)","GF","pRDA (mahalanobis)","LFMM","BayPass")] %>% unlist() %>% unique()
 
 # Identifying SNPs identified by at least two GEA methods
 common_cand_notcorrected <- list_candidates[c("RDA (mahalanobis)","GF")] %>% unlist() %>% .[duplicated(.)] %>% unique()
@@ -184,25 +198,29 @@ common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)",
 
 **Possible sets of candidate SNPs:**
 
-  1. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
+  1. SNPs identified by at least one method  => <span style="color: OrangeRed;">`r all_cand %>% length()` SNPs.</span>
+  
+  2. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
 
-  2. SNPs that were identified by at least one GEA method not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  3. SNPs that were identified by at least one GEA method not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
   
-  3. SNPs that were identified by at least one GEA method correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  4. SNPs that were identified by at least one GEA method correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
   
-  4. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
+  5. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
   
-  5. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass %>% length()` SNPs.</span>
+  6. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass %>% length()` SNPs.</span>
   
-  6. SNPs in common between *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_intersect %>% length()` SNPs.</span>
+  7. SNPs in common between *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_intersect %>% length()` SNPs.</span>
   
-  7. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
+  8. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
 
 <span style="color: OrangeRed;">`r length(intersect(common_cand_corrected,common_cand_notcorrected))` SNPs</span> are in common between the sets 2 and 3.
 
 > Our choice
 
-In the following analyses, we use **the set with SNPs identified by at least two methods** (set 1) (**`r common_cand %>% length()` SNPs**). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF). 
+In the first version of the study, we used **the set with SNPs identified by at least two methods** (set 2) (**`r common_cand %>% length()` SNPs**). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF). 
+
+After the first round of review, we also included the set of SNPs identified by at least one method (set 2)=; `r all_cand %>% length()` SNPs), as a reviewer expressed concern that the initial set of candidate SNPs was too small.
 
 ```{r VennDiagrammSelectedMethods,fig.height=7,fig.width=7}
 make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")],
@@ -218,10 +236,9 @@ In @capblancq2023common, they selected the SNPs that were in the top 0.2% for at
 
 ### Figure 2 of the manuscript
 
+We generate the figure for the main manuscript (Figure 2).
 
 #### Venn diagram (first version)
-
-We generate the figure for the main manuscript (Figure 2).
 
 ```{r GeneratingFigure2ManuscriptVennDiagram}
 selected_methods <- list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")]
@@ -237,12 +254,26 @@ ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", w
 Following a reviewer’s comment, we updated Figure 2 from a Venn diagram to a more comprehensive [upset plot](https://r-graph-gallery.com/upset-plot.html). 
 
 
-```{r GeneratingFigure2ManuscriptUpsetPlot, fig.width=7, fig.height=7}
+```{r GeneratingFigure2ManuscriptUpsetPlot, fig.width=9, fig.height=7, results="hide"}
+color_two_methods_snps <- "orange"
+color_one_method_snps <- "cyan"  # "gray60"
+
+p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1, 
+      main.bar.color = c(rep(color_one_method_snps,4),rep(color_two_methods_snps,3),color_one_method_snps,rep(color_two_methods_snps, 11)),
+      matrix.color = color_two_methods_snps,
+      
+      queries = list(list(query = intersects, params=names(selected_methods)[1], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[2], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[3], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
+
 pdf(file=here("figs/UpsetPlot_CommonOutliers.pdf"), onefile=FALSE, width = 5, height = 5)
-upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1)
+p
 dev.off()
 
-upset(fromList(selected_methods),order.by = "freq")
+p
+
 ```
 
 # Genome position of candidate SNPs
@@ -292,7 +323,7 @@ If we keep only one SNP per scaffold, we will have:
 When some SNPs are on the same scaffold, we remove the SNPs with higher $p$-values in the RDA.
 
 ```{r rmSNPsSameGenomePosition}
-snp_to_remove <- lapply(list(common_cand,common_cand_corrected), function(set){
+snp_to_remove <- lapply(list(common_cand,common_cand_corrected,all_cand), function(set){
 
   snppos %>% 
   dplyr::filter(snp_ID %in% set) %>% 
@@ -314,6 +345,7 @@ rda_outliers[[3]]$GSout %>%
 
 common_cand <- setdiff(common_cand, snp_to_remove[[1]])
 common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
+all_cand <- setdiff(all_cand, snp_to_remove[[3]])
 ```
 
 # Control SNPs
@@ -323,15 +355,15 @@ common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
 We *randomly* sample a set of SNPs (the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
 
 ```{r ControlSNPs, eval=T}
+all_snps_id <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv")) %>% .[[1]]
+
 nb_snps <- common_cand %>% length()
 
 # names of the SNPs that were identified by at least one GEA method
 all_candidates <- list_candidates %>% unlist() %>% unique()
 
 # remove the candidates from the set of SNPs used in the GEA analyses
-no_candidates <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv")) %>% 
-  pull(snp_ID) %>% 
-  setdiff(all_candidates)
+no_candidates <- all_snps_id %>% setdiff(all_candidates)
 
 # sample the set of control SNPs
 set.seed(36)
@@ -411,35 +443,36 @@ We save three sets of SNPs:
   - the candidate SNPs with correction for population structure, i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
   
   - the control SNPs.
-  
-::: {.callout-note}
-In the paper and in the validation steps, we only use the candidate (i.e., those identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*) and control SNPs.
-:::
+
+*<span style="color: orange;">Comment: </span>*In the paper and in the validation steps, we only use the candidate (i.e., those identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*) and control SNPs.
 
 
 ```{r SaveThreeSetsSNPs, eval=T}
-snp_sets <- list(cand = list(set_code = "cand",
-                             set_name = "Candidate SNPs",
-                             set_snps = common_cand),
-                 cand_corrected = list(set_code = "cand_corrected",
-                                       set_name = "Candidate SNPs (with correction)",
+snp_sets <- list(all_cand = list(set_code = "all_cand",
+                                 set_name = "All candidate SNPs",
+                                 set_snps = all_cand),
+                 common_cand = list(set_code = "common_cand",
+                                    set_name = "Common candidate SNPs",
+                                    set_snps = common_cand),
+                 common_cand_corrected = list(set_code = "common_cand_corrected",
+                                       set_name = "Common candidate SNPs (with correction)",
                                        set_snps = common_cand_corrected),
                  control = list(set_code = "control",
                                 set_name = "Control SNPs",
                                 set_snps = control_snps),
                  control_simfreq = list(set_code = "control_simfreq", 
                                         set_name = "Control SNPs with similar frequencies",
-                                        set_snps = random_snps_with_similar_freq))
+                                        set_snps = random_snps_with_similar_freq),
+                 all = list(set_code = "all",
+                            set_name = "All SNPs",
+                            set_snps = all_snps_id))
+
+
 
 saveRDS(snp_sets,here("outputs/list_snp_sets.rds"))
 ```
 
-::: {.callout-note}
-##### DRYAD repository
-
-We update the dataset `data/GenomicData/SNPsInformation.csv` containing information of SNP position on the genome and the different SNP IDs used across studies/assays (see report `1_FormattingGenomicData.Rmd`) with information on outlier SNPs. This updated dataset is exported in the DRYAD repository: file `SNPsInformation_WithOutliers.csv`.
-:::
-
+*<span style="color: orange;">Comment regarding the DRYAD repository: </span>* We update the dataset `data/GenomicData/SNPsInformation.csv` containing information of SNP position on the genome and the different SNP IDs used across studies/assays (see report `1_FormattingGenomicData.Rmd`) with information on outlier SNPs. This updated dataset is exported in the DRYAD repository: file `SNPsInformation_WithOutliers.csv`.
 Meaning of the columns:
 
   1. `snp_ID`: SNP ID used in the present study.

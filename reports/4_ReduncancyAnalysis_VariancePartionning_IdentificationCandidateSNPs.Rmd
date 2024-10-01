@@ -1895,14 +1895,13 @@ snps_identifiedwithoutMAF_notwithMAF <- setdiff(outliers_withoutMAF$outliers$snp
 snps_identifiedwithMAF_notwithoutMAF <- setdiff(rda_outliers$outliers$snp,outliers_withoutMAF$outliers$snp)
 ```
 
-`r length(snps_identifiedwithoutMAF_notwithMAF)` SNPs were identified in the RDA corrected *without* MAF but not in the RDA corrected *with* MAF.
+`r length(snps_identifiedwithoutMAF_notwithMAF)` SNPs (over a total of `r length(outliers_withoutMAF$outliers$snp)` SNPs) were identified in the RDA corrected *without* MAF but not in the RDA corrected *with* MAF.
 
 ```{r}
 snps_identifiedwithoutMAF_notwithMAF
 ```
 
-
-`r length(snps_identifiedwithMAF_notwithoutMAF)` SNPs were identified in the RDA corrected *with* MAF but not in the RDA corrected *without* MAF. 
+`r length(snps_identifiedwithMAF_notwithoutMAF)` SNPs (over a total of `r length(rda_outliers$outliers$snp)` SNPs)  were identified in the RDA corrected *with* MAF but not in the RDA corrected *without* MAF. 
 
 ```{r}
 snps_identifiedwithMAF_notwithoutMAF

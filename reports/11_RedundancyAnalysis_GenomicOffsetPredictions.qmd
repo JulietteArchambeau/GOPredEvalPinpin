@@ -80,11 +80,6 @@ geno <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_witho
 # SNP sets
 # ========
 snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
-
-# We had a set with all SNPs to the list
-snp_sets$all <- list(set_code = "all",
-                     set_name = "All SNPs",
-                     set_snps = names(geno))
 ```
 
 > Climatic data
@@ -236,7 +231,7 @@ We may project the genetic composition across the landscape as estimated by the 
 
 ```{r ProjectingAdaptiveIndex, eval=F}
 # SNP set
-selected_snp_set <- "cand"
+selected_snp_set <- "common_cand"
 
 # Load the function to make the projections
 source(here("scripts/functions/project_adaptive_index.R"))
@@ -632,8 +627,8 @@ For each GCM, we can attribute the value `1` to the top five populations with th
 source(here("scripts/functions/make_high_go_pop_maps.R"))
 
 high_go_pops <- make_high_go_pop_maps(pop_coord=pop_coord,
-                                      list_go = snp_sets$cand$go_uncorrected,
-                                      ggtitle="Candidate SNPs - RDA uncorrected",
+                                      list_go = snp_sets$common_cand$go_uncorrected,
+                                      ggtitle="Common candidate SNPs - RDA uncorrected",
                                       nb_id_pop = 5) # number of selected populations
 
 saveRDS(high_go_pops, file = here(paste0("outputs/RDA/high_go_pops_",rda_method,".rds")))
@@ -1088,10 +1083,10 @@ lapply(snp_sets, function(x) {
 
 # Figure for the SI
 # =================
-if(x$set_code=="cand"){ 
+if(x$set_code=="common_cand"){ 
   p_SI <- p + theme(plot.title = element_blank())
-  ggsave(here(paste0("figs/RDA/NFI_GOmap_CandidateSNPs_PS",correction,"_",rda_method,".pdf")), p_SI, width=6,height=6, device="pdf")
-  ggsave(here(paste0("figs/RDA/NFI_GOmap_CandidateSNPs_PS",correction,"_",rda_method,".png")), p_SI, width=6,height=6)
+  ggsave(here(paste0("figs/RDA/NFI_GOmap_CommonCandidateSNPs_PS",correction,"_",rda_method,".pdf")), p_SI, width=6,height=6, device="pdf")
+  ggsave(here(paste0("figs/RDA/NFI_GOmap_CommonCandidateSNPs_PS",correction,"_",rda_method,".png")), p_SI, width=6,height=6)
   
   } else if(x$set_code=="control"){
     p_SI <- p + theme(plot.title = element_blank())
