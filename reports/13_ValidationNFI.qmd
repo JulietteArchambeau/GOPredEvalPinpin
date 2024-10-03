@@ -632,7 +632,14 @@ coefftab <- lapply(unique(df$method), function(method_i){
        
 
 # Running the Stan model
-mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4,init=0, save_warmup = FALSE)
+mod <- sampling(stancode, 
+                data = stanlist, 
+                iter = 2000, 
+                hains = 4, 
+                cores = 4,
+                init=0, 
+                save_warmup = FALSE,
+                warmup = 1000)
 
 # Model coefficients
 conf95 <- broom.mixed::tidyMCMC(mod,
@@ -1150,10 +1157,14 @@ Below, we plot the 95% credible intervals of:
 ```{r IntervalPlotsM62, fig.height=5, fig.width=5, eval=T, results="hide"}
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
   
-coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{GO}$",c(0.73,0.825)),#"$\\beta_{GO}$ estimates",
-                    beta_C=list("Regression coefficients $\\beta_C$",c(0.77,0.16)),
-                    beta_DBH=list("Regression coefficients $\\beta_{DBH}$",c(0.77,0.16)),
-                    beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$",c(0.77,0.8)))
+coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{GO}$",
+                                 c(0.73,0.825)), #"$\\beta_{GO}$ estimates",
+                    beta_C=list("Regression coefficients $\\beta_C$",
+                                c(0.73,0.2)),
+                    beta_DBH=list("Regression coefficients $\\beta_{DBH}$",
+                                  c(0.73,0.2)),
+                    beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$",
+                                    c(0.73,0.8)))
 
 p <- lapply(c("beta_GO","beta_C","beta_DBH","beta_C_DBH"), function(coeff){
   
