@@ -202,9 +202,9 @@ common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)",
   
   2. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
 
-  3. SNPs that were identified by at least one GEA method not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  3. SNPs identified by at least two methods not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
   
-  4. SNPs that were identified by at least one GEA method correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  4. SNPs identified by at least two methodss correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
   
   5. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
   
@@ -449,22 +449,22 @@ We save three sets of SNPs:
 
 ```{r SaveThreeSetsSNPs, eval=T}
 snp_sets <- list(all_cand = list(set_code = "all_cand",
-                                 set_name = "All candidate SNPs",
+                                 set_name = paste0("All candidate SNPs (", length(all_cand),")"),
                                  set_snps = all_cand),
                  common_cand = list(set_code = "common_cand",
-                                    set_name = "Common candidate SNPs",
+                                    set_name = paste0("Common candidate SNPs (", length(common_cand),")"),
                                     set_snps = common_cand),
                  common_cand_corrected = list(set_code = "common_cand_corrected",
-                                       set_name = "Common candidate SNPs (with correction)",
-                                       set_snps = common_cand_corrected),
+                                              set_name = paste0("Common candidate SNPs with pop. struct. correction (", length(common_cand_corrected),")"),
+                                              set_snps = common_cand_corrected),
                  control = list(set_code = "control",
-                                set_name = "Control SNPs",
+                                set_name = paste0("Control SNPs with random frequencies (", length(control_snps),")"),
                                 set_snps = control_snps),
                  control_simfreq = list(set_code = "control_simfreq", 
-                                        set_name = "Control SNPs with similar frequencies",
+                                        set_name = paste0("Control SNPs with similar frequencies (", length(random_snps_with_similar_freq),")"),
                                         set_snps = random_snps_with_similar_freq),
                  all = list(set_code = "all",
-                            set_name = "All SNPs",
+                            set_name = paste0("All SNPs (", length(all_snps_id),")"),
                             set_snps = all_snps_id))
 
 
