@@ -69,7 +69,7 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 
 **Goal:** Estimating the association between genomic offset (GO) predictions and mortality rates in natural populations of maritime pine (i.e., National Forest Inventory plots).
 
-Mortality rates in natural populations are considered as a proxy of the absolute fitness of the populations. A positive association between GO predictions and the mortality rates would suggest that GO captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, nonadditive genetic variance).
+Mortality rates in natural populations are considered as a proxy of the absolute fitness of the populations. A positive association between GO predictions and the mortality rates would suggest that GO captures maladaptation in the face of demographic complexity (i.e., the effects of other processes on spatial variance in allele frequencies, such as expansion history and gene flow) as well as the genetic architecture of climate adaptation (polygenic trait architectures, G×E interactions, non-additive genetic variance).
 
 We use mortality data from the French and Spanish National Forest Inventories (NFI) harmonized in @changenet2021occurrence. The French data relies on temporary plots sampled between 2005 and 2014 while the Spanish data relies on permanent plots sampled during the second (from 1986 to 1996) and third NFIs (from 1997 to 2008). A tree was recorded as dead if its death was dated at less than 5 years ago in the French NFI or if it was alive in the second inventory but dead in the third one in the Spanish NFI. 
 
@@ -97,7 +97,7 @@ m_i &\sim \text{Binomial}(N_i,p_i)\\
   
   - $C_{i}$ is the basal area of all tree species confounded in the plot $i$ (to account for the competition among trees), with its associated coefficient $\beta_{C}$,
   
-  - $GO_{i}$ is the genomic offset predicted in the plot $i$, with its associated coefficient $\beta_{GO}$. 
+  - $X_{i}$ is the climatic distance (between the reference climate and the climate of the inventory period) or genomic offset predicted in the plot $i$, with its associated coefficient $\beta_{X}$. Note that in the scripts this variable is noted as $GO_i$, and its regression coefficient $\beta_{GO}$, because we initially did not include the climatic distances as predictors.
   
   
 ## Model with competition and tree age as covariates
@@ -107,7 +107,7 @@ This model corresponds to the model M6_2 in the report `14_ValidationNFI_ModelCo
 
 \begin{align*}
 m_i &\sim \text{Binomial}(N_i,p_i)\\
-\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C} C_i + \beta_{DBH} DBH_i + \beta_{C*DBH} C_i DBH_i + \beta_{GO} GO_i + \text{log}(\Delta_i) \\
+\text{log}(-\text{log}(1-p_i)) &= \beta_{0,c} +  \beta_{C} C_i + \beta_{DBH} DBH_i + \beta_{C*DBH} C_i DBH_i + \beta_{X} X_i + \text{log}(\Delta_i) \\
 \end{align*}
 
 
@@ -119,7 +119,7 @@ We present the results from this model in the main manuscript.
 
 We used the following weakly informative priors:
 
-$$\begin{bmatrix}  \beta_{0,c} \\ \beta_C \\ \beta_{GO} \\ \beta_{DBH} \\ \beta_{C*DBH} \end{bmatrix} \sim \text{Normal}(0,1)$$
+$$\begin{bmatrix}  \beta_{0,c} \\ \beta_C \\ \beta_{X} \\ \beta_{DBH} \\ \beta_{C*DBH} \end{bmatrix} \sim \text{Normal}(0,1)$$
 
 # NFI data
 
@@ -534,6 +534,43 @@ p %>% ggsave(filename = here("figs/ValidationNFI/ClimaticCoverage_Bio4vsSHM.pdf"
 p
 ```
 
+# Climatic distances
+
+We calculate the climatic distances between the climate during the period 1901-1950 and the climate during the inventory period. The climatic distances were calculated separately for each climatic variable and we also calculated the Euclidean climatic distances based on all selected climatic variables.
+
+```{r CalculateClimaticDistances}
+# selected climatic variables
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
+
+# Load the climatic data of the NFI plots.
+nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+  
+# Keep only the climatic variables of interest and scale the climatic data
+source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
+nfi_dfs <- generate_scaled_nfi_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)
+
+clim_dist <- lapply(clim_var, function(var){(nfi_clim[[2]][[var]] - nfi_clim[[1]][[var]]) %>% abs()}) %>% 
+  setNames(clim_var) %>% 
+  bind_rows() %>% 
+  bind_cols(nfi_clim[[1]][,1],.)
+
+# Calculating the Euclidean distances for all climatic variables
+clim_dist$EucliDist <- map_dbl(1:nrow(nfi_dfs[[1]]),
+                               ~ sqrt(sum((nfi_dfs[[1]][.x,clim_var] - nfi_dfs[[2]][.x,clim_var])^2)))
+
+clim_dist <- clim_dist %>% 
+  pivot_longer(cols=c(any_of(clim_var),"EucliDist"),names_to="snp_set_code",values_to="GO") %>% 
+  mutate(method = "CD",
+         method_snp_set_code = paste0("CD_",snp_set_code),
+         snp_set_name = case_when(snp_set_code == "bio1" ~ "Mean annual temperature (bio1, °C)",
+                                  snp_set_code == "bio12" ~ "Annual precipitation (bio12, mm)",
+                                  snp_set_code == "bio15" ~ "Precipitation seasonality (bio15, index)",
+                                  snp_set_code == "bio3" ~ "Isothermality (bio3, index)",
+                                  snp_set_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
+                                  snp_set_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
+                                  snp_set_code == "EucliDist" ~ "Euclidean climatic distance"),
+         method_snp_set_name = paste0("CD - ", snp_set_name)) 
+```
 
 # Genomic offset predictions
 
@@ -578,7 +615,8 @@ saveRDS(df, here("outputs/ValidationNFI/go_nfi_predictions.rds"))
 ```
 
 ```{r LoadGOpredictions}
-df <- readRDS(here("outputs/ValidationNFI/go_nfi_predictions.rds"))
+df <- readRDS(here("outputs/ValidationNFI/go_nfi_predictions.rds")) %>% 
+  bind_rows(clim_dist)
 ```
 
 
@@ -588,7 +626,7 @@ We estimate the regression coefficients between genomic offset predictions and m
 
 ```{r SettingColorsForIntervalPlots}
 # Colors for the different sets of GO method (GDM, GF, LFMM and RDA) / SNP set (control and candidate SNPs, and all SNPs for LFMM)
-colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
+colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","aquamarine3","#FEB5A2FF","#F02720FF","darkviolet","deeppink","cyan2","chocolate4")
 ```
 
 
@@ -682,7 +720,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationNFI/ModelM3_coefftab.rds"))
 
 Below, we plot the 95% credible intervals of:
 
-  - the **$\beta_{GO}$ coefficients**, which stand for the association between mortality rates in NFI plots and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations at the location of the NFI plots).
+  - the **$\beta_{X}$ coefficients**, which stand for the association between mortality rates in NFI plots and the genomic offset predictions or the climatic distances.
   
   - the **$\beta_C$ coefficients**, which stands for the association between the tree basal area (all species confounded) in the NFI plots and the mortality rates.
 
@@ -813,15 +851,13 @@ print(stancode)
 
 ### Running the model
 
-Running the model for each method (GDM, LFMM, GF and RDA) and each input (all SNPs - only for LFMM-, candidate SNPs and control SNPs):
-
 ```{r RunMortalityModelsM62, eval=F}
 # Parameters to estimate
 params_to_estimate <- c("alpha_country","beta_GO","beta_C", "beta_DBH","beta_C_DBH")
 
 # Running one model for each of the nine sets of method / SNP set
-coefftab <- lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
-    
+lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
+
   # Subset the data - keeping only one set of method / SNP set
   sub_data <- df %>% 
     filter(method_snp_set_code == method_snp_set_i) %>% 
@@ -912,8 +948,27 @@ coefftab <- lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
 ```{r MergeCoeffTablesMortalityModelsM62, eval=F}
 lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
   readRDS(file=here(paste0("outputs/ValidationNFI/StanModels/ModelM62_",method_snp_set_i,"_coefftab.rds")))
-}) %>% 
+  }) %>% 
   bind_rows() %>% 
+  mutate(snp_set_name = factor(snp_set_name, levels = c(unique(coefftab$snp_set_name)[[6]],
+                                                        unique(coefftab$snp_set_name)[[4]],
+                                                        unique(coefftab$snp_set_name)[[5]],
+                                                        unique(coefftab$snp_set_name)[[3]],
+                                                        unique(coefftab$snp_set_name)[[1]],
+                                                        unique(coefftab$snp_set_name)[[2]],
+                                                        unique(coefftab$snp_set_name)[[7]],
+                                                        unique(coefftab$snp_set_name)[[8]],
+                                                        unique(coefftab$snp_set_name)[[9]],
+                                                        unique(coefftab$snp_set_name)[[10]],
+                                                        unique(coefftab$snp_set_name)[[11]],
+                                                        unique(coefftab$snp_set_name)[[12]],
+                                                        unique(coefftab$snp_set_name)[[13]])),
+          method = factor(method, levels = c(unique(coefftab$method)[[1]],
+                                             unique(coefftab$method)[[2]],
+                                             unique(coefftab$method)[[3]],
+                                             unique(coefftab$method)[[4]],
+                                             unique(coefftab$method)[[5]],
+                                             unique(coefftab$method)[[6]]))) %>% 
   saveRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
 ```
 
@@ -928,8 +983,9 @@ Let's visualize the uncertainty around the estimation of the probability of tree
 ############################################################################################
 # Visualizing the relationships between GO predictions and mortality probability predictions
 ############################################################################################
+selected_method_snp_set <- unique(df$method_snp_set_code)[!grepl("CD", unique(df$method_snp_set_code))]
 
-myplots <- lapply(unique(df$method_snp_set_code), function(method_snp_set_code_i){
+myplots <- lapply(selected_method_snp_set, function(method_snp_set_code_i){
 
 # We load the stanlist
 stanlist <- readRDS(file = here(paste0("outputs/ValidationNFI/StanModels/M62_",method_snp_set_code_i,".rds")))$stanlist
@@ -1117,13 +1173,13 @@ delta_p_neg <- (p_pred_sub$p_mean[p_pred_sub$x==-1] * 100 / p_pred_sub$p_mean[p_
 
 tibble("Method" = df %>% filter(method_snp_set_code == method_snp_set_code_i) %>% .[["method_snp_set_name"]] %>% unique(),
        "Country"=country_i,
-         "p(GO=-1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==-1], " [",
+         "p(X=-1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==-1], " [",
                        p_pred_sub$hpdi_l[p_pred_sub$x==-1],";",
                        p_pred_sub$hpdi_h[p_pred_sub$x==-1],"]"),
-       "p(GO=0)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==0], " [",
+       "p(X=0)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==0], " [",
                        p_pred_sub$hpdi_l[p_pred_sub$x==0],";",
                        p_pred_sub$hpdi_h[p_pred_sub$x==0],"]"),
-       "p(GO=1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==1], " [",
+       "p(X=1)"=paste0(p_pred_sub$p_mean[p_pred_sub$x==1], " [",
                        p_pred_sub$hpdi_l[p_pred_sub$x==1],";",
                        p_pred_sub$hpdi_h[p_pred_sub$x==1],"]"),
        "+Δp"=paste0(round(delta_p_pos,3),"%"),
@@ -1145,7 +1201,7 @@ readRDS(file = here("tables/MortalityPredNFI.rds"))  %>% kable_mydf()
 
 Below, we plot the 95% credible intervals of:
 
-  - the **$\beta_{GO}$ coefficients**, which stand for the association between mortality rates in NFI plots and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations at the location of the NFI plots).
+  - the **$\beta_{X}$ coefficients**, which stand for the association between mortality rates in NFI plots and the genomic offset predictions (i.e. capturing the potential maladaptation of the populations at the location of the NFI plots).
   
   - the **$\beta_C$ coefficients**, which stands for the association between the tree basal area (all species confounded) in the NFI plots and the mortality rates.
   
@@ -1154,45 +1210,46 @@ Below, we plot the 95% credible intervals of:
     - the **$\beta_{C*DBH}$ coefficients**, which stands for the interaction between the mean DBH and the tree basal area.
 
 
-```{r IntervalPlotsM62, fig.height=5, fig.width=5, eval=T, results="hide"}
+```{r IntervalPlotsM62, fig.height=8, fig.width=10, eval=T, results="hide"}
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
   
-coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{GO}$",
-                                 c(0.73,0.825)), #"$\\beta_{GO}$ estimates",
+coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{X}$",
+                                 c(0.4,0.85),
+                                 c(-0.2,0.4)), 
                     beta_C=list("Regression coefficients $\\beta_C$",
-                                c(0.73,0.2)),
+                                c(0.4,0.85),
+                                c(-0.01,0.2)),
                     beta_DBH=list("Regression coefficients $\\beta_{DBH}$",
-                                  c(0.73,0.2)),
+                                  c(0.4,0.85),
+                                  c(-0.05,0.45)),
                     beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$",
-                                    c(0.73,0.8)))
+                                    c(0.4,0.85),
+                                    c(-0.2,0.1)))
 
 p <- lapply(c("beta_GO","beta_C","beta_DBH","beta_C_DBH"), function(coeff){
   
 p <- coefftab %>% 
   filter(term==coeff) %>% 
-  # mutate(snp_set_name=factor(snp_set_name, levels=c("All SNPs",
-  #                                                   "Candidate SNPs",
-  #                                                   "Control SNPs"))) %>%
-    ggplot(aes(x = method,
+  ggplot(aes(x = method,
                y = median,
                ymin = conf95_low, 
                ymax = conf95_high,
                color = snp_set_name,
                shape = snp_set_name)) +
-  {if(coeff=="beta_GO")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
+  {if(coeff=="beta_GO")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.005)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
   ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
-  ylim(c(-0.15,0.26)) +
+  ylim(coeff_match[[coeff]][[3]]) +
   scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  scale_shape_manual(values = c(rep(16,6),rep(17,7))) +
   theme_bw() +
-  labs(color="SNP set",shape="SNP set") +
+  labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
         axis.text.y = element_text(size=13),
         axis.title.y = element_text(size=16),
         axis.title.x = element_text(size=1),
-        legend.title=element_text(size=10), 
+        legend.title=element_blank(), 
         legend.box.background = element_rect(colour = "gray", linewidth=0.6),
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
@@ -1200,75 +1257,14 @@ p <- coefftab %>%
         legend.text=element_text(size=9),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
-  guides(color=guide_legend(ncol=1),
+  guides(color=guide_legend(ncol=2),
          shape = guide_legend(override.aes = list(size =2 )))
 
 # save in pdf and png
 ggsave(p,file=here(paste0("figs/ValidationNFI/ModelM62_",coeff,"_IntervalPlots.pdf")),
        device="pdf",
-       height=6,
-       width=8)
-
-return(p)
-
-})
-
-p
-```
-
-```{r IntervalPlotsM62, fig.height=5, fig.width=5, eval=T, results="hide"}
-coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
-  
-coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{GO}$",c(0.77,0.85)),#"$\\beta_{GO}$ estimates",
-                    beta_C=list("Regression coefficients $\\beta_C$",c(0.77,0.16)),
-                    beta_DBH=list("Regression coefficients $\\beta_{DBH}$",c(0.77,0.16)),
-                    beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$",c(0.77,0.8)))
-
-p <- lapply(c("beta_GO","beta_C","beta_DBH","beta_C_DBH"), function(coeff){
-  
-p <- coefftab %>% 
-  filter(term==coeff) %>% 
-  mutate(method_input=case_when(method_input=="all" ~ "All SNPs",
-                                method_input=="cand" ~ "Candidate SNPs",
-                                method_input=="control" ~ "Control SNPs")) %>% 
-  mutate(method_input=factor(method_input, levels=c("All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs"))) %>% 
-    ggplot(aes(x = method_type,
-               y = median,
-               ymin = conf95_low, 
-               ymax = conf95_high,
-               color=method_input,
-               shape=method_input)) +
-  {if(coeff=="beta_GO")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
-  geom_hline(yintercept = 0,color="gray") +
-  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
-  ylab(TeX(coeff_match[[coeff]][[1]])) + xlab("") +
-  ylim(c(-0.15,0.26)) +
-  scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
-  theme_bw() +
-  labs(color="SNP set",shape="SNP set") +
-  theme(axis.text.x =  element_text(size=13),
-        axis.text.y = element_text(size=13),
-        axis.title.y = element_text(size=16),
-        axis.title.x = element_text(size=1),
-        legend.title=element_text(size=13), 
-        legend.box.background = element_rect(colour = "gray", linewidth=0.6),
-        strip.text.x = element_text(size = 16),
-        strip.background = element_blank(),
-        legend.position = coeff_match[[coeff]][[2]],
-        legend.text=element_text(size=12),
-        panel.grid.minor.x=element_blank(),
-        panel.grid.major.x=element_blank()) +
-  guides(color=guide_legend(ncol=1),
-         shape = guide_legend(override.aes = list(size =2 )))
-
-# save in pdf and png
-ggsave(p,file=here(paste0("figs/ValidationNFI/ModelM62_",coeff,"_IntervalPlots.pdf")),
-       device="pdf",
-       height=5,
-       width=5)
+       height=8,
+       width=10)
 
 return(p)
 
@@ -1285,17 +1281,17 @@ We evaluated the probability that the estimated relationship between the mortali
 ```{r IntervalPlotsComparingRandomVsPredictedGOM62, fig.height=12,fig.width=8, eval=T}
 # Load the coefficient values of models with predicted GO
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds")) %>% 
-  mutate(run_ID=method,
-         GO="predicted") %>% 
+  mutate(run_ID = method_snp_set_name,
+         GO = "predicted") %>% 
   dplyr::filter(term == "beta_GO") %>%
   dplyr::select(run_ID, GO, mean, contains("conf"))
 
 # Load the coefficient values of models with random GO and merge with the predicted GO coefficient table
 coefftab <- readRDS(file=here(paste0("outputs/ValidationNFI/Simulations/100simulations_m6_2_truedata_randomGO.rds"))) %>% 
-  bind_rows(.id="sim_ID") %>% 
+  bind_rows(.id = "sim_ID") %>% 
   dplyr::filter(term == "beta_GO") %>%
   mutate(run_ID = paste0("sim ",sim_ID),#run_ID = paste0("Simulation ",sim_ID),
-         GO="random") %>% 
+         GO = "random") %>% 
   dplyr::select(run_ID, GO, mean, contains("conf")) %>% 
   bind_rows(coefftab)
   
@@ -1305,18 +1301,21 @@ p <- coefftab %>%
   geom_vline(xintercept = 0, color="gray30") +
   geom_errorbar(aes(xmin = conf95_low, xmax = conf95_high, color=GO)) +
   scale_color_manual(values=c("magenta","gray"),
-                     name = "Genomic offset") +
+                     name = "Predictor") +
   geom_point() +
   theme_bw() +
-  labs(x="GO effect size", y="") +
-  theme(axis.text.y = element_text(size=6))
+  labs(x="Predictor effect size", y="") +
+  theme(axis.text.y = element_text(size=6),
+        legend.box.background = element_rect(colour = "gray", linewidth=0.6),
+        legend.position = c(0.9,0.1),
+        legend.text=element_text(size=10))
 
 # save the plot in pdf
 ggsave(p,
        file=here(paste0("figs/ValidationNFI/ModelM62_IntervalPlots_RandomGO_vs_PredictedGO.pdf")),
        device="pdf",
-       height=10,
-       width=8)
+       height=12,
+       width=10)
 
 p
 ```
@@ -1624,8 +1623,6 @@ saveRDS(coefftab_nfi, file=here(paste0("outputs/ValidationNFI/M62_CoeffTable_Wit
 coefftab_nfi <- readRDS(file=here(paste0("outputs/ValidationNFI/M62_CoeffTable_WithoutGO.rds")))
 ```
 
-Here is an improved version of your comments, enhancing clarity and ensuring the English is precise:
-
 Correlation between the mean and median estimates of the annual probability of mortality that can be explained by the confounding factors (i.e. competition, mean DBH, or country):
 
 ```{r CorrelationsMeanAndMedianModelM62WithPredictionsWithoutGO}
@@ -1642,59 +1639,95 @@ Given the high correlations, we conclude that either the mean or the median can 
 
 We calculate the correlations using the median estimates.
 
-```{r CalculateCorrelationsModelM62WithPredictionsWithoutGO}
+```{r CalculateCorrelationsModelM62WithPredictionsWithoutGO, message =F}
 corrtab <- lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
   
   sub_data <- df %>% 
     filter(method_snp_set_code == method_snp_set_i) %>% 
-    arrange(GO) %>% 
-    mutate(GO_rank = 1:nrow(.)) %>% 
+    #arrange(GO) %>% 
+    #mutate(GO_rank = 1:nrow(.)) %>% 
     inner_join(coefftab_nfi, by="plotcode")
   
-  tibble(correlation = cor(sub_data$res_mortality_median, sub_data$GO),
-         rank_correlation = cor(sub_data$rank_res_mortality_median, sub_data$GO_rank),
+  tibble(pearson_correlation = cor.test(sub_data$res_mortality_mean, sub_data$GO, method="pearson")$estimate[[1]],
+         pearson_pvalue = cor.test(sub_data$res_mortality_mean, sub_data$GO, method="pearson")$p.value,
+         spearman_correlation = cor.test(sub_data$res_mortality_mean, sub_data$GO, method="spearman")$estimate[[1]],
+         spearman_pvalue = cor.test(sub_data$res_mortality_mean, sub_data$GO, method="spearman")$p.value,
          method_snp_set_code = method_snp_set_i,
          method_snp_set_name = unique(sub_data$method_snp_set_name),
          snp_set_name = unique(sub_data$snp_set_name),
          snp_set_code = unique(sub_data$snp_set_code),
          method = unique(sub_data$method))
-}) %>% bind_rows()
+}) %>% 
+  bind_rows() %>% 
+  mutate(snp_set_name = factor(snp_set_name, levels = c(unique(coefftab$snp_set_name)[[6]],
+                                                        unique(coefftab$snp_set_name)[[4]],
+                                                        unique(coefftab$snp_set_name)[[5]],
+                                                        unique(coefftab$snp_set_name)[[3]],
+                                                        unique(coefftab$snp_set_name)[[1]],
+                                                        unique(coefftab$snp_set_name)[[2]],
+                                                        unique(coefftab$snp_set_name)[[7]],
+                                                        unique(coefftab$snp_set_name)[[8]],
+                                                        unique(coefftab$snp_set_name)[[9]],
+                                                        unique(coefftab$snp_set_name)[[10]],
+                                                        unique(coefftab$snp_set_name)[[11]],
+                                                        unique(coefftab$snp_set_name)[[12]],
+                                                        unique(coefftab$snp_set_name)[[13]])),
+          method = factor(method, levels = c(unique(coefftab$method)[[1]],
+                                             unique(coefftab$method)[[2]],
+                                             unique(coefftab$method)[[3]],
+                                             unique(coefftab$method)[[4]],
+                                             unique(coefftab$method)[[5]],
+                                             unique(coefftab$method)[[6]]))) 
 ```
+
+**Comment:** When estimating the Spearman correlations, we get the following message:
+
+`Message d'avis :
+Dans cor.test.default(sub_data$res_mortality_mean, sub_data$GO, method = "spearman") :
+  Impossible de calculer la p-value exacte avec des ex-aequos`
+  
+It indicates that the function cannot compute the exact p-value due to the presence of ties (i.e., identical values) in the data. This occurs because the Spearman correlation method is based on rank-ordering the data, and if two or more values are the same, it's unclear how to rank them uniquely. 
+Spearman's correlation, being a non-parametric test, works by converting the data to ranks and then calculating the correlation between these ranks. When there are tied values (ex-aequos), the function adjusts for this, but the calculation of an exact p-value is more complex, so R resorts to an approximation.
+In practical terms, the result is still valid, but the p-value is an approximation rather than the exact value. In our case, the number of ties is small (119 ties out of a total of 11,917 data points, where these 119 ties represent 47 unique values), this approximation should be close to the true value.
+
 
 We plot the correlations.
 
 ```{r PlotCorrelationsModelM62WithPredictionsWithoutGO}
-correlation_types <- c("correlation","rank_correlation")
+correlation_types <- c("pearson_correlation", "spearman_correlation")
 
 lapply(correlation_types, function(coeff){
   
   p <- corrtab %>% 
-    pivot_longer(values_to = "correlation_value", names_to = "correlation_type", cols = correlation_types) %>% 
-    filter(correlation_type==coeff) %>% 
+    pivot_longer(values_to = "correlation_estimate", names_to = "correlation_type", cols = all_of(correlation_types)) %>% 
+    mutate(correlation_pvalue = ifelse(correlation_type == "pearson_correlation", pearson_pvalue, spearman_pvalue)) %>% 
+    dplyr::select(-pearson_pvalue,-spearman_pvalue) %>% 
+    mutate(pvalue_signi = ifelse(correlation_pvalue < 0.05, "p-value < 0.05", "p-value ≥ 0.05")) %>% 
+    filter(correlation_type == coeff) %>% 
     ggplot(aes(x = method,
-               y = correlation_value,
+               y = correlation_estimate,
                color = snp_set_name,
-               shape = snp_set_name)) +
-    geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01) + 
+               shape = pvalue_signi)) +
+    geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.005) + 
     geom_hline(yintercept = 0,color="gray") +
     geom_point(position = position_dodge(width = .4), size=3) +
-    {if(coeff=="correlation") ylab("Correlation value") } + 
-    {if(coeff=="rank_correlation") ylab("Rank correlation value") } + 
+    {if(coeff=="pearson_correlation") ylab("Pearson correlation estimates")} + 
+    {if(coeff=="spearman_correlation") ylab("Spearman correlation estimates (rank correlation)") } + 
     xlab("") +
-    ylim(c(-0.2,0.3)) +
+    ylim(c(-0.2,0.2)) +
     scale_color_manual(values=colors_coeff) +
-    scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+    scale_shape_manual(values = c(16,18)) + #, name="p-value of the correlations"
     theme_bw() +
-    labs(color="SNP set",shape="SNP set") +
+    labs(color="",shape="") +
     theme(axis.text.x =  element_text(size=13),
           axis.text.y = element_text(size=13),
           axis.title.y = element_text(size=16),
           axis.title.x = element_text(size=1),
           legend.title=element_text(size=10), 
-          legend.box.background = element_rect(colour = "gray", linewidth=0.6),
+          #legend.box.background = element_rect(colour = "gray", linewidth=0.6),
           strip.text.x = element_text(size = 16),
           strip.background = element_blank(),
-          legend.position = c(0.72, 0.82),
+          #legend.position = c(0.63, 0.85),
           legend.text=element_text(size=9),
           panel.grid.minor.x=element_blank(),
           panel.grid.major.x=element_blank()) +
@@ -1706,8 +1739,8 @@ p
 # save in pdf and png
 ggsave(p,file=here(paste0("figs/ValidationNFI/ModelM62_",coeff,"_CorrelationPlots.pdf")),
        device="pdf",
-       height=6,
-       width=8)
+       height=7,
+       width=12)
 
 })
 ```
