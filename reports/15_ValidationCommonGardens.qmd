@@ -63,8 +63,11 @@ library(grid)
 # my own function for building tables in reports
 source(here("scripts/functions/kable_mydf.R"))
 
+# Scaling the climatic datasets with mean and variance from the population climatic distributions
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+
 # Colors for the coefficients
-colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","#87D180FF","#FEB5A2FF","#F02720FF")
+colors_coeff <- c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF","aquamarine3","#FEB5A2FF","#F02720FF","darkviolet","deeppink","cyan2","chocolate4")
 
 
 #################################################
@@ -77,23 +80,6 @@ cg_names <- list(caceres = "Cáceres",
                  portugal = "Fundão",
                  bordeaux = "Bordeaux")
 
-methods <- list(LFMM_all = "GO predictions from LFMM and all SNPs",
-                LFMM_cand = "GO predictions from LFMM and candidate SNPs",
-                LFMM_control = "GO predictions from LFMM and control SNPs",
-                RDA_cand = "GO predictions from RDA and candidate SNPs",
-                RDA_control = "GO predictions from RDA and control SNPs",
-                GDM_cand = "GO predictions from GDM and candidate SNPs",
-                GDM_control = "GO predictions from GDM and control SNPs",
-                GF_cand = "GO predictions from GF and candidate SNPs",
-                GF_control = "GO predictions from GF and control SNPs",
-                CTD_bio1 = "CTD for mean annual temperature (bio1, °C)",
-                CTD_bio12 = "CTD for annual precipitation (bio12, mm)",
-                CTD_bio15 = "CTD for precipitation seasonality (bio15, index)",
-                CTD_bio3 = "CTD for isothermality (bio3, index)",
-                CTD_bio4 = "CTD for temperature seasonality (bio4, °C)",
-                CTD_SHM = "CTD for summer heat moisture index (SHM, °C/mm)")
-
-
 
 ###################
 # Correlation plots
@@ -102,7 +88,7 @@ methods <- list(LFMM_all = "GO predictions from LFMM and all SNPs",
 source(here("scripts/functions/corpmat.R")) # to compute the matrix of p-value
 
 # Function to generate a corrplot in pdf
-make_corrplot_pdf <- function(df,variables,fig_options){
+make_corrplot_pdf <- function(df,variables,fig_options,text_size,number_size){
   
   # correlation matrix
   cor <- cor(df[,variables]) 
@@ -131,7 +117,8 @@ make_corrplot_pdf <- function(df,variables,fig_options){
                      
                      # hide correlation coefficient on the principal diagonal
                      diag=FALSE,
-                     number.cex=0.6)
+                     tl.cex = text_size,
+                     number.cex=number_size)
   dev.off()
   
 }
@@ -153,30 +140,64 @@ We also calculate the climatic transfer distances (CTD) between the climate-of-o
 We load the genomic offset predictions estimated from the different GEAs.
 
 ```{r LoadGOpredictions}
-df <- lapply(c("control","cand"), function(x){
+# Codes of the SNP sets
+snp_sets <- readRDS(here("outputs/list_snp_sets.rds"))
+
+# Which RDA method?
+RDA_method <- "predict"
+
+# List of methods
+meth_names <- c("GDM", "GF", "LFMM", "pRDA", "RDA")
+
+df <- lapply(snp_sets, function(x){
 
 list_snps <- list()
 
-list_snps[[x]]$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x]][["go_cg"]]
-list_snps[[x]]$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x]][["go_cg"]]
-list_snps[[x]]$RDA <- readRDS(file=here("outputs/RDA/go_predictions.rds"))[[x]][["go_cg"]]
-list_snps[[x]]$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x]][["go_cg"]]
+list_snps$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x$set_code]][["go_cg"]]
+list_snps$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x$set_code]][["go_cg"]]
+list_snps$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x$set_code]][["go_cg"]]
+list_snps$pRDA <- readRDS(file=here(paste0("outputs/RDA/go_predictions_",RDA_method,".rds")))[[x$set_code]][["go_cg_corrected"]]
+list_snps$RDA <- readRDS(file=here(paste0("outputs/RDA/go_predictions_",RDA_method,".rds")))[[x$set_code]][["go_cg_uncorrected"]]
 
 
-list_snps <- list_snps[[x]] %>% 
-  bind_rows(.id="method_type") %>% 
-  mutate(method_input = x)
+list_snps %>% 
+  bind_rows(.id="method") %>% 
+  mutate(input_code = x$set_code,
+         input_name = x$set_name,
+         method_input_code = paste0(method, "_", input_code),
+         method_input_name = paste0(method, " - ", input_name))
 
-return(list_snps)
-}) %>% bind_rows()
+}) %>% 
+  bind_rows() %>% 
+  pivot_longer(cols=names(cg_names),names_to="cg",values_to="varX") 
+
+#####
 
 
-df <- readRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))[["go_cg"]] %>% 
-   mutate(method_type = "LFMM",
-          method_input = "all") %>% 
-  bind_rows(df) %>% 
-  pivot_longer(cols=c(readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))[["cg"]]),names_to="cg",values_to="varX") %>% 
-  mutate(method = paste0(method_type, "_",method_input))
+# df <- lapply(c("control","cand"), function(x){
+# 
+# list_snps <- list()
+# 
+# list_snps[[x]]$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x]][["go_cg"]]
+# list_snps[[x]]$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x]][["go_cg"]]
+# list_snps[[x]]$RDA <- readRDS(file=here("outputs/RDA/go_predictions.rds"))[[x]][["go_cg"]]
+# list_snps[[x]]$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x]][["go_cg"]]
+# 
+# 
+# list_snps <- list_snps[[x]] %>% 
+#   bind_rows(.id="method_type") %>% 
+#   mutate(method_input = x)
+# 
+# return(list_snps)
+# }) %>% bind_rows()
+# 
+# 
+# df <- readRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))[["go_cg"]] %>% 
+#    mutate(method_type = "LFMM",
+#           method_input = "all") %>% 
+#   bind_rows(df) %>% 
+#   pivot_longer(cols=c(readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))[["cg"]]),names_to="cg",values_to="varX") %>% 
+#   mutate(method = paste0(method_type, "_",method_input))
 ```
 
 ## Climatic transfer distances
@@ -191,29 +212,47 @@ clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
 cg_clim <-readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>% 
   dplyr::select(cg,any_of(clim_var)) 
 
-# Loading point estimate climatic data
+# Loading point estimate climatic data at the location of the populations (reference climatic period)
 adj <- "noADJ"  # not adjusted for elevation
 ref_period <- "ref_1901_1950" # reference period 1901-1950
 clim_past <- readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_",adj,".rds")))[[ref_period]]$ref_means %>%
   dplyr::select(pop,any_of(clim_var))
 
+# Preparing the dataset for 
+clim_dist <- clim_past
 
 df <- lapply(cg_clim[["cg"]], function(x){
   
-for(var in clim_var){
-  
-  clim_past[[var]] <- ( clim_past[[var]] - cg_clim %>% filter(cg == x) %>%  pull(var) ) %>% abs()
-} 
-  
-return(clim_past)
+# Calculating the CTD for each climatic variable
+for(var in clim_var){clim_dist[[var]] <- ( clim_past[[var]] - cg_clim %>% filter(cg == x) %>%  pull(var) ) %>% abs()} 
+#names(clim_dist) <- c("pop", str_c(names(clim_past[,-1]),"_CTD"))
+
+# Calculating the Euclidean distances for all climatic variables
+list_scaled_clim_df <- generate_scaled_clim_datasets(clim_var, clim_pred = cg_clim)
+cg_clim_i <- list_scaled_clim_df$clim_pred %>% filter(cg == x) %>% dplyr::select(-cg)
+
+clim_dist$EucliDist <- map_dbl(1:nrow(list_scaled_clim_df$clim_ref[,-1]),
+                               ~ sqrt(sum((list_scaled_clim_df$clim_ref[.x,-1] - cg_clim_i)^2)))
+   
+return(clim_dist)
 }) %>%  
   setNames(cg_clim[["cg"]]) %>% 
   bind_rows(.id="cg") %>% 
-  pivot_longer(cols=any_of(clim_var),names_to="method_input",values_to="varX") %>% 
-  mutate(method_type="CTD",
-         method=paste0("CTD_",method_input)) %>% 
+  pivot_longer(cols=c(any_of(clim_var),"EucliDist"),names_to="input_code",values_to="varX") %>% 
+  mutate(method = "CTD",
+         method_input_code = paste0("CTD_",input_code),
+         input_name = case_when(input_code == "bio1" ~ "Mean annual temperature (bio1, °C)",
+                                input_code == "bio12" ~ "Annual precipitation (bio12, mm)",
+                                input_code == "bio15" ~ "Precipitation seasonality (bio15, index)",
+                                input_code == "bio3" ~ "Isothermality (bio3, index)",
+                                input_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
+                                input_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
+                                input_code == "EucliDist" ~ "Euclidean climatic distance"),
+         method_input_code = paste0("CTD_", input_code),
+         method_input_name = paste0("CTD - ", input_name)) %>% 
   bind_rows(df)
 ```
+
 
 ## Correlation CTDs vs GO predictions
 
@@ -224,9 +263,38 @@ lapply(unique(df$cg), function(site_i){
   
 df_corr <- df %>% 
   dplyr::filter(cg==site_i) %>% 
-  dplyr::select(-starts_with("method_")) %>% 
-  pivot_wider(values_from = varX, names_from = method)
+  dplyr::select(method_input_code, varX,pop) %>% 
+  pivot_wider(values_from = varX, names_from = method_input_code)
 
+# Corrplot with ggplot
+# ====================
+
+correlations <- df_corr %>%  dplyr::select(-pop) %>% cor
+
+# Order variables alphabetically
+correlations <- correlations[order(rownames(correlations)), order(colnames(correlations))]
+    
+# Melt the correlation matrix into a long format
+cor_data <- reshape2::melt(correlations)
+  
+# Filter to only show the lower triangle
+cor_data <- cor_data %>% filter(as.numeric(Var1) > as.numeric(Var2))
+  
+# Plot
+ggplot(cor_data, 
+       aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "#BB4444", mid = "#FFFFFF", high = "#4477AA", midpoint = 0, limits = c(-1, 1), name="Correlation") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 3) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size=11,
+                                   angle = 45, 
+                                   hjust = 1),
+        axis.text.y = element_text(size=11)) +
+  labs(x = NULL, y = NULL)
+  
+# Corrplot with make_corrplot_pdf
+# ===============================
 fig_options <- list(
   path = here(paste0("figs/ValidationCommonGarden/Corrplot_GOpreds_CTDs_",site_i,".pdf")),
   width=10,
@@ -234,6 +302,8 @@ fig_options <- list(
 
 make_corrplot_pdf(df = df_corr,
                   variables = colnames(df_corr)[-c(1:2)],
+                  text_size = 0.5,
+                  number_size = 0.4,
                   fig_options = fig_options)
   
 })
@@ -362,8 +432,8 @@ We run the models for each common garden and each genomic offset predictions/cli
 ```{r RunMortalityModels, eval=F}
 coefftab <- lapply(unique(survival_data$site),function(site_i){
   
-lapply(unique(df$method), function(method_i){
-  
+lapply(unique(df$method_input_code), function(method_input_code_i){
+
 # Subset the data for the site i and method i
 sub_data <- survival_data %>% 
   filter(site == site_i) %>% 
@@ -371,7 +441,7 @@ sub_data <- survival_data %>%
   dplyr::summarise(nb_dead=n()-sum(survival),nb_tot=n()) # transform survival data into mortality data
     
 sub_data <- df %>% 
-  filter(method == method_i & cg == site_i) %>% 
+  filter(method_input_code == method_input_code_i & cg == site_i) %>% 
   inner_join(sub_data, by="pop") %>% 
   inner_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))), by="pop") %>% 
   arrange(pop)
@@ -379,40 +449,61 @@ sub_data <- df %>%
 # Data in a list for Stan 
 stanlist <- list(N = nrow(sub_data),
                  nb_dead = sub_data$nb_dead,
-                 nb_tot=sub_data$nb_tot,
-                 H=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
-                 X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX))
+                 nb_tot = sub_data$nb_tot,
+                 H = (sub_data$height-mean(sub_data$height)) / sd(sub_data$height),
+                 X = (sub_data$varX -mean(sub_data$varX)) / sd(sub_data$varX))
     
 # Running the model
 mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE) 
     
 # Save the model and the stanlist
-list(mod = mod, stanlist = stanlist) %>% 
+list(mod = mod, 
+     stanlist = stanlist) %>% 
   saveRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
-                                                           site_i,"_",method_i,".rds")))
-  
-  
-# Save coefficients
-broom.mixed::tidyMCMC(mod,
-                      droppars = NULL, 
-                      robust = FALSE, # give mean and standard deviation
-                      ess = F, 
-                      rhat = F, 
-                      conf.int = T,
-                      conf.level = 0.95) %>% 
-  filter(str_detect(term, c('beta'))) %>% 
-  dplyr::rename(mean=estimate,
-                std_deviation=std.error,
-                conf_low=conf.low,
-                conf_high=conf.high) %>% 
-  mutate(cg=site_i,
-         method=method_i,
-         .before=1)
+                                                           site_i,"_",method_input_code_i,".rds")))
     
-  }) %>% bind_rows()
+  })
   
-}) %>% bind_rows()
+})
 
+```
+
+```{r CoefftabMortalityModels, eval=F}
+coefftab <- lapply(unique(survival_data$site),function(site_i){
+  
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    # Subset the data - keeping only one set of method / SNP set
+    sub_data <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
+  
+    mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
+                                    site_i,"_",method_input_code_i,".rds")))[["mod"]]
+                     
+    # Save coefficients
+    broom.mixed::tidyMCMC(mod,
+                          droppars = NULL, 
+                          robust = FALSE, # give mean and standard deviation
+                          ess = F, 
+                          rhat = F, 
+                          conf.int = T,
+                          conf.level = 0.95) %>% 
+      filter(str_detect(term, c('beta'))) %>% 
+      dplyr::rename(mean=estimate,
+                    std_deviation=std.error,
+                    conf_low=conf.low,
+                    conf_high=conf.high) %>% 
+      mutate(cg = site_i,
+             method_input_code = method_input_code_i,
+             method_input_name = unique(sub_data$method_input_name),
+             method = unique(sub_data$method),
+             input_name = unique(sub_data$input_name),
+             input_code = unique(sub_data$input_code),
+             .before=1)     
+
+}) %>% bind_rows()
+ 
+}) %>% bind_rows()
+  
 coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/MortalityModels/coefftab.rds"))
 ```
 
@@ -435,109 +526,108 @@ Below, we plot the mean and 95% credible intervals of:
 Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting higher mortality rates in populations with higher GO predictions.
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
-coeff_match <- list(beta_H="Regression coefficients $\\beta_H$",
-                   beta_X="Regression coefficients $\\beta_X$")
+coeff_match <- list(beta_H = "Regression coefficients $\\beta_H$",
+                    beta_X = "Regression coefficients $\\beta_X$")
 
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
 p <- coefftab %>% 
-  filter(term==coeff) %>% 
-  left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
-                      cg=="bordeaux"~"Bordeaux, France (85 months)",
-                      cg=="caceres"~"Cáceres, Spain (8 months)",
-                      cg=="madrid"~"Madrid, Spain (13 months)",
-                      cg=="portugal"~"Fundão, Portugal (27 months)"),
-         method_input=case_when(method_input=="all" ~ "All SNPs",
-                                method_input=="bio1" ~ "Mean annual temperature (°C)",
-                                method_input=="bio12" ~ "Annual precipitation (mm)",
-                                method_input=="bio15" ~ "Precipitation seasonality (index)",
-                                method_input=="bio3" ~ "Isothermality (index)",
-                                method_input=="bio4" ~ "Temperature seasonality (°C)",
-                                method_input=="cand" ~ "Candidate SNPs",
-                                method_input=="control" ~ "Control SNPs",
-                                method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
-  mutate(method_input=factor(method_input, levels=c("All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs",
-                                                    "Mean annual temperature (°C)",
-                                                    "Annual precipitation (mm)",
-                                                    "Precipitation seasonality (index)",
-                                                    "Isothermality (index)",
-                                                    "Temperature seasonality (°C)",
-                                                    "Summer heat moisture index (°C/mm)")),
-         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")),
-         cg=factor(cg, levels=c("Madrid, Spain (13 months)",
-                                "Cáceres, Spain (8 months)",
-                                "Asturias, Spain (37 months)",
-                                "Bordeaux, France (85 months)",
-                                "Fundão, Portugal (27 months)")))
+  filter(term == coeff) %>% 
+  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                             cg == "madrid" ~ "Madrid, Spain (13 months)",
+                             cg == "portugal" ~ "Fundão, Portugal (27 months)")) %>% 
+  mutate(input_name = factor(input_name, levels = c(unique(coefftab$input_name)[[13]],
+                                                    unique(coefftab$input_name)[[11]],
+                                                    unique(coefftab$input_name)[[12]],
+                                                    unique(coefftab$input_name)[[10]],
+                                                    unique(coefftab$input_name)[[8]],
+                                                    unique(coefftab$input_name)[[9]],
+                                                    unique(coefftab$input_name)[[1]],
+                                                    unique(coefftab$input_name)[[2]],
+                                                    unique(coefftab$input_name)[[3]],
+                                                    unique(coefftab$input_name)[[4]],
+                                                    unique(coefftab$input_name)[[5]],
+                                                    unique(coefftab$input_name)[[6]],
+                                                    unique(coefftab$input_name)[[7]])),
+         method = factor(method, levels = c(unique(coefftab$method)[[2]],
+                                            unique(coefftab$method)[[3]],
+                                            unique(coefftab$method)[[4]],
+                                            unique(coefftab$method)[[5]],
+                                            unique(coefftab$method)[[6]],
+                                            unique(coefftab$method)[[1]])),
+         cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                              "Cáceres, Spain (8 months)",
+                                              "Asturias, Spain (37 months)",
+                                              "Bordeaux, France (85 months)",
+                                              "Fundão, Portugal (27 months)")))
+
 
 # Plots with CTD and SNP sets
 # ===========================
-p_allvar <- p %>% ggplot(aes(x = method_type,
+p_allvar <- p %>% ggplot(aes(x = method,
                              y = mean,
                              ymin = conf_low, 
                              ymax = conf_high,
-                             color=method_input,
-                             shape=method_input)) +
-  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
+                             color = input_name,
+                             shape = input_name)) +
+  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.005)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.6),
-                     point_size=3.5, size=3) +
-  facet_wrap(~cg, ncol=2) + 
+                     point_size=3, size=2) +
+  facet_wrap(~cg_name, ncol=2) + 
   ylab(TeX(coeff_match[[coeff]])) +
   xlab("") +
   scale_color_manual(values=colors_coeff)+
-  scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
+  scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
   theme_bw() +
   labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
         axis.text.y = element_text(size=13),
         axis.title.y = element_text(size=16),
-        axis.title.x = element_text(size=1),
-        legend.title=element_text(size=13), 
+        legend.title = element_text(size=13), 
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
         legend.position = c(0.77,0.15),
         legend.text=element_text(size=12),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
-  guides(color=guide_legend(ncol=1),
+  guides(color = guide_legend(ncol=1),
          shape = guide_legend(override.aes = list(size =2 )))
 
 # save in pdf and png
 ggsave(p_allvar,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.pdf")),
        device="pdf",
-       height=9,
-       width=12)
+       height=11,
+       width=13)
 
 ggsave(p_allvar,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.png")),
-       height=9,
-       width=12)
+       height=11,
+       width=13)
 
 
 # Plots with SNPs only
 # ====================
 p_SNPs <- p %>% 
-  filter(!method_type == "CTD") %>% 
-  ggplot(aes(x = method_type,
+  filter(!method == "CTD") %>% 
+  ggplot(aes(x = method,
              y = mean,
              ymin = conf_low, 
              ymax = conf_high,
-             color=method_input,
-             shape=method_input)) +
-  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.01)} + 
+             color = input_name,
+             shape = input_name)) +
+  {if(coeff=="beta_X")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.007)} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = 0.45),
-                     point_size=3.5, size=3) + # 
-  facet_wrap(~cg, ncol=2) +
+                     point_size=3, size=2) + # 
+  facet_wrap(~cg_name, ncol=2) +
   ylab(TeX(coeff_match[[coeff]])) +
   xlab("") +
   scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(17,3),rep(16,6))) +
+  scale_shape_manual(values = c(rep(17,6),rep(16,6))) +
   theme_bw() +
   labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
@@ -548,7 +638,7 @@ p_SNPs <- p %>%
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
         legend.position = c(0.77,0.15),
-        legend.text=element_text(size=18),
+        legend.text=element_text(size=14),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
   guides(color=guide_legend(ncol=1),
@@ -558,13 +648,13 @@ p_SNPs <- p %>%
 ggsave(p_SNPs,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets.pdf")),
        device="pdf",
-       height=7,
-       width=8)
+       height=11,
+       width=13)
 
 ggsave(p_SNPs,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets.png")),
-       height=7,
-       width=8)
+       height=11,
+       width=13)
 
 # Figure in the main manuscript
 ###############################
@@ -572,94 +662,44 @@ ggsave(p_SNPs,
 # We want to add some images to represent the climatic differences among common gardens
 
 if(coeff=="beta_X"){
+  
 annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, data){ layer(data = data, stat = StatIdentity, position = PositionIdentity, 
         geom = ggplot2:::GeomCustomAnn,
         inherit.aes = TRUE, params = list(grob = grob, 
                                           xmin = xmin, xmax = xmax, 
                                           ymin = ymin, ymax = ymax))}
 
-# ============================================
-# Option 1 - same image, different image sizes
-# ============================================
-
-# loading the picture of a cloud
-cloudpng <- readPNG(here('reports/cloud.png'))
-
-df_coord_png <- p %>% 
-  dplyr::select(cg) %>%
-  distinct %>% 
-  dplyr::mutate(x_min = case_when(cg == "Asturias, Spain (37 months)" ~ 4.02,
-                                  cg == "Bordeaux, France (85 months)" ~ 4.02,
-                                  cg == "Cáceres, Spain (8 months)" ~ 4.25,
-                                  cg == "Madrid, Spain (13 months)" ~ 4.23,
-                                  cg == "Fundão, Portugal (27 months)" ~ 4.09),
-                y_max = case_when(cg == "Asturias, Spain (37 months)" ~ -0.28,
-                                  cg == "Bordeaux, France (85 months)" ~ -0.28,
-                                  cg == "Cáceres, Spain (8 months)" ~ -0.45,
-                                  cg == "Madrid, Spain (13 months)" ~ -0.43,
-                                  cg == "Fundão, Portugal (27 months)" ~ -0.38))
-
-list_pngs <- lapply(unique(p$cg), function(cg_i){
-  
-sub <-  p %>% 
-  filter(cg==cg_i) %>%
-  filter(!method_type == "CTD") %>% 
-  slice(1)
-
-png_cg = annotation_custom2(rasterGrob(cloudpng,interpolate=TRUE), 
-                            ymin = -0.56,
-                            ymax= df_coord_png[df_coord_png$cg==cg_i,"y_max"][[1]],
-                            xmin =df_coord_png[df_coord_png$cg==cg_i,"x_min"][[1]],
-                            xmax =4.55, 
-                            data=sub)
-})
-
-p_SNPs_1 <- p_SNPs + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
-
-# save in pdf and png
-ggsave(p_SNPs_1,
-       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets_WithCloudImage.pdf")),
-       device="pdf",
-       height=7,
-       width=8)
-
-
-# ============================================
-# Option 2 - different images, same image size
-# ============================================
-
 df_png <- p %>% 
-  dplyr::select(cg) %>%
+  dplyr::select(cg_name) %>%
   distinct %>% 
-  dplyr::mutate(image = case_when(cg == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
-                                  cg == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
-                                  cg == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
-                                  cg == "Madrid, Spain (13 months)" ~ "reports/sun.png",
-                                  cg == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
+  dplyr::mutate(image = case_when(cg_name == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
+                                  cg_name == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
+                                  cg_name == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
+                                  cg_name == "Madrid, Spain (13 months)" ~ "reports/sun.png",
+                                  cg_name == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
 
-list_pngs <- lapply(unique(p$cg), function(cg_i){
+list_pngs <- lapply(unique(p$cg_name), function(cg_name_i){
   
 sub <-  p %>% 
-  filter(cg==cg_i) %>%
-  filter(!method_type == "CTD") %>% 
+  filter(cg_name==cg_name_i) %>%
   slice(1)
 
-png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg==cg_i,"image"])),interpolate=TRUE), 
-                            ymin = -0.56,
-                            ymax= -0.28,
-                            xmin = 4.02,
-                            xmax = 4.55, 
+png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_name_i,"image"])),interpolate=TRUE), 
+                            ymin = -0.54,
+                            ymax= -0.24,
+                            xmin = 0.42,
+                            xmax = 1, 
                             data=sub)
 })
 
-p_SNPs_2 <- p_SNPs + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
 
 # save in pdf and png
-ggsave(p_SNPs_2,
+ggsave(p_allvar_images,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsets_WithCloudAndSunImages.pdf")),
        device="pdf",
-       height=7,
-       width=8)
+       height=11,
+       width=13)
 
 }
 
@@ -701,146 +741,104 @@ Let's visualize the uncertainty around the estimation of the probability of tree
 # Visualizing the relationships between GO predictions or CTDs and mortality probability predictions
 ####################################################################################################
 
-lapply(names(cg_names), function(site_i){
+coefftab <- readRDS(file = here("outputs/ValidationCommonGarden/MortalityModels/coefftab.rds")) %>%
+  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                             cg == "madrid" ~ "Madrid, Spain (13 months)",
+                             cg == "portugal" ~ "Fundão, Portugal (27 months)"))
 
-list(CTDs=names(methods) %>% str_subset("^CTD"),
-     go_methods=names(methods) %>% str_subset("^CTD", negate=T)) %>% 
-    
-    lapply(function(method_group_i){
-      
-myplots <- lapply(method_group_i, function(method_i){
-
-# We load the stanlist
-stanlist <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
-                                       site_i,"_",method_i,".rds")))$stanlist
-
-# We load the model
-mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
-                                  site_i,"_",method_i,".rds")))$mod
-
-# We extract the posterior distributions of all parameters
-post <- as.data.frame(mod)
-
-# Vector of predictor values (based on the min and max of the GO predictions)
-x_vec <- seq(min(stanlist$X),max(stanlist$X),0.05)
-
-# Function to predict the mortality probability p with the initial tree height fixed to the mean
-f_p <- function(x) 1 / (exp(-(post$`beta_0` + post$`beta_H` * mean(stanlist$H) + post$`beta_X` * x)) + 1)
-
-p_pred <- 
-  sapply(x_vec, f_p) %>% 
-  tibble::as_tibble() %>%
-  rename_all(function(x) x_vec) %>%
-  mutate(Iter = row_number()) %>%
-  gather(x, p, -Iter) %>%
-  group_by(x) %>%
-  mutate(hpdi_l = HDInterval::hdi(p, credMass = 0.90)[1],
-         hpdi_h = HDInterval::hdi(p, credMass = 0.90)[2],
-         p_mean = mean(p)) %>%
-  ungroup() %>%
-  mutate(x = as.numeric(x))
-
-# Keep mean and 90% HDPI of p (one value for each iteration)
-p_mean_df <- p_pred %>%
-  dplyr::select(x,hpdi_l,hpdi_h,p_mean) %>% 
-  dplyr::distinct()
-
-
-# Plots
-#=======
-
-# Plot options 
-y_limits <- c(0,1)
-if(grepl("CTD",method_group_i[[1]]) == T){x_axis <- "Mean-centered CTD"} else {
-  x_axis <- "Mean-centered GO predictions"}
-y_axis <- "Probability of tree mortality"
-
-p <- ggplot() +
-  ylim(y_limits) +
-  labs(y=y_axis, x=x_axis) +
-  theme_bw()
-
-# First 100 posterior draws of the mortality probability p
-p1 <- p +
-  geom_point(data = p_pred %>% filter(Iter < 101),
-             aes(x, p), alpha = .2, color = 'dodgerblue')
+lapply(unique(coefftab$cg), function(site_i){
   
-# Mean (line) and 90% HPDI (shaded region) of the mortality probability p
-p2 <- p +
-  geom_ribbon(data = p_mean_df,
-              aes(x = x, ymin = hpdi_l, ymax = hpdi_h),
-              alpha = .2,
-              fill='dodgerblue') +
-  geom_line(data = p_mean_df,
-              aes(x=x, y=p_mean), col="dodgerblue4")
+  lapply(unique(coefftab$method_input_code), function(method_input_code_i){
+    
+    sub_coefftab <- coefftab %>% 
+      filter(method_input_code == method_input_code_i & cg == site_i)
+    
+    # We load the stanlist
+    stanlist <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
+                                       site_i,"_",method_input_code_i,".rds")))$stanlist
 
-p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
+    # We load the model
+    mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
+                                      site_i,"_",method_input_code_i,".rds")))$mod
 
-# Title
-title <- ggdraw() + 
-  draw_label(paste0(cg_names[[site_i]]," - ",methods[[method_i]]),
-             fontface = 'bold',
-             x = 0, hjust = 0) +   
-  theme(plot.margin = margin(0, 0, 0, 7))
+    # We extract the posterior distributions of all parameters
+    post <- as.data.frame(mod)
 
-# merge title and plots
-p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
+    # Vector of predictor values (based on the min and max of the GO predictions)
+    x_vec <- seq(min(stanlist$X),max(stanlist$X),0.05)
 
-p2 <- p2 + labs(subtitle = methods[[method_i]])
+    # Function to predict the mortality probability p with the initial tree height fixed to the mean
+    f_p <- function(x) 1 / (exp(-(post$`beta_0` + post$`beta_H` * mean(stanlist$H) + post$`beta_X` * x)) + 1)
+
+    p_pred <- 
+      sapply(x_vec, f_p) %>% 
+      tibble::as_tibble() %>%
+      rename_all(function(x) x_vec) %>%
+      mutate(Iter = row_number()) %>%
+      gather(x, p, -Iter) %>%
+      group_by(x) %>%
+      mutate(hpdi_l = HDInterval::hdi(p, credMass = 0.90)[1],
+             hpdi_h = HDInterval::hdi(p, credMass = 0.90)[2],
+             p_mean = mean(p)) %>%
+      ungroup() %>%
+      mutate(x = as.numeric(x))
+             
+    # Keep mean and 90% HDPI of p (one value for each iteration)
+    p_mean_df <- p_pred %>%
+      dplyr::select(x,hpdi_l,hpdi_h,p_mean) %>% 
+      dplyr::distinct()
+
+
+    # Plots
+    #=======
+
+    # Plot options 
+    y_limits <- c(0,1)
+    if(unique(sub_coefftab$method) == "CTD"){x_axis <- "Mean-centered CTD"} else {x_axis <- "Mean-centered GO predictions"}
+    y_axis <- "Probability of tree mortality"
+    
+    p <- ggplot() +
+      ylim(y_limits) +
+      labs(y=y_axis, x=x_axis) +
+      theme_bw()
+
+    # First 100 posterior draws of the mortality probability p
+    p1 <- p +
+      geom_point(data = p_pred %>% filter(Iter < 101),
+                 aes(x, p), alpha = .2, color = 'dodgerblue')
+  
+   # Mean (line) and 90% HPDI (shaded region) of the mortality probability p
+    p2 <- p +
+      geom_ribbon(data = p_mean_df,
+                  aes(x = x, ymin = hpdi_l, ymax = hpdi_h),
+                  alpha = .2,
+                  fill='dodgerblue') +
+      geom_line(data = p_mean_df,
+                aes(x=x, y=p_mean), col="dodgerblue4")
+
+  p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
+
+  # Title
+  title <- ggdraw() + 
+    draw_label(paste0(unique(sub_coefftab$cg_name)," - ",unique(sub_coefftab$method_input_name)),
+               fontface = 'bold',
+               x = 0, 
+               hjust = 0) +   
+    theme(plot.margin = margin(0, 0, 0, 7))
+
+  # merge title and plots 
+  p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
 
 ggsave(p1_p2,
        file=here(paste0("figs/ValidationCommonGarden/MortalityModels/MortalityProbabilityPredictions_UncertaintyIntervals/",
-                        method_i,"_",site_i,".pdf")),
+                        method_input_code_i,"_",site_i,".pdf")),
        device="pdf",
        height=6,
        width=11)
 
-
-return(p2)
-
 })
-
-if(grepl("CTD",method_group_i[[1]]) == T){
-  
-  group_name <- "CTDs"
-  
-  p <- plot_grid(myplots[[1]] + labs(x=""),
-                 myplots[[2]] + labs(y="",x=""),
-                 myplots[[3]] + labs(x=""),
-                 myplots[[4]] + labs(y="",x=""),
-                 myplots[[5]],
-                 myplots[[6]] + labs(y=""),
-                 ncol=2)
-  
-  fig_width <- 10
-  
-} else {
-  
-  group_name <- "GOpred"
-  
-  p <- plot_grid(myplots[[1]] + labs(x=""),
-                 myplots[[2]] + labs(y="",x=""),
-                 myplots[[3]] + labs(y="",x=""),
-                 myplots[[4]] + labs(x=""),
-                 myplots[[5]] + labs(y="",x=""),
-                 myplots[[6]] + labs(y="",x=""),
-                 myplots[[7]],
-                 myplots[[8]] + labs(y=""),
-                 myplots[[9]] + labs(y=""),
-                 ncol=3)
-  
-    fig_width <- 12
-    
-    }
-
-ggsave(p,
-       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/MortalityProbabilityPredictions_",group_name,"_",site_i,".pdf")),
-       device="pdf",
-       height=12,
-       width=fig_width)
-
-})
-  
 })
 ```
 
@@ -854,16 +852,17 @@ In the table below:
 
 ```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
 p_pred <- lapply(names(cg_names), function(site_i){
-      
-lapply(names(methods), function(method_i){
+  
+lapply(unique(df$method_input_code), function(method_input_code_i){   
+#lapply(names(methods), function(method_i){
 
 # We load the stanlist
 stanlist <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
-                                       site_i,"_",method_i,".rds")))$stanlist
+                                       site_i,"_",method_input_code_i,".rds")))$stanlist
 
 # We load the model
 mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
-                                  site_i,"_",method_i,".rds")))$mod
+                                  site_i,"_",method_input_code_i,".rds")))$mod
 
 # We extract the posterior distributions of all parameters
 post <- as.data.frame(mod)
@@ -897,7 +896,7 @@ delta_p_pos <- (p_pred$p_mean[p_pred$x==1] * 100 / p_pred$p_mean[p_pred$x==0])-1
 delta_p_neg <- (p_pred$p_mean[p_pred$x==-1] * 100 / p_pred$p_mean[p_pred$x==0])-100
 
 tibble(Site = cg_names[[site_i]],
-       "Method" = methods[[method_i]],
+       "Method" = df %>% filter(method_input_code == method_input_code_i) %>% pull(method_input_name) %>% unique(),
        "p(x=-1)"=paste0(p_pred$p_mean[p_pred$x==-1], " [",
                        p_pred$hpdi_l[p_pred$x==-1],";",
                        p_pred$hpdi_h[p_pred$x==-1],"]"),
@@ -968,6 +967,248 @@ ExpDesignTab[,-1] %>%
 ```
 
 
+## Correlation coefficients
+
+Stan code of the mortality model without the genomic offset predictions or the CTD (i.e. only with height as predictor).
+
+```{r CompileMortalityModelWithoutGO, message=F,warning=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_BinomialMortalityModel_WithoutGO.stan"))
+print(stancode)
+```
+
+```{r RunMortalityModelWithoutGO, message=F,warning=F}
+lapply(unique(survival_data$site),function(site_i){
+  
+# Subset the data for the site i and add the initial heights
+sub_data <- survival_data %>% 
+  filter(site == site_i) %>% 
+  group_by(pop) %>% 
+  dplyr::summarise(nb_dead=n()-sum(survival),nb_tot=n()) %>% # transform survival data into mortality data
+  inner_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))), by="pop") %>% 
+  arrange(pop)
+      
+# Data in a list for Stan 
+stanlist <- list(N = nrow(sub_data),
+                 nb_dead = sub_data$nb_dead,
+                 nb_tot = sub_data$nb_tot,
+                 H = (sub_data$height-mean(sub_data$height)) / sd(sub_data$height))
+    
+# Running the model
+mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE) 
+
+# Save the model and the stanlist
+list(mod = mod, 
+     stanlist = stanlist) %>% 
+  saveRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
+                                                           site_i,"_ModelWithoutGO.rds")))
+    
+})
+```
+
+```{r extractMortalityProbabilityModelWithoutGO}
+corrtab <- lapply(unique(survival_data$site),function(site_i){
+  
+  list_mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",site_i,"_ModelWithoutGO.rds")))
+
+  # Extract posterior samples
+  posterior_samples <- rstan::extract(list_mod[[1]])
+
+  # Extract parameters (posterior samples for beta_0 and beta_H)
+  beta_0_samples <- posterior_samples$beta_0
+  beta_H_samples <- posterior_samples$beta_H
+
+  # Mean tree height for each population (H)
+  H <- list_mod[[2]]$H
+
+  # Generate posterior predictions for each population
+  N <- list_mod[[2]]$N # number of populations
+  num_samples <- length(beta_0_samples)  # Number of posterior samples
+
+  # Initialize matrix to store predicted probabilities
+  mortality_prob <- matrix(NA, nrow=num_samples, ncol=N)
+
+  # Compute mortality probability for each population for each posterior sample
+  for (i in 1:num_samples) {
+    for (j in 1:N) {
+      # Logistic transformation to get probability of mortality
+      mortality_prob[i, j] <- 1 / (1 + exp(-(beta_0_samples[i] + beta_H_samples[i] * H[j])))
+    }
+  }
+
+  # Summary of posterior predictive mortality probabilities for each population
+  mortality_prob_summary <- apply(mortality_prob, 2, function(x) c(mean=mean(x), sd=sd(x), quantile(x, probs=c(0.025, 0.975))))
+
+  # Convert to a readable data frame (optional)
+  mortality_prob_df <- tibble(
+    pop = unique(df$pop),
+    mean_prob = mortality_prob_summary["mean", ],
+    sd_prob = mortality_prob_summary["sd", ],
+    lower_95 = mortality_prob_summary["2.5%", ],
+    upper_95 = mortality_prob_summary["97.5%", ],
+    prob_obs = list_mod[[2]]$nb_dead / list_mod[[2]]$nb_tot, # Observed proportion of dead trees
+    diff_p = prob_obs - mean_prob, # diff bwt obs prob. and estimated prob.
+    cg = site_i
+  ) #%>% 
+    #arrange(diff_p) %>% 
+    #mutate(diff_p_rank = 1:nrow(.))
+  
+  
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+  
+  sub_data <- df %>% 
+    filter(method_input_code == method_input_code_i & cg == site_i) %>% 
+    #arrange(varX) %>% 
+    #mutate(varX_rank = 1:nrow(.)) %>% 
+    inner_join(mortality_prob_df, by=c("pop","cg"))
+  
+  tibble(pearson_correlation = cor.test(sub_data$varX, sub_data$diff_p, method="pearson")$estimate[[1]],
+         pearson_pvalue = cor.test(sub_data$varX, sub_data$diff_p, method="pearson")$p.value,
+         spearman_correlation = cor.test(sub_data$varX, sub_data$diff_p, method="spearman")$estimate[[1]],
+         spearman_pvalue = cor.test(sub_data$varX, sub_data$diff_p, method="spearman")$p.value,
+         method_input_code = method_input_code_i,
+         method_input_name = unique(sub_data$method_input_name),
+         input_name = unique(sub_data$input_name),
+         input_code = unique(sub_data$input_code),
+         method = unique(sub_data$method),
+         cg = site_i)
+}) %>% bind_rows()
+  
+
+}) %>% bind_rows()
+```
+
+
+We plot the correlations.
+
+```{r PlotCorrelationsModelWithoutGO}
+correlation_types <- c("pearson_correlation", "spearman_correlation")
+
+lapply(correlation_types, function(coeff){
+  
+  p <- corrtab %>%
+    pivot_longer(values_to = "correlation_estimate", names_to = "correlation_type", cols = all_of(correlation_types)) %>% 
+    mutate(correlation_pvalue = ifelse(correlation_type == "pearson_correlation", pearson_pvalue, spearman_pvalue)) %>% 
+    dplyr::select(-pearson_pvalue,-spearman_pvalue) %>% 
+    mutate(pvalue_signi = ifelse(correlation_pvalue < 0.05, "p-value < 0.05", "p-value ≥ 0.05")) %>% 
+    filter(correlation_type == coeff) %>% 
+    mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                               cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                               cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                               cg == "madrid" ~ "Madrid, Spain (13 months)",
+                               cg == "portugal" ~ "Fundão, Portugal (27 months)")) %>% 
+    mutate(input_name = factor(input_name, levels = c(unique(corrtab$input_name)[[13]],
+                                                      unique(corrtab$input_name)[[11]],
+                                                      unique(corrtab$input_name)[[12]],
+                                                      unique(corrtab$input_name)[[10]],
+                                                      unique(corrtab$input_name)[[8]],
+                                                      unique(corrtab$input_name)[[9]],
+                                                      unique(corrtab$input_name)[[1]],
+                                                      unique(corrtab$input_name)[[2]],
+                                                      unique(corrtab$input_name)[[3]],
+                                                      unique(corrtab$input_name)[[4]],
+                                                      unique(corrtab$input_name)[[5]],
+                                                      unique(corrtab$input_name)[[6]],
+                                                      unique(corrtab$input_name)[[7]])),
+           method = factor(method, levels = c(unique(corrtab$method)[[2]],
+                                              unique(corrtab$method)[[3]],
+                                              unique(corrtab$method)[[4]],
+                                              unique(corrtab$method)[[5]],
+                                              unique(corrtab$method)[[6]],
+                                              unique(corrtab$method)[[1]])),
+           cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                                "Cáceres, Spain (8 months)",
+                                                "Asturias, Spain (37 months)",
+                                                "Bordeaux, France (85 months)",
+                                                "Fundão, Portugal (27 months)")))
+
+# Plots with CTD and SNP sets
+# ===========================
+p_allvar <- p %>% ggplot(aes(x = method,
+                             y = correlation_estimate,
+                             color = input_name,
+                             shape = pvalue_signi)) +
+  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), color="transparent", fill="green", alpha=0.005) + 
+  geom_hline(yintercept = 0,color="gray") +
+  geom_point(position = position_dodge(width = .5), size=5) +
+  facet_wrap(~cg_name, ncol=2) + 
+  {if(coeff=="pearson_correlation") ylab("Pearson correlation estimates")} + 
+  {if(coeff=="spearman_correlation") ylab("Spearman correlation estimates (rank correlation)") } + 
+  xlab("") +
+  ylim(c(-0.44,0.55)) +
+  scale_color_manual(values=colors_coeff)+
+  scale_shape_manual(values = c(16,18)) + #, name="p-value of the correlations"
+  theme_bw() +
+  labs(color="",shape="") +
+  theme(axis.text.x =  element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title.y = element_text(size=16),
+        legend.title = element_blank(), 
+        strip.text.x = element_text(size = 16),
+        strip.background = element_blank(),
+        legend.position = c(0.77,0.15),
+        legend.text=element_text(size=13),
+        panel.grid.minor.x=element_blank(),
+        panel.grid.major.x=element_blank()) +
+  guides(color = guide_legend(ncol=1),
+         shape = guide_legend(override.aes = list(size =2 )))
+p_allvar
+# save in pdf and png
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.pdf")),
+       device="pdf",
+       height=13.6,
+       width=15)
+
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD.png")),
+       height=13.6,
+       width=15)
+
+
+
+# Adding some images to represent the climatic differences among common gardens
+annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, data){ layer(data = data, stat = StatIdentity, position = PositionIdentity, 
+        geom = ggplot2:::GeomCustomAnn,
+        inherit.aes = TRUE, params = list(grob = grob, 
+                                          xmin = xmin, xmax = xmax, 
+                                          ymin = ymin, ymax = ymax))}
+
+df_png <- p %>% 
+  dplyr::select(cg_name) %>%
+  distinct %>% 
+  dplyr::mutate(image = case_when(cg_name == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
+                                  cg_name == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
+                                  cg_name == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
+                                  cg_name == "Madrid, Spain (13 months)" ~ "reports/sun.png",
+                                  cg_name == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
+
+list_pngs <- lapply(unique(p$cg_name), function(cg_name_i){
+  
+sub <-  p %>% 
+  filter(cg_name==cg_name_i) %>%
+  slice(1)
+
+png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_name_i,"image"])),interpolate=TRUE), 
+                            ymin = -0.5,
+                            ymax= -0.3,
+                            xmin = 0.5,
+                            xmax = 1.1, 
+                            data=sub)
+})
+
+p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+
+p_allvar_images
+
+# save in pdf and png
+ggsave(p_allvar_images,
+       file=here(paste0("figs/ValidationCommonGarden/MortalityModels/",coeff,"_SNPsandCTD_WithImages.pdf")),
+       device="pdf",
+       height=13.6,
+       width=15)
+
+})
+```
 
 
 # Height models
@@ -991,13 +1232,13 @@ height_data[1:5,] %>% kable_mydf
 We write a function to plot the model coefficients :
 
 ```{r FunctionPlotCoefficients, eval=T}
-coeff_y_axis <- list(beta_X1="Regression coefficients $\\beta_{X_1}$",
-                     beta_X2="Regression coefficients $\\beta_{X_2}$",
-                     beta_H="Regression coefficients $\\beta_H$",
-                     R_squared="Proportion of variance explained ($R^2$)",
-                     classic_R2="Classic $R^2$",
-                     bayes_R2_res="Residual-based Bayes $R^2$",
-                     bayes_R2_mod="Model-based Bayes $R^2$")
+coeff_y_axis <- list(beta_X1 = "Regression coefficients $\\beta_{X_1}$",
+                     beta_X2 = "Regression coefficients $\\beta_{X_2}$",
+                     beta_H = "Regression coefficients $\\beta_H$",
+                     R_squared = "Proportion of variance explained ($R^2$)",
+                     classic_R2 = "Classic $R^2$",
+                     bayes_R2_res = "Residual-based Bayes $R^2$",
+                     bayes_R2_mod = "Model-based Bayes $R^2$")
 
 generate_interval_plots <- function(model_i){
 
@@ -1009,63 +1250,62 @@ p <- lapply(params, function(coeff){
 
 p <- coefftab %>% 
   filter(term==coeff) %>% 
-  left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
-                      cg=="bordeaux"~"Bordeaux, France (85 months)",
-                      cg=="caceres"~"Cáceres, Spain (8 months)",
-                      cg=="madrid"~"Madrid, Spain (13 months)",
-                      cg=="portugal"~"Fundão, Portugal (27 months)"),
-         method_input=case_when(method_input=="all" ~ "All SNPs",
-                                method_input=="bio1" ~ "Mean annual temperature (°C)",
-                                method_input=="bio12" ~ "Annual precipitation (mm)",
-                                method_input=="bio15" ~ "Precipitation seasonality (index)",
-                                method_input=="bio3" ~ "Isothermality (index)",
-                                method_input=="bio4" ~ "Temperature seasonality (°C)",
-                                method_input=="cand" ~ "Candidate SNPs",
-                                method_input=="control" ~ "Control SNPs",
-                                method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>% 
-  mutate(method_input=factor(method_input, levels=c("All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs",
-                                                    "Mean annual temperature (°C)",
-                                                    "Annual precipitation (mm)",
-                                                    "Precipitation seasonality (index)",
-                                                    "Isothermality (index)",
-                                                    "Temperature seasonality (°C)",
-                                                    "Summer heat moisture index (°C/mm)")),
-         method_type=factor(method_type, levels=c("GDM","GF","LFMM","RDA","CTD")))
-  
+  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                             cg == "madrid" ~ "Madrid, Spain (13 months)",
+                             cg == "portugal" ~ "Fundão, Portugal (27 months)"),
+         input_name = factor(input_name, levels = c(unique(coefftab$input_name)[[13]],
+                                                    unique(coefftab$input_name)[[11]],
+                                                    unique(coefftab$input_name)[[12]],
+                                                    unique(coefftab$input_name)[[10]],
+                                                    unique(coefftab$input_name)[[8]],
+                                                    unique(coefftab$input_name)[[9]],
+                                                    unique(coefftab$input_name)[[1]],
+                                                    unique(coefftab$input_name)[[2]],
+                                                    unique(coefftab$input_name)[[3]],
+                                                    unique(coefftab$input_name)[[4]],
+                                                    unique(coefftab$input_name)[[5]],
+                                                    unique(coefftab$input_name)[[6]],
+                                                    unique(coefftab$input_name)[[7]])),
+         method = factor(method, levels = c(unique(coefftab$method)[[2]],
+                                            unique(coefftab$method)[[3]],
+                                            unique(coefftab$method)[[4]],
+                                            unique(coefftab$method)[[5]],
+                                            unique(coefftab$method)[[6]],
+                                            unique(coefftab$method)[[1]])),
+         cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                              "Cáceres, Spain (8 months)",
+                                              "Asturias, Spain (37 months)",
+                                              "Bordeaux, France (85 months)",
+                                              "Fundão, Portugal (27 months)")))
 
 
 if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2"){
-  nullR2 <- readRDS(file = here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds")) %>% 
+  nullR2 <- readRDS(file = here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds")) %>%
     filter(term==coeff) %>% 
-    mutate(cg=case_when(cg=="asturias"~"Asturias, Spain (37 months)",
-                      cg=="bordeaux"~"Bordeaux, France (85 months)",
-                      cg=="caceres"~"Cáceres, Spain (8 months)",
-                      cg=="madrid"~"Madrid, Spain (13 months)",
-                      cg=="portugal"~"Fundão, Portugal (27 months)"))
+    inner_join(distinct(p[,c("cg","cg_name")]),by="cg")
 }
 
 
 # Plots with CTD and SNP sets
 # ===========================
 p_allvar <- p %>% 
-   ggplot(aes(x = method_type,
+   ggplot(aes(x = method,
               y = mean,
               ymin = conf_low, 
               ymax = conf_high,
-              color=method_input,
-              shape=method_input)) +
+              color = input_name,
+              shape = input_name)) +
   #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
-  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+  facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
   ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
   scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
   theme_bw() +
   labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
@@ -1076,7 +1316,7 @@ p_allvar <- p %>%
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
         legend.position = c(0.77,0.15),
-        legend.text=element_text(size=12),
+        legend.text=element_text(size=11),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
   guides(color=guide_legend(ncol=1),
@@ -1088,8 +1328,8 @@ p_allvar
 ggsave(p_allvar,
        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.pdf")),
        device="pdf",
-       height=9,
-       width=12)
+       height=11,
+       width=14)
 
 # save in png
 # ggsave(p_allvar,
@@ -1101,22 +1341,22 @@ ggsave(p_allvar,
 # Plots only SNP sets
 # ===================
 p_SNPs <- p %>% 
-  filter(!method_type == "CTD") %>% 
-  ggplot(aes(x = method_type,
+  filter(!method == "CTD") %>% 
+  ggplot(aes(x = method,
              y = mean,
              ymin = conf_low, 
              ymax = conf_high,
-             color=method_input,
-             shape=method_input)) +
+             color = input_name,
+             shape = input_name)) +
   #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
   geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
-  facet_wrap(~cg, ncol=2) + #, scales="free_x", space = "free" 
+  facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
   ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
   scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(16,6),rep(17,3))) +
+  scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
   theme_bw() +
   labs(color="",shape="") +
   theme(axis.text.x =  element_text(size=13),
@@ -1127,7 +1367,7 @@ p_SNPs <- p %>%
         strip.text.x = element_text(size = 16),
         strip.background = element_blank(),
         legend.position = c(0.77,0.15),
-        legend.text=element_text(size=18),
+        legend.text=element_text(size=13),
         panel.grid.minor.x=element_blank(),
         panel.grid.major.x=element_blank()) +
   guides(color=guide_legend(ncol=1),
@@ -1138,8 +1378,8 @@ p_SNPs <- p %>%
 ggsave(p_SNPs,
        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.pdf")),
        device="pdf",
-       height=7,
-       width=8)
+       height=10,
+       width=12)
 
 # save in png
 # ggsave(p_SNPs,
@@ -1167,200 +1407,97 @@ poly_function <- function(a,b,x) {a * x^2 + b * x}
 
 ggtab <- coefftab %>% 
   filter(term %in% c("beta_X1","beta_X2")) %>% 
-  left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg_legend =case_when(cg=="asturias"~"Asturias (37 months)",
-                      cg=="bordeaux"~"Bordeaux (85 months)",
-                      cg=="caceres"~"Cáceres (8 months)",
-                      cg=="madrid"~"Madrid (13 months)",
-                      cg=="portugal"~"Fundão (27 months)"),
-         method_input=case_when(method_input=="all" ~ "All SNPs",
-                                method_input=="bio1" ~ "Mean annual temperature (°C)",
-                                method_input=="bio12" ~ "Annual precipitation (mm)",
-                                method_input=="bio15" ~ "Precipitation seasonality (index)",
-                                method_input=="bio3" ~ "Isothermality (index)",
-                                method_input=="bio4" ~ "Temperature seasonality (°C)",
-                                method_input=="cand" ~ "Candidate SNPs",
-                                method_input=="control" ~ "Control SNPs",
-                                method_input=="SHM" ~ "Summer heat moisture index (°C/mm)")) %>%
-  mutate(method_input=factor(method_input, levels=c("All SNPs",
-                                                    "Candidate SNPs",
-                                                    "Control SNPs",
-                                                    "Mean annual temperature (°C)",
-                                                    "Annual precipitation (mm)",
-                                                    "Precipitation seasonality (index)",
-                                                    "Isothermality (index)",
-                                                    "Temperature seasonality (°C)",
-                                                    "Summer heat moisture index (°C/mm)"))) %>% 
+  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                             cg == "madrid" ~ "Madrid, Spain (13 months)",
+                             cg == "portugal" ~ "Fundão, Portugal (27 months)"),
+         input_name = factor(input_name, levels = c(unique(coefftab$input_name)[[13]],
+                                                    unique(coefftab$input_name)[[11]],
+                                                    unique(coefftab$input_name)[[12]],
+                                                    unique(coefftab$input_name)[[10]],
+                                                    unique(coefftab$input_name)[[8]],
+                                                    unique(coefftab$input_name)[[9]],
+                                                    unique(coefftab$input_name)[[1]],
+                                                    unique(coefftab$input_name)[[2]],
+                                                    unique(coefftab$input_name)[[3]],
+                                                    unique(coefftab$input_name)[[4]],
+                                                    unique(coefftab$input_name)[[5]],
+                                                    unique(coefftab$input_name)[[6]],
+                                                    unique(coefftab$input_name)[[7]])),
+         method = factor(method, levels = c(unique(coefftab$method)[[2]],
+                                            unique(coefftab$method)[[3]],
+                                            unique(coefftab$method)[[4]],
+                                            unique(coefftab$method)[[5]],
+                                            unique(coefftab$method)[[6]],
+                                            unique(coefftab$method)[[1]])),
+         cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                              "Cáceres, Spain (8 months)",
+                                              "Asturias, Spain (37 months)",
+                                              "Bordeaux, France (85 months)",
+                                              "Fundão, Portugal (27 months)"))) %>% 
   pivot_wider(names_from="term", values_from = c("mean","std_deviation","conf_low","conf_high"))
 
-ggtab <- lapply(unique(ggtab$cg), function(cg_i){
-lapply(unique(ggtab$method), function(method_i){
+ggtab <- lapply(unique(ggtab$cg_name), function(cg_name_i){
   
-  subggtab <- ggtab %>% filter(method == method_i & cg == cg_i)
+  lapply(unique(ggtab$method_input_name), function(method_input_name_i){
+  
+  subggtab <- ggtab %>% filter(method_input_name == method_input_name_i & cg_name == cg_name_i)
   
   poly_function(a=subggtab$mean_beta_X2, b=subggtab$mean_beta_X1,x=x)
   }) %>% 
-    setNames(unique(ggtab$method)) %>% 
-    bind_rows(.id="method") %>% 
+    setNames(unique(ggtab$method_input_name)) %>% 
+    bind_rows(.id="method_input_name") %>% 
     mutate(x_axis = x)
 }) %>% 
-  setNames(unique(ggtab$cg)) %>% 
-  bind_rows(.id="cg") %>% 
-  pivot_longer(cols=any_of(unique(ggtab$method)),names_to="method",values_to="predictions") %>% 
-  left_join(ggtab[,c("method","method_type", "method_input")] %>% distinct(), by="method")
+  setNames(unique(ggtab$cg_name)) %>% 
+  bind_rows(.id="cg_name") %>% 
+  pivot_longer(cols=any_of(unique(ggtab$method_input_name)),names_to="method_input_name",values_to="predictions") %>% 
+  inner_join(ggtab[,c("method","input_name", "method_input_name","cg","cg_name")] %>% distinct(), by=c("method_input_name","cg_name"))
   
 
 # Below, you can use unique(ggtab$cg) or unique(ggtab$cg_legend)
-ggplots <- lapply(unique(ggtab$cg), function(cg_i){
+ggplots <- lapply(unique(ggtab$cg_name), function(cg_name_i){
   
-p_go <- ggtab %>%
-  filter(cg %in% cg_i & method_type %in% unique(ggtab$method_type)[!unique(ggtab$method_type) == "CTD"]) %>% 
-  mutate(method_input = factor(method_input, levels=c("Candidate SNPs", "Control SNPs", "All SNPs"))) %>% 
-  ggplot(aes(x=x_axis,y=predictions,col=method_type,linetype=method_input)) +
-  geom_hline(yintercept=0,color="black") +
-  geom_line(linewidth=1) +
-  ylab('Standardized tree height') + 
-  #ylab(paste0('Standardized tree height - ',cg_i)) + 
-  xlab(TeX("Standardized predictor")) +
-  ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
-  scale_color_manual(values=c("#FCA315FF", "#00FF00FF","#172869FF", "#FF00FFFF"), name = "GEA method") +
-  scale_linetype_manual(values=c("solid","dashed","dotted"), name = "SNP set") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size=13),
-        axis.text.y = element_text(size=13),
-        axis.title = element_text(size=16),
-        legend.box="horizontal",
-        legend.key.width = unit(1,"cm"),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        legend.key = element_blank(),
-        legend.position = c(0.73,0.89)) + 
-  guides(color=guide_legend(ncol=1))
+  lapply(unique(ggtab$method), function(method_i){
+    
+    ptab <- ggtab %>%
+      filter(cg_name %in% cg_name_i & 
+             method %in% method_i)
+    
+ p <- ptab %>%  ggplot(aes(x = x_axis,
+             y = predictions,
+             col = input_name)) +
+      geom_hline(yintercept=0,color="black") +
+      geom_line(linewidth=1) +
+      ylab('Standardized tree height') + 
+      ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
+      
+      {if(method_i %in% c("GDM", "GF", "RDA", "pRDA", "LFMM")) scale_color_manual(values=c("#004586FF","#FF7F0FFF","#FFD320FF","#579D1CFF","#7E0021FF","#83CAFFFF"), name = "SNP set")} +
+         
+      {if(method_i %in% c("GDM", "GF", "RDA", "pRDA", "LFMM")) xlab(TeX("Standardized genomic offset predictions"))} + 
+      {if(method_i == "CTD") scale_color_manual(values=c("aquamarine3","#FEB5A2FF","#F02720FF","darkviolet","deeppink","cyan2","chocolate4"), name = "Climatic distance")} +
+      {if(method_i == "CTD") xlab(TeX("Standardized climatic transfer distance"))} + 
+      labs(title=(paste0(cg_name_i, " - ", method_i))) +
+      theme_bw() +
+      theme(axis.text.x = element_text(size=13),
+            axis.text.y = element_text(size=13),
+            axis.title = element_text(size=16),
+            legend.box="horizontal",
+            legend.key.width = unit(1,"cm"),
+            legend.background = element_blank(),
+            legend.box.background = element_blank(),
+            legend.key = element_blank(),
+            legend.position = c(0.68,0.83)) + 
+      guides(color=guide_legend(ncol=1))
 
-#if(!cg_i==unique(ggtab$cg)[1])  p_go <- p_go + theme(legend.position = "none")
-#if(!cg_i==unique(ggtab$cg)[length(unique(ggtab$cg))])  p_go <- p_go + xlab("")
-
-p_ctd <- ggtab %>% 
-  filter(cg %in% cg_i & method_type %in% "CTD") %>%
-  ggplot(aes(x=x_axis,y=predictions,col=method_input)) +
-  geom_hline(yintercept=0,color="black") +
-  #geom_segment(aes(x = min(x_axis), y = 0, xend = max(x_axis), yend = 0), color="black") +
-  geom_line(linewidth=1.2) +
-  ylab('') + 
-  xlab(TeX("Standardized predictor")) +
-  ylim(c(min(ggtab$predictions),max(ggtab$predictions))) +
-  scale_color_manual(values=colors_coeff[4:length((colors_coeff))], 
-                     name = "Climatic transfer distance") +
-    theme_bw() + 
-    theme(axis.text.x = element_text(size=13),
-          axis.text.y = element_text(size=13),
-          axis.title = element_text(size=16),
-          legend.box="horizontal",
-          legend.background = element_blank(),
-          legend.box.background = element_blank(),
-          legend.key = element_blank(),
-          legend.position = c(0.55,0.91)) + 
-  guides(color=guide_legend(ncol=2))
-
-#if(!cg_i==unique(ggtab$cg)[1])  p_ctd <- p_ctd + theme(legend.position = "none")
-#if(!cg_i==unique(ggtab$cg)[length(unique(ggtab$cg))])  p_ctd <- p_ctd + xlab("")
-
-pp <- plot_grid(p_go,p_ctd)
-
-ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships_",model_i,"_",cg_i,".pdf")), device="pdf", width=12,height=7)
-
-pp
-
-}) %>% setNames(unique(ggtab$cg))
-
-return(ggplots)
+    ggsave(filename = here(paste0("figs/ValidationCommonGarden/HeightModels/ScatterPlotsPredictedRelationships/ScatterPlotsPredictedRelationships_",
+                              model_i,"_",unique(ptab$cg),"_",method_i,".pdf")), device="pdf", width=7,height=7)    
+  })
+})
 }
 ```
   
-  
-  
-```{r MakePolyPlotsV2, fig.width=12, fig.height=7, eval=F, echo=F}
-# Old version of the function to generate the quadratic relationships between tree height and the GO predictions / CTD.
-generate_poly_plots <- function(model_i){
-
-coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
-
-ggtab <- coefftab %>% 
-  filter(term %in% c("beta_X1","beta_X2")) %>% 
-  filter(!grepl("CTD",method)) %>% 
-  left_join(distinct(df[,c("method_type","method_input","cg","method")]), by=c("method","cg")) %>% 
-  mutate(cg_legend =case_when(cg=="asturias"~"Asturias (37 months)",
-                      cg=="bordeaux"~"Bordeaux (85 months)",
-                      cg=="caceres"~"Cáceres (8 months)",
-                      cg=="madrid"~"Madrid (13 months)",
-                      cg=="portugal"~"Fundão (27 months)"),
-         method_input=case_when(method_input=="all" ~ "All SNPs",
-                                method_input=="cand" ~ "Candidate SNPs",
-                                method_input=="control" ~ "Control SNPs")) %>% 
-  pivot_wider(names_from="term", values_from = c("mean","std_deviation","conf_low","conf_high"))
-
-
-
-lapply(unique(ggtab$cg), function(cg_i){
-lapply(unique(ggtab$method), function(method_i){
-  
-  
-  ######
-    df_sub <- df %>% filter(method == method_i & cg == cg_i)
-    
-    sub_data <- height_data %>% 
-      filter(cg == cg_i) %>% 
-      left_join(df_sub, by = c("cg","pop")) %>% 
-      mutate(varX_sdt = (varX -mean(varX))/sd(varX))
-    
-    
-    x <- unique(sub_data$varX_sdt)
-    poly_function <- function(a,b,x) {a * x^2 + b * x}
-    
-    #######
-    
-    
-    
-  subggtab <- ggtab %>% filter(method == method_i & cg == cg_i)
-  
-  tibble(mean=poly_function(a=subggtab$mean_beta_X2, b=subggtab$mean_beta_X1,x=x),
-         low=poly_function(a=subggtab$conf_low_beta_X2, b=subggtab$conf_low_beta_X1,x=x),
-         high=poly_function(a=subggtab$conf_high_beta_X2, b=subggtab$conf_high_beta_X1,x=x),
-         x=x) %>%
-    pivot_longer(cols=c("mean","low","high"),names_to="group",values_to="y") %>% 
-    
-    
-  ggplot(aes(x=x,y=y,col=group)) +
-  geom_hline(yintercept=0,color="black") +
-  geom_line(linewidth=1) +
-  geom_point(size=3) +
-  ylab('Standardized tree height') + 
-  #ylab(paste0('Standardized tree height - ',cg_i)) + 
-  xlab(TeX("Standardized predictor")) +
-  ylim(-2.5,1.7) +
-  #scale_color_manual(values=c("#FCA315FF", "#00FF00FF","#172869FF", "#FF00FFFF"), name = "GEA method") +
-  #scale_linetype_manual(values=c("solid","dashed","dotted"), name = "SNP set") +
-  theme_bw() + 
-  ggtitle(paste0(subggtab$cg_legend," - GO predictions from ",subggtab$method_type," and ",subggtab$method_input)) +
-  theme(axis.text.x = element_text(size=13),
-        axis.text.y = element_text(size=13),
-        axis.title = element_text(size=16),
-        legend.box="horizontal",
-        legend.key.width = unit(1,"cm"),
-        legend.background = element_blank(),
-        legend.box.background = element_blank(),
-        legend.key = element_blank(),
-        legend.position = c(0.73,0.89)) + 
-  guides(color=guide_legend(ncol=1))
-  
-  
-  }) 
-}) 
-
-
-}
-```
-
 ## Model 1
 
 ### Model equation and code 
@@ -1379,58 +1516,93 @@ Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
   - $X_p$ is the GO or CTD of the population $p$, with $\beta_{X1}$ and $\beta_{X2}$ being its linear and quadratic coefficients, respectively. The quadratic term was included to allow for potential nonlinearity in the response, following @fitzpatrick2021experimental.
 
 
-```{r CompileHeightModelM1,message=F,warning=F}
+```{r CompileHeightModelM1, message=F, warning=F}
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M1.stan"))
 print(stancode)
 
 params_to_estimate <- c("beta_X1","beta_X2","R_squared","sigma","alpha_bloc")
 ```
 
+### Run the models
+
 ```{r RunHeightModelM1, eval=F}
-coefftab <- lapply(unique(height_data$cg), function(site_i){
+lapply(unique(height_data$cg), function(site_i){
   
-  lapply(unique(df$method), function(method_i){
+  lapply(unique(df$method_input_code), function(method_input_code_i){
   
-    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    # Subset the data
+    df_sub <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
     
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
       left_join(df_sub, by = c("cg","pop"))
       
+    # Data in a list for Stan
     stanlist <- list(N = nrow(sub_data),
                      Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                      X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
                      nb_bloc = length(unique(sub_data$block)),
                      bloc = as.numeric(as.factor(sub_data$block)))
 
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
-                    pars=params_to_estimate) 
+    # Run the models
+    mod <- sampling(stancode, 
+                    data = stanlist, 
+                    iter = 2000, 
+                    warmup = 1400, 
+                    chains = 4, 
+                    cores = 4, 
+                    save_warmup = FALSE,
+                    pars = params_to_estimate) 
+    
+    # Save the model and the stanlist
+    list(mod = mod, 
+         stanlist = stanlist) %>% 
+      saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M1/",site_i,"_",method_input_code_i,".rds")))
+    
+    
+  })
+})
+```
+
+```{r BuildCoeffTableM1, eval=F}
+coefftab <- lapply(unique(height_data$cg),function(site_i){
   
-# Model coefficients
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    # Subset the data - keeping only one set of method / SNP set
+    sub_data <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
+  
+    mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M1/",
+                                    site_i,"_",method_input_code_i,".rds")))[["mod"]]
+                     
+    # Save coefficients
     broom.mixed::tidyMCMC(mod,
-                          pars=params_to_estimate,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
                           ess = F, 
                           rhat = F, 
                           conf.int = T,
                           conf.level = 0.95) %>% 
-    dplyr::rename(mean=estimate,
-                  std_deviation=std.error,
-                  conf_low=conf.low,
-                  conf_high=conf.high) %>% 
-    mutate(cg=site_i,
-           method=method_i,
-           .before=1)
-    
-    
-  }) %>% bind_rows()
-  
+      #filter(str_detect(term, c('beta'))) %>% 
+      dplyr::rename(mean=estimate,
+                    std_deviation=std.error,
+                    conf_low=conf.low,
+                    conf_high=conf.high) %>% 
+      mutate(cg = site_i,
+             method_input_code = method_input_code_i,
+             method_input_name = unique(sub_data$method_input_name),
+             method = unique(sub_data$method),
+             input_name = unique(sub_data$input_name),
+             input_code = unique(sub_data$input_code),
+             .before=1)     
+
 }) %>% bind_rows()
-
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M1.rds"))
+ 
+}) %>% bind_rows()
+  
+coefftab %>% 
+  saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M1.rds"))
 ```
-
 
 ### Model coefficients
 
@@ -1492,14 +1664,16 @@ params_to_estimate <- c("beta_X1","beta_X2","beta_H","sigma","alpha_bloc",
                         "classic_R2","bayes_R2_mod","bayes_R2_res")
 ```
 
+### Run the models
+
 
 ```{r RunHeightModelM2, eval=F}
-coefftab <- lapply(unique(height_data$cg), function(site_i){
+lapply(unique(height_data$cg), function(site_i){
   
-  lapply(unique(df$method), function(method_i){
+  lapply(unique(df$method_input_code), function(method_input_code_i){
   
     # Subset the data
-    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    df_sub <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
     
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
@@ -1515,36 +1689,64 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                      bloc = as.numeric(as.factor(sub_data$block)))
 
     # Run the models
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+    mod <- sampling(stancode, 
+                    data = stanlist, 
+                    iter = 2000, 
+                    warmup = 1400, 
+                    chains = 4, 
+                    cores = 4, 
+                    save_warmup = FALSE,
                     pars = params_to_estimate) 
     
-    # Save the models
-    mod %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_",method_i,".rds")))
+    # Save the model and the stanlist
+    list(mod = mod, 
+         stanlist = stanlist) %>% 
+      saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/",site_i,"_",method_input_code_i,".rds")))
     
     
-    # Extract coefficients
+  })
+})
+```
+
+
+```{r BuildCoeffTableM2, eval=F}
+coefftab <- lapply(unique(height_data$cg),function(site_i){
+  
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    # Subset the data - keeping only one set of method / SNP set
+    sub_data <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
+  
+    mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/",
+                                    site_i,"_",method_input_code_i,".rds")))[["mod"]]
+                     
+    # Save coefficients
     broom.mixed::tidyMCMC(mod,
-                          pars=params_to_estimate,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
                           ess = F, 
                           rhat = F, 
                           conf.int = T,
                           conf.level = 0.95) %>% 
-    dplyr::rename(mean=estimate,
-                  std_deviation=std.error,
-                  conf_low=conf.low,
-                  conf_high=conf.high) %>% 
-    mutate(cg=site_i,
-           method=method_i,
-           .before=1)
-    
-    
-  }) %>% bind_rows()
-  
-}) %>% bind_rows()
+      #filter(str_detect(term, c('beta'))) %>% 
+      dplyr::rename(mean=estimate,
+                    std_deviation=std.error,
+                    conf_low=conf.low,
+                    conf_high=conf.high) %>% 
+      mutate(cg = site_i,
+             method_input_code = method_input_code_i,
+             method_input_name = unique(sub_data$method_input_name),
+             method = unique(sub_data$method),
+             input_name = unique(sub_data$input_name),
+             input_code = unique(sub_data$input_code),
+             .before=1)     
 
-coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2.rds"))
+}) %>% bind_rows()
+ 
+}) %>% bind_rows()
+  
+coefftab %>% 
+  saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2.rds"))
 ```
 
 ### Proportion of variance explained
@@ -1659,77 +1861,69 @@ The graphs above do not show the estimate uncertainty. We generate some graphs t
 # Visualizing the relationships between GO predictions and height predictions
 #############################################################################
 
-lapply(unique(height_data$cg), function(site_i){
+coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds"))) %>% 
+  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                             cg == "madrid" ~ "Madrid, Spain (13 months)",
+                             cg == "portugal" ~ "Fundão, Portugal (27 months)"))
 
-list(CTDs=names(methods) %>% str_subset("^CTD"),
-     go_methods=names(methods) %>% str_subset("^CTD", negate=T)) %>% 
+lapply(unique(coefftab$cg), function(cg_i){
+  
+  lapply(unique(coefftab$method_input_code), function(method_input_code_i){
     
-    lapply(function(method_group_i){
-      
-myplots <- lapply(method_group_i, function(method_i){
-
-# Subset the data
-df_sub <- df %>% filter(method == method_i & cg == site_i)
+    sub_coefftab <- coefftab %>% 
+      filter(method_input_code == method_input_code_i & cg == cg_i)
     
-sub_data <- height_data %>% 
-      filter(cg == site_i) %>% 
-      left_join(df_sub, by = c("cg","pop")) %>% 
-      left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
-      
-# Data in a list for Stan
-stanlist <- list(N = nrow(sub_data),
-                 Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
-                 X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
-                 H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
-                 nb_bloc = length(unique(sub_data$block)),
-                 bloc = as.numeric(as.factor(sub_data$block)))
+    # Load the stanlist
+    stanlist <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/",cg_i,"_",method_input_code_i,".rds")))[[2]]
+  
+    # Loading the model
+    mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/",cg_i,"_",method_input_code_i,".rds")))[[1]]
+
+    # we extract the posterior distributions of all parameters
+    post <- as.data.frame(mod)
+
+    # Vector of predictor values (based on the min and max of the GO predictions/CTD )
+    x_vec <- seq(min(stanlist$X),max(stanlist$X),0.05)
+
+
+    # Predicting the linear predictor mu (predicting mean-centered height without sigma uncertainty)
+    ################################################################################################
+
+    # we extract the posterior draws of mu, and its mean and HDPIs for each predictor value
+
+    # Function to predict mean-centered height in block 2 and with the initial tree height fixed to the mean (i.e. fixed to zero as explanatory variables were mean-centered)
+    f_mu <- function(x) post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` * mean(stanlist$H)#mean(sub_data$init_height) 
+
+    mu_pred <- 
+      sapply(x_vec, f_mu) %>% 
+      tibble::as_tibble() %>%
+      rename_all(function(x) x_vec) %>%
+      mutate(Iter = row_number()) %>%
+      gather(x, y, -Iter) %>%
+      group_by(x) %>%
+      mutate(hpdi_l = HDInterval::hdi(y, credMass = 0.90)[1],
+             hpdi_h = HDInterval::hdi(y, credMass = 0.90)[2]) %>%
+      mutate(mu_mean = mean(y)) %>%
+      ungroup() %>%
+      mutate(x = as.numeric(x))
     
-# Loading the model
-mod <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_",method_i,".rds")))
+    # Keep mean and 90% HDPI of mu (one value for each iteration)
+    mu_mean_df <- mu_pred %>%
+      dplyr::select(x,mu_mean,hpdi_l,hpdi_h) %>% 
+      dplyr::distinct()
 
-# we extract the posterior distributions of all parameters
-post <- as.data.frame(mod)
+   # Predicting mean-centered height with sigma uncertainty
+   #########################################################
 
-# Vector of predictor values (based on the min and max of the GO predictions)
-x_vec <- seq(min(stanlist$X),max(stanlist$X),0.05)
-
-
-# Predicting the linear predictor mu (predicting mean-centered height without sigma uncertainty)
-################################################################################################
-
-# we extract the posterior draws of mu, and its mean and HDPIs for each predictor value
-
-# Function to predict mean-centered height in block 2 and with the initial tree height fixed to the mean
-f_mu <- function(x) post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` * mean(sub_data$init_height) 
-
-mu_pred <- 
-  sapply(x_vec, f_mu) %>% 
-  tibble::as_tibble() %>%
-  rename_all(function(x) x_vec) %>%
-  mutate(Iter = row_number()) %>%
-  gather(x, y, -Iter) %>%
-  group_by(x) %>%
-  mutate(hpdi_l = HDInterval::hdi(y, credMass = 0.90)[1],
-         hpdi_h = HDInterval::hdi(y, credMass = 0.90)[2]) %>%
-  mutate(mu_mean = mean(y)) %>%
-  ungroup() %>%
-  mutate(x = as.numeric(x))
-
-# Keep mean and 90% HDPI of mu (one value for each iteration)
-mu_mean_df <- mu_pred %>%
-  dplyr::select(x,mu_mean,hpdi_l,hpdi_h) %>% 
-  dplyr::distinct()
-
-# Predicting mean-centered height with sigma uncertainty)
-#########################################################
-
-# we extract the posterior draws of height predictions, and its mean and PIs for each predictor value
-
-y_pred <- 
-  sapply(x_vec,
+   # we extract the posterior draws of height predictions, and its mean and PIs for each predictor value
+    
+    y_pred <- 
+      sapply(x_vec,
          function(x)
            rnorm(NROW(post),
-                 post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` * mean(sub_data$init_height),
+                 post$`alpha_bloc[2]` + post$`beta_X1` * x + post$`beta_X2` * x^2 + post$`beta_H` *  mean(stanlist$H),#mean(sub_data$init_height),
                  post$sigma)) %>%
   as_tibble() %>%
   rename_all(function(x) x_vec) %>%
@@ -1747,106 +1941,58 @@ y_pred <-
   dplyr::distinct()
 
 
-# Plots
-#######
+  # Plots
+  #######
 
-# Plot options 
-y_limits <- c(-3,3)
-if(grepl("CTD",method_group_i[[1]]) == T){x_axis <- "Mean-centered CTD"} else {
-  x_axis <- "Mean-centered GO predictions"}
-y_axis <- "Mean-centered tree height"
+  # Plot options 
+  y_limits <- c(-3,3)
+  if(unique(sub_coefftab$method == "CTD")){x_axis <- "Mean-centered CTD"} else {
+    x_axis <- "Mean-centered GO predictions"}
+  y_axis <- "Mean-centered tree height"
 
-p <- ggplot() +
-  ylim(y_limits) +
-  labs(y=y_axis, x=x_axis) +
-  theme_bw()
+  p <- ggplot() +
+    ylim(y_limits) +
+    labs(y=y_axis, x=x_axis) +
+    theme_bw()
 
-# First 100 posterior draws of the linear predictor mu
-p1 <- p +
-  geom_point(data = mu_pred %>% filter(Iter < 101),
-             aes(x, y), alpha = .2, color = 'dodgerblue')
+  # First 100 posterior draws of the linear predictor mu
+  p1 <- p +
+    geom_point(data = mu_pred %>% filter(Iter < 101),
+               aes(x, y), alpha = .2, color = 'dodgerblue')
   
-# Mean (line) and 90% HPDI (shaded region) of the linear predictor mu
-p2 <- p +
-  geom_ribbon(data = y_pred,
-                 mapping = aes(x=x, ymin=hpdi_l, ymax=hpdi_h), alpha = .1, fill='dodgerblue') +
-  geom_ribbon(data = mu_mean_df,
-              aes(x = x, ymin = hpdi_l, ymax = hpdi_h),
-              alpha = .2,
-              fill='dodgerblue') +
-  geom_line(data = mu_mean_df,
-              aes(x=x, y=mu_mean), col="dodgerblue4")
+  # Mean (line) and 90% HPDI (shaded region) of the linear predictor mu
+  p2 <- p +
+    geom_ribbon(data = y_pred,
+                mapping = aes(x=x, ymin=hpdi_l, ymax=hpdi_h), alpha = .1, fill='dodgerblue') +
+    geom_ribbon(data = mu_mean_df,
+                aes(x = x, ymin = hpdi_l, ymax = hpdi_h),
+                alpha = .2,
+                fill='dodgerblue') +
+    geom_line(data = mu_mean_df,
+              aes(x=x, y=mu_mean), 
+              col="dodgerblue4")
 
-p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
+  p1_p2 <- ggarrange(p1, p2 + labs(y=""), nrow = 1)
 
-# Title
-title <- ggdraw() + 
-  draw_label(paste0(cg_names[[site_i]]," - ",methods[[method_i]]),
-             fontface = 'bold',
-             x = 0, hjust = 0) +   
+  # Title
+  title <- ggdraw() + 
+    draw_label(paste0(unique(sub_coefftab$cg_name)," - ",unique(sub_coefftab$method_input_name)),
+               fontface = 'bold',
+               x = 0, 
+               hjust = 0) +   
   theme(plot.margin = margin(0, 0, 0, 7))
 
-# merge title and plots
-p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
+  # merge title and plots
+  p1_p2 <- plot_grid(title, p1_p2, ncol = 1, rel_heights = c(0.1, 1))
 
-p2 <- p2 + labs(subtitle = methods[[method_i]])
-
-ggsave(p1_p2,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_MuPosteriorDraws_UncertaintyIntervals/",
-                        method_i,"_",site_i,"_M2.pdf")),
-       device="pdf",
-       height=6,
-       width=11)
-
-
-return(p2)
-
-})
-
-if(grepl("CTD",method_group_i[[1]]) == T){
-  
-  group_name <- "CTDs"
-  
-  p <- plot_grid(myplots[[1]] + labs(x=""),
-                 myplots[[2]] + labs(y="",x=""),
-                 myplots[[3]] + labs(x=""),
-                 myplots[[4]] + labs(y="",x=""),
-                 myplots[[5]],
-                 myplots[[6]] + labs(y=""),
-                 ncol=2)
-  
-  fig_width <- 10
-  
-} else {
-  
-  group_name <- "SNPsets"
-  
-  p <- plot_grid(myplots[[1]] + labs(x=""),
-                 myplots[[2]] + labs(y="",x=""),
-                 myplots[[3]] + labs(y="",x=""),
-                 myplots[[4]] + labs(x=""),
-                 myplots[[5]] + labs(y="",x=""),
-                 myplots[[6]] + labs(y="",x=""),
-                 myplots[[7]],
-                 myplots[[8]] + labs(y=""),
-                 myplots[[9]] + labs(y=""),
-                 ncol=3)
-  
-    fig_width <- 12
-    
-    }
-
-
-ggsave(p,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_",
-                        group_name,"_",site_i,"_M2.pdf")),
-       device="pdf",
-       height=12,
-       width=fig_width)
-
-})
-  
-})
+  ggsave(p1_p2,
+         file=here(paste0("figs/ValidationCommonGarden/HeightModels/HeightPredictions_MuPosteriorDraws_UncertaintyIntervals/",model_i,
+                        "_",cg_i,"_",method_input_code_i,".pdf")),
+         device="pdf",
+         height=6,
+         width=11)
+  })
+  })
 ```
 
 
@@ -1876,24 +2022,27 @@ Y_{ipb}  &\sim \mathcal{N}(\mu_{pb},\sigma^{2}) \\
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M3.stan"))
 print(stancode)
 
-params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc","alpha_clon")
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma")
 ```
 
 
-```{r RunHeightModel3, eval=F}
-lapply(sites, function(site_i){
+### Run the models
+
+
+```{r RunHeightModelM3, eval=F}
+lapply(unique(height_data$cg), function(site_i){
   
-  lapply(unique(df$method), function(method_i){
+  lapply(unique(df$method_input_code), function(method_input_code_i){
   
-    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    # Subset the data
+    df_sub <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
     
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
       left_join(df_sub, by = c("cg","pop")) %>% 
-      
       left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
-
-# Datalist for Stan      
+      
+    # Data in a list for Stan
     stanlist <- list(N = nrow(sub_data),
                      Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                      X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
@@ -1902,44 +2051,66 @@ lapply(sites, function(site_i){
                      nb_clon = length(unique(sub_data$clon)),
                      bloc = as.numeric(as.factor(sub_data$block)),
                      clon = as.numeric(as.factor(sub_data$clon)))
-    
-# Running the model
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+
+    # Run the models
+    mod <- sampling(stancode, 
+                    data = stanlist, 
+                    iter = 2000, 
+                    warmup = 1400, 
+                    chains = 4, 
+                    cores = 4, 
+                    save_warmup = FALSE,
                     pars = params_to_estimate) 
+    
+    # Save the model and the stanlist
+    list(mod = mod, 
+         stanlist = stanlist) %>% 
+      saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M3/",site_i,"_",method_input_code_i,".rds")))
+    
+    
+  })
+})
+```
+
+
+```{r BuildCoeffTableM3, eval=F}
+coefftab <- lapply(unique(height_data$cg),function(site_i){
   
-# Model coefficients
- coeffs <- broom.mixed::tidyMCMC(mod,
-                          pars=params_to_estimate,
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    # Subset the data - keeping only one set of method / SNP set
+    sub_data <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
+  
+    mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M3/",
+                                    site_i,"_",method_input_code_i,".rds")))[["mod"]]
+                     
+    # Save coefficients
+    broom.mixed::tidyMCMC(mod,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
                           ess = F, 
                           rhat = F, 
                           conf.int = T,
                           conf.level = 0.95) %>% 
-    dplyr::rename(mean=estimate,
-                  std_deviation=std.error,
-                  conf_low=conf.low,
-                  conf_high=conf.high) %>% 
-    mutate(cg=site_i,
-           method=method_i,
-           .before=1)
-    
-    coeffs %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M3/coefftab_M3_",site_i,"_",method_i,".rds")))
-
-  })
-})
-```
-
-```{r TableCoeffM3}
-# We merge all the coefficients in ien table
-lapply(unique(height_data$cg), function(site_i){
-lapply(unique(df$method), function(method_i){
-
-readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M3/coefftab_M3_",site_i,"_",method_i,".rds")))
+      #filter(str_detect(term, c('beta'))) %>% 
+      dplyr::rename(mean=estimate,
+                    std_deviation=std.error,
+                    conf_low=conf.low,
+                    conf_high=conf.high) %>% 
+      mutate(cg = site_i,
+             method_input_code = method_input_code_i,
+             method_input_name = unique(sub_data$method_input_name),
+             method = unique(sub_data$method),
+             input_name = unique(sub_data$input_name),
+             input_code = unique(sub_data$input_code),
+             .before=1)     
 
 }) %>% bind_rows()
-}) %>% bind_rows() %>% 
-saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M3.rds"))
+ 
+}) %>% bind_rows()
+  
+coefftab %>% 
+  saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M3.rds"))
 ```
 
 ### Model coefficients
@@ -1986,24 +2157,23 @@ C_c &\sim \mathcal{N}(0,\sigma_C^2) \\
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M4.stan"))
 print(stancode)
 
-params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma","alpha_bloc","alpha_clon")
+params_to_estimate <- c("beta_X1","beta_X2","beta_H","R_squared","sigma")
 ```
 
-
-```{r RunHeightModel4, eval=F}
-lapply(sites, function(site_i){
+```{r RunHeightModelM4, eval=F}
+lapply(unique(height_data$cg), function(site_i){
   
-  lapply(unique(df$method), function(method_i){
+  lapply(unique(df$method_input_code), function(method_input_code_i){
   
-    df_sub <- df %>% filter(method == method_i & cg == site_i)
+    # Subset the data
+    df_sub <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
     
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
       left_join(df_sub, by = c("cg","pop")) %>% 
-      
       left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
-
-# Datalist for Stan      
+      
+    # Data in a list for Stan
     stanlist <- list(N = nrow(sub_data),
                      Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
                      X=(sub_data$varX -mean(sub_data$varX))/sd(sub_data$varX),
@@ -2012,48 +2182,66 @@ lapply(sites, function(site_i){
                      nb_clon = length(unique(sub_data$clon)),
                      bloc = as.numeric(as.factor(sub_data$block)),
                      clon = as.numeric(as.factor(sub_data$clon)))
-    
-# Running the model
-    mod <- sampling(stancode, data = stanlist, iter = 2000, chains = 4, cores = 4, save_warmup = FALSE,
+
+    # Run the models
+    mod <- sampling(stancode, 
+                    data = stanlist, 
+                    iter = 2000, 
+                    warmup = 1400, 
+                    chains = 4, 
+                    cores = 4, 
+                    save_warmup = FALSE,
                     pars = params_to_estimate) 
+    
+    # Save the model and the stanlist
+    list(mod = mod, 
+         stanlist = stanlist) %>% 
+      saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M4/",site_i,"_",method_input_code_i,".rds")))
+    
+    
+  })
+})
+```
+
+
+```{r BuildCoeffTableM4, eval=F}
+coefftab <- lapply(unique(height_data$cg),function(site_i){
   
-# Model coefficients
-    coeffs <- broom.mixed::tidyMCMC(mod,
-                          pars=params_to_estimate,
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    # Subset the data - keeping only one set of method / SNP set
+    sub_data <- df %>% filter(method_input_code == method_input_code_i & cg == site_i)
+  
+    mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M4/",
+                                    site_i,"_",method_input_code_i,".rds")))[["mod"]]
+                     
+    # Save coefficients
+    broom.mixed::tidyMCMC(mod,
                           droppars = NULL, 
                           robust = FALSE, # give mean and standard deviation
                           ess = F, 
                           rhat = F, 
                           conf.int = T,
                           conf.level = 0.95) %>% 
-    dplyr::rename(mean=estimate,
-                  std_deviation=std.error,
-                  conf_low=conf.low,
-                  conf_high=conf.high) %>% 
-    mutate(cg=site_i,
-           method=method_i,
-           .before=1)
-    
-
-coeffs %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M4/coefftab_M4_",site_i,"_",method_i,".rds")))
-
-    
-  })
-})
-```
-
-```{r TableCoeffM4}
-# We merge all the coefficients in ien table
-lapply(unique(height_data$cg), function(site_i){
-lapply(unique(df$method), function(method_i){
-
-readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coeffs_M4/coefftab_M4_",site_i,"_",method_i,".rds")))
+      dplyr::rename(mean=estimate,
+                    std_deviation=std.error,
+                    conf_low=conf.low,
+                    conf_high=conf.high) %>% 
+      mutate(cg = site_i,
+             method_input_code = method_input_code_i,
+             method_input_name = unique(sub_data$method_input_name),
+             method = unique(sub_data$method),
+             input_name = unique(sub_data$input_name),
+             input_code = unique(sub_data$input_code),
+             .before=1)     
 
 }) %>% bind_rows()
-}) %>% bind_rows() %>% 
-saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M4.rds"))
+ 
+}) %>% bind_rows()
+  
+coefftab %>% 
+  saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coefftab_M4.rds"))
 ```
-
 
 ### Model coefficients
 
