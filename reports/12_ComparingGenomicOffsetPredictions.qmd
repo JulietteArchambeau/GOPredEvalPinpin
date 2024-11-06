@@ -54,7 +54,7 @@ We compare the genomic offset predictions from the four following methods:
   
   - Gradient Forest (GF). See report `10_GradientForest_GenomicOffsetPredictions.html`.
   
-  - Redundancy analysis (RDA). See report `11_RedundancyAnalysis_GenomicOffsetPredictions.html`.
+  - Redundancy analysis (RDA) and partial RDA (pRDA). See report `11_RedundancyAnalysis_GenomicOffsetPredictions.html`.
 
 ```{r}
 # Method names
@@ -219,8 +219,12 @@ go_df <- lapply(snp_sets, function(set_i){
   left_join(go_df, by = c("method", "snp_set"))
 
 # save for the shiny app
-saveRDS(go_df, here("shiny/PredictionVariability/go_df.rds"))
+go_df %>% 
+  mutate(gcm = if_else(gcm == "GCMs_average", "Average across GCMs", gcm)) %>% 
+  saveRDS(here("shiny/PredictionVariability/go_df.rds"))
 ```
+
+
 
 ```{r}
 # Which method do we show on the graph? 
@@ -427,5 +431,55 @@ list_highpops[[3]] <- list_highpops[[3]] + theme(legend.position = "none")
 plot_grid(plotlist = list_highpops, nrow=2)
 ```
 
+# Climatic distance
 
+We build a dataset with both the genomic offset predictions and the climatic distances.
 
+```{r ClimDist}
+# Set of select climatic variables
+clim_var <- readRDS(here("data/ClimaticData/NamesSelectedVariables.rds"))
+
+# Loading the climatic datasets (which are mean-centered and standardized)
+source(here("scripts/functions/generate_scaled_clim_datasets.R"))
+clim_dfs <- generate_scaled_clim_datasets(clim_var)
+
+# We calculate the climatic distances for each GCM
+climdist <- lapply(clim_dfs$clim_pred, function(x){
+  
+  # Calculate absolute differences 
+  df <- abs(x[,clim_var] - clim_dfs$clim_ref[,clim_var]) %>% 
+    as_tibble() %>% 
+    bind_cols(x[c("pop","gcm")],.) %>% 
+    mutate(eucli = unique(sqrt(rowSums((clim_dfs$clim_ref[,clim_var] - x[,clim_var])^2))))
+}) %>% bind_rows()
+
+# We calcualte the climatic distances for the average across GCMs
+climdist <- climdist %>%
+  group_by(pop) %>%
+  summarize(across(where(is.numeric), \(x) mean(x, na.rm = TRUE))) %>% 
+  mutate(gcm="GCMs_average") %>% 
+  bind_rows(climdist) %>% 
+  pivot_longer(cols = all_of(c(clim_var,"eucli")), names_to = "var_code", values_to = "val") %>% 
+  mutate(var_name = case_when(var_code == "bio1" ~ "Mean annual temperature (bio1, °C)",
+                              var_code == "bio12" ~ "Annual precipitation (bio12, mm)",
+                              var_code == "bio15" ~ "Precipitation seasonality (bio15, index)",
+                              var_code == "bio3" ~ "Isothermality (bio3, index)",
+                              var_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
+                              var_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
+                              var_code == "eucli" ~ "Euclidean climatic distance"),
+         method_name = "Climatic distance")
+
+# We merge the climatic distances with the genomic offset predictions
+go_climdist_df <- go_df %>% 
+  dplyr::rename(method_name = method,
+                var_code = snp_set,
+                var_name = snpset_names,
+                val = go) %>% 
+  dplyr::select(-method_snpset_names, -meth_snpset, -rank) %>% 
+  bind_rows(climdist) %>% 
+  mutate(gcm = if_else(gcm == "GCMs_average", "Average across GCMs", gcm)) %>% 
+  left_join(readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))[[1]], by="pop")
+
+# We export the dataset for the shinny app
+go_climdist_df %>% saveRDS(here("shiny/PredictionVariability/go_climdist_df.rds"))
+```
