@@ -13,7 +13,9 @@ output:
     #  collapsed: no
 editor_options:
   chunk_output_type: console
-bibliography: references.bib
+bibliography:
+  - ../reports/references.bib
+  - ../reports/grateful-refs.bib
 always_allow_html: true
 ---
 
@@ -1061,6 +1063,8 @@ treemap(tab,
   
 ## Run the RDA{#RunRDAs}
 
+RDA was performed with the `vegan` R package v`r packageVersion("vegan")` [@vegan].
+
 We perform RDA models the six combinations of the three sets of selected climatic variables and accounting or not for the neutral genetic population structure. Here are the models that we run:
 
   - Allele frequencies ~ set 1 + Condition(PC1 + PC2 + PC3)
@@ -1305,7 +1309,9 @@ dev.off()
 
 Two methods can be used to identify the outliers with the RDA.
 
-Outliers can be identified based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using K number of axes [@capblancqEvaluationRedundancyAnalysis2018]. The number of axes used (K) is determined by looking at the amount of information retained on the different axes of the RDA [@capblancqEvaluationRedundancyAnalysis2018]. In our study, we used K=2. The Mahalanobis distances are calculated with the `rdadapt` function from @capblancq2021redundancy, which returns $p$-values and $q$-values for each SNP. Different thresholds can then be used to identify the outliers:
+Outliers can be identified based on their *extremeness* along a *distribution of Mahalanobis distances* estimated between each locus and the center of the RDA space using K number of axes [@capblancqEvaluationRedundancyAnalysis2018]. The number of axes used (K) is determined by looking at the amount of information retained on the different axes of the RDA [@capblancqEvaluationRedundancyAnalysis2018]. In our study, we used K=2. The Mahalanobis distances are calculated with the `rdadapt` function from @capblancq2021redundancy, which then returns $p$-values and $q$-values for each SNP. The `radapt` function relies on the `covRob` function from the `robust` R package v`r packageVersion("robust")` [@robust] and the `qvalue` function from the `qvalue` R package [@qvalue].
+
+Different thresholds can then be used to identify the outliers:
 
   -  @capblancq2020climate uses a $p$-value threshold with a Bonferroni correction to account for multiple testing: $p$-value < 0.01 / number of SNPs (see [code](https://github.com/Capblancq/Local-Adaptation-Fagus-sylvatica)). In our study, this threshold results in selecting 16 SNPs with the RDA model, and 5 with the pRDA model (and 1 in common between the two methods). 
 
@@ -1314,7 +1320,7 @@ Outliers can be identified based on their *extremeness* along a *distribution of
   - we can also use a FDR (False Discovery Rate) threshold of 5% or 10% to identify outliers as the `rdadapt` function returns both $p$-values and $q$-values [see @franccois2016controlling].
 
 Outliers can also been identified based on the *extreme loadings on each retained axis*. Method used in @forester2018comparing (see [code](https://popgen.nescent.org/2018-03-27_RDA_GEA.html), in which a 3 standard deviation cutoff is used (two-tailed $p$-value = 0.0027). We also use a 3 standard deviation cutoff in the following analyses. 
-  
+
 
 ```{r echo=F}
 rda_models <- readRDS(here("outputs/RDA/RDAmodels.rds"))
