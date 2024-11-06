@@ -130,7 +130,7 @@ Number of alleles for which the climatic variables have some predictive power:
 
 ```{r NbAllelesPredictivePower}
 tab <- lapply(snp_sets, function(x){
-  tibble("SNP set" = x$set_name,
+  tibble("SNP sets" = x$set_name,
          "Total number of SNPs" = length(x$set_snps),
          "Number of SNPs with predictive power" = x$gf_mod$species.pos.rsq)
 }) %>% 
@@ -532,7 +532,7 @@ scale_params <- lapply(clim_var, function(x){
 range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp'))
 
 # We project the genomic offset only for the candidate SNPs
-snp_set <- snp_sets[["common_cand"]]
+snp_set <- snp_sets[["all_cand"]]
 
 # We load the rasters with the climates of the reference period
 path <- here("data/ClimaticData/ClimateDTRasters/1km_1901-1950_Extent-JulietteA/")
