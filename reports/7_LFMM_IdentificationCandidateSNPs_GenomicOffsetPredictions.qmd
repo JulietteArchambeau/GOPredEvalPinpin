@@ -1,6 +1,6 @@
 ---
 title: "Latent Factor Mixed Models (LFMM)"
-subtitle: "Identification of outlier SNPs & Genomic offset predictions"
+subtitle: "Identification of outlier SNPs & genomic offset predictions"
 date: last-modified
 number-sections: true
 format: 
