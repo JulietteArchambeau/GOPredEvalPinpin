@@ -180,8 +180,11 @@ make_venndiagram(list_candidates[c("pRDA (mahalanobis)","LFMM","BayPass")],
                  label="count",
                  title_size = 10)
 
-# All candidate SNPs
+# All candidate SNPs (ie SNPs identified by at least one GEA)
 all_cand <- list_candidates[c("RDA (mahalanobis)","GF","pRDA (mahalanobis)","LFMM","BayPass")] %>% unlist() %>% unique()
+
+# Candidate SNPs identified by GEAs correcting for population genetic structure
+corrected_cand <- list_candidates[c("pRDA (mahalanobis)","LFMM","BayPass")] %>% unlist() %>% unique()
 
 # Identifying SNPs identified by at least two GEA methods
 common_cand_notcorrected <- list_candidates[c("RDA (mahalanobis)","GF")] %>% unlist() %>% .[duplicated(.)] %>% unique()
@@ -201,26 +204,28 @@ common_cand_RDA_LFMM_BayPass_intersect <- list_candidates[c("RDA (mahalanobis)",
   1. SNPs identified by at least one method  => <span style="color: OrangeRed;">`r all_cand %>% length()` SNPs.</span>
   
   2. SNPs identified by at least two methods [like in @capblancq2023common] => <span style="color: OrangeRed;">`r common_cand %>% length()` SNPs.</span>
+  
+  3. SNPs identified by at least one method correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r corrected_cand %>% length()` SNPs.</span>
 
-  3. SNPs identified by at least two methods not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
+  4. SNPs identified by at least two methods not correcting for population structure, namely *RDA* and *GF* => <span style="color: OrangeRed;">`r common_cand_notcorrected %>% length()` SNPs.</span>
   
-  4. SNPs identified by at least two methodss correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
+  5. SNPs identified by at least two methods correcting for population structure, namely *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_corrected %>% length()` SNPs.</span>
   
-  5. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
+  6. SNPs identified by at least two methods among *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM %>% length()` SNPs.</span>
   
-  6. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass %>% length()` SNPs.</span>
+  7. SNPs identified by at least two methods among *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass %>% length()` SNPs.</span>
   
-  7. SNPs in common between *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_intersect %>% length()` SNPs.</span>
+  8. SNPs in common between *RDA*, *pRDA* and *LFMM* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_intersect %>% length()` SNPs.</span>
   
-  8. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
+  9. SNPs in common between *RDA*, *pRDA*, *LFMM* and *BayPass* => <span style="color: OrangeRed;">`r common_cand_RDA_LFMM_BayPass_intersect %>% length()` SNPs.</span>
 
-<span style="color: OrangeRed;">`r length(intersect(common_cand_corrected,common_cand_notcorrected))` SNPs</span> are in common between the sets 2 and 3.
+<span style="color: OrangeRed;">`r length(intersect(common_cand_corrected,common_cand_notcorrected))` SNPs</span> are in common between the sets 4 and 5.
 
 > Our choice
 
 In the first version of the study, we used **the set with SNPs identified by at least two methods** (set 2) (**`r common_cand %>% length()` SNPs**). The rationale is that we aim to obtain a set of candidate SNPs that is enriched for loci involved in adaptation to climate, so we tried to find a good balance between not being too conservative (e.g. by selecting SNPs in common across all methods) and not including too many false positives (e.g. by selecting SNPs identified by at least one GEA). We also wanted to give the possibility to select candidates that can only be identified with methods correcting for population structure (pRDA, LFMM, BayPass) or candidates that can only be identified by methods not correcting for population structure (RDA and GF). 
 
-After the first round of review, we also included the set of SNPs identified by at least one method (set 2)=; `r all_cand %>% length()` SNPs), as a reviewer expressed concern that the initial set of candidate SNPs was too small.
+After the first round of review, we also included the set of SNPs identified by at least one method (set 1; `r all_cand %>% length()` SNPs), as a reviewer expressed concern that the initial set of candidate SNPs was too small. And we also included the set of SNPs identified by at least one method correcting for population genetic structure (set 3; `r corrected_cand %>% length()` SNPs).
 
 ```{r VennDiagrammSelectedMethods,fig.height=7,fig.width=7}
 make_venndiagram(list_candidates[c("RDA (mahalanobis)","pRDA (mahalanobis)","LFMM","BayPass","GF")],
@@ -253,8 +258,9 @@ ggsave(filename = here("figs/VennDiagram_CommonOutliers.pdf"), device = "pdf", w
 
 Following a reviewer’s comment, we updated Figure 2 from a Venn diagram to a more comprehensive [upset plot](https://r-graph-gallery.com/upset-plot.html). 
 
+Figure in which SNPs identified with at least two methods are shown in a different color than SNPs identified by only one method.
 
-```{r GeneratingFigure2ManuscriptUpsetPlot, fig.width=9, fig.height=7, results="hide"}
+```{r GeneratingFigure2ManuscriptUpsetPlotTwoColors, fig.width=9, fig.height=7, results="hide"}
 color_two_methods_snps <- "orange"
 color_one_method_snps <- "cyan"  # "gray60"
 
@@ -268,7 +274,7 @@ p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1,
                      list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
                      list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
 
-pdf(file=here("figs/UpsetPlot_CommonOutliers.pdf"), onefile=FALSE, width = 5, height = 5)
+pdf(file=here("figs/UpsetPlot_AllOutliers_TwoColors.pdf"), onefile=FALSE, width = 5.5, height = 4.5)
 p
 dev.off()
 
@@ -276,9 +282,35 @@ p
 
 ```
 
-# Genome position of candidate SNPs
+Figure in which all SNPs are shown with the same color.
 
-We load the dataset `genome_position.xlsx` containing information about the genome positions of the SNPs. In the DRYAD repository, this information is available in the `ListSNPs_withoutmaf.csv` and `ListSNPs_withmaf.csv` datasets.
+```{r GeneratingFigure2ManuscriptUpsetPlotOneColor, fig.width=9, fig.height=7, results="hide"}
+color_two_methods_snps <- "seagreen2"
+color_one_method_snps <- "seagreen2"  # "gray60"
+
+p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1, 
+      main.bar.color = c(rep(color_one_method_snps,4),rep(color_two_methods_snps,3),color_one_method_snps,rep(color_two_methods_snps, 11)),
+      matrix.color = color_two_methods_snps,
+      
+      queries = list(list(query = intersects, params=names(selected_methods)[1], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[2], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[3], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
+
+pdf(file=here("figs/UpsetPlot_AllOutliers_OneColor.pdf"), onefile=FALSE, width = 5.5, height = 4.5)
+p
+dev.off()
+
+p
+
+```
+
+# SNP pruning based on physical proximity
+
+## Genome position of candidate SNPs
+
+We load the dataset `genome_position.xlsx` containing information about the scaffold/contig of each SNP. In the DRYAD repository, this information is available in the `ListSNPs_withoutmaf.csv` and `ListSNPs_withmaf.csv` datasets.
 
 ```{r LoadGenomePositionData}
 snppos <- read_excel(here("data/GenomicData/genome_position.xlsx"), sheet = "base_table") %>% 
@@ -313,17 +345,165 @@ snppos %>%
 
 If we keep only one SNP per scaffold, we will have:
 
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% all_cand) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
+
   - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
 
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_notcorrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method not correcting for population structure (*RDA* and *GF*).
+  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% corrected_cand) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
   
-  - <span style="color: OrangeRed;">`r snppos %>% dplyr::filter(snp_ID %in% common_cand_corrected) %>% pull(scaffold) %>% unique() %>% length()` candidate SNPs</span> identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
   
+## Position on a reference genome
+
+In 2024, the SNPs were mapped into the *Pinus tabuliformis* genome. We explore in this section of position of the candidate SNPs on this reference genome.
+
+```{r TableMappingBeforePruning, fig.height=8, fig.width=14}
+# SNPs position on the reference genome
+gen_coord <- read_delim("~/Documents/Projects/GOPredEvalPinpin/data/GenomicData/maritime_pine_coord.txt", show_col_types = FALSE) %>% 
+  mutate(chrom_names = if_else(CHROM %in% paste0("chr",1:12), paste0("Chromosome ", CHROM %>% str_sub(4,-1)), paste0("Contig ",CHROM)))
+
+# All SNPs
+all_snps_id <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv")) %>% .[[1]]
+
+# Sets of candidate SNPs
+snp_sets_bf_pruning <- list(all = list(set_code = "all",
+                                       set_name = paste0("All SNPs (", length(all_snps_id),")"),
+                                       set_snps = all_snps_id), 
+                            all_cand = list(set_code = "all_cand",
+                                            set_name = paste0("All candidate SNPs (", length(all_cand),")"),
+                                            set_snps = all_cand),
+                            common_cand = list(set_code = "common_cand",
+                                               set_name = paste0("Common candidate SNPs (", length(common_cand),")"),
+                                               set_snps = common_cand),
+                            corrected_cand = list(set_code = "corrected_cand",
+                                                  set_name = paste0("Candidate SNPs with pop. struct. correction (", length(corrected_cand),")"),
+                                                  set_snps = corrected_cand))
+
+# Counting the number of candidate SNPs per chromosome
+nb_per_chr_list <- lapply(snp_sets_bf_pruning, function(x){
+  
+  df <- snppos %>% dplyr::filter(snp_ID %in% x$set_snps) 
+  
+  gen_coord %>% 
+    filter(AxiomID %in% df$affx_ID) %>% 
+    group_by(chrom_names) %>% 
+    summarise(n = n()) %>% 
+    set_colnames(c("Chromosome / contig", x$set_name))
+
+}) 
+
+
+# Merging the counts in one table
+nb_per_chr_df <- nb_per_chr_list[[1]] %>%
+  full_join(nb_per_chr_list[[2]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[3]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[4]], by = "Chromosome / contig") %>%
+  # Replace NA values with 0 across all numeric columns
+  mutate(across(where(is.numeric), ~replace_na(., 0))) 
+
+# Sum the total of SNPs mapped on the reference genome for each set of SNPs
+nb_per_chr_df <- nb_per_chr_df %>% summarise(
+  `Chromosome / contig` = "TOTAL",
+  across(where(is.numeric), \(x) sum(x, na.rm = TRUE))) %>% 
+  bind_rows(nb_per_chr_df,.) 
+
+# for the text below
+all_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[2]], na.rm = TRUE)) %>% pull
+all_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[3]], na.rm = TRUE)) %>% pull
+common_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[4]], na.rm = TRUE)) %>% pull
+corrected_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[5]], na.rm = TRUE)) %>% pull
+
+
+# show the table
+nb_per_chr_df %>%  kable_mydf()
+```
+
+Among the `r length(all_snps_id)` SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),2][[1]]` SNPs were mapped on the reference genome, including `r all_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(all_cand)` candidate SNPs identified by at least one GEA (all candidate SNPs), `r nb_per_chr_df[nrow(nb_per_chr_df),3][[1]]` SNPs were mapped on the reference genome, including `r all_cand_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(common_cand)` candidate SNPs identified by at least two GEAs (common candidate SNPs), `r nb_per_chr_df[nrow(nb_per_chr_df),4][[1]]` SNPs were mapped on the reference genome, including `r common_cand_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(corrected_cand)` candidate SNPs identified by at least one GEA not correcting for population genetic structure (Candidate SNPs with population structure correction), `r nb_per_chr_df[nrow(nb_per_chr_df),5][[1]]` SNPs were mapped on the reference genome, including `r corrected_cand_contig` on contigs not assembled on the chromosomes.
+
+```{r FigureMappingBeforePruning, fig.height=8, fig.width=14}
+# Formatting gen_coord for the figure
+gen_coord <- gen_coord %>%
+  filter(CHROM %in% paste0("chr", 1:12)) %>%
+  mutate(chrom_names = factor(chrom_names, levels=paste0("Chromosome ", 1:12)))
+  
+# create a list of df for each set of SNPs
+snp_sets_bf_pruning <- lapply(snp_sets_bf_pruning, function(x){
+  
+  df <- snppos %>% dplyr::filter(snp_ID %in% x$set_snps) 
+
+  x$gen_pos <- gen_coord %>% 
+    filter(AxiomID %in% df$affx_ID) %>% 
+    filter(CHROM %in% paste0("chr", 1:12))
+  
+  return(x)
+  
+})
+
+
+# PLOT
+#=====
+legend_levels <- c(snp_sets_bf_pruning$all$set_name,
+                   snp_sets_bf_pruning$all_cand$set_name,
+                   snp_sets_bf_pruning$corrected_cand$set_name,
+                   snp_sets_bf_pruning$common_cand$set_name)
+
+
+
+plot_chrm <- gen_coord %>%
+  ggplot() +
+  
+  # All SNPs (gray lines)
+  geom_segment(data = snp_sets_bf_pruning$all$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0, yend = 0.2, 
+                                                           col= factor(snp_sets_bf_pruning$all$set_name, levels = legend_levels)), linewidth = 0.6, alpha=0.3) + 
+  
+  # All candidate SNPs (red lines)
+  geom_segment(data = snp_sets_bf_pruning$all_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.22, yend = 0.35, 
+                                                                col = factor(snp_sets_bf_pruning$all_cand$set_name, levels = legend_levels)), linewidth = 0.6, alpha=0.6) + 
+  
+  # Common candidate SNPs (green lines)
+  geom_segment(data = snp_sets_bf_pruning$common_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.37, yend = 0.50, 
+                                                                   col = factor(snp_sets_bf_pruning$common_cand$set_name, levels = legend_levels)), linewidth = 0.6, alpha=0.6) + 
+  
+  # Candidate SNPs with correction (blue lines)
+  geom_segment(data = snp_sets_bf_pruning$corrected_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.52, yend = 0.65, 
+                                                                      col = factor(snp_sets_bf_pruning$corrected_cand$set_name, levels = legend_levels)), linewidth = 0.6, alpha=0.6) + 
+  ylim(0,0.7) +
+  facet_wrap(~chrom_names, scales = "free_x", ncol=3) +
+  xlab("SNP positions on the reference genome") +
+  ylab("") +
+  theme_bw(base_size = 11) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = "right",
+    legend.background = element_blank(),
+    panel.grid = element_blank(),
+    legend.box.background = element_blank(),
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    legend.text = element_text(size = rel(0.8)),
+    strip.text = element_text(size = 11)
+  ) +
+  # Define colors and labels for the legend
+  scale_color_manual(values = c("gray50","red", "green", "blue"), name="Sets of SNPs (before pruning)")
+
+plot_chrm
+ 
+ggsave(plot_chrm, filename=here("figs/GenomePosition_BeforePruning.pdf"), device="pdf", height=8, width=14)
+```
+
+
+## Pruning the SNPs
   
 When some SNPs are on the same scaffold, we remove the SNPs with higher $p$-values in the RDA.
 
 ```{r rmSNPsSameGenomePosition}
-snp_to_remove <- lapply(list(common_cand,common_cand_corrected,all_cand), function(set){
+snp_to_remove <- lapply(list(common_cand, corrected_cand, all_cand), function(set){
 
   snppos %>% 
   dplyr::filter(snp_ID %in% set) %>% 
@@ -344,20 +524,19 @@ rda_outliers[[3]]$GSout %>%
 
 
 common_cand <- setdiff(common_cand, snp_to_remove[[1]])
-common_cand_corrected <- setdiff(common_cand_corrected, snp_to_remove[[2]])
+corrected_cand <- setdiff(corrected_cand, snp_to_remove[[2]])
 all_cand <- setdiff(all_cand, snp_to_remove[[3]])
 ```
+
 
 # Control SNPs
 
 ## with random frequencies
 
-We *randomly* sample a set of SNPs (the same number as the candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
+We *randomly* sample a set of SNPs (the same number as the set with all candidate SNPs) among the SNPs that have been identified by none of the GEA methods. This set of SNPs will be used as **control SNPs**.
 
-```{r ControlSNPs, eval=T}
-all_snps_id <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv")) %>% .[[1]]
-
-nb_snps <- common_cand %>% length()
+```{r ControlSNPsRandomFrequencies, eval=T}
+nb_snps <- all_cand %>% length()
 
 # names of the SNPs that were identified by at least one GEA method
 all_candidates <- list_candidates %>% unlist() %>% unique()
@@ -374,7 +553,7 @@ control_snps <- sample(no_candidates,nb_snps,replace = F)
 
 We select control SNPs randomly but with similar allele frequencies that the candidate SNPs.
 
-```{r}
+```{r ControlSNPsSimilarFrequencies, eval=T}
 # Set a seed for reproducibility
 set.seed(96)
 
@@ -400,8 +579,8 @@ no_candidates_freq <- snp_freq %>%
 # Initialize an empty list to store random SNPs with similar frequencies
 list_random_snps_with_similar_freq <- list()
 
-# Loop through each SNP in the "common_cand" list
-  for (i in common_cand) {
+# Loop through each SNP in the "all_cand" list
+  for (i in all_cand) {
     
     # Extract the frequency of the current SNP
     freq_i <- snp_freq %>%  
@@ -411,8 +590,8 @@ list_random_snps_with_similar_freq <- list()
     # Find SNPs from the non-candidate dataset that have a frequency similar to the current SNP
     # A threshold of ± 0.001 is used to find SNPs with similar frequencies
     snps_with_similar_freq <-  no_candidates_freq %>% 
-      dplyr::filter(!freq >freq_i + 0.001) %>% 
-      dplyr::filter(!freq <freq_i - 0.001) 
+      dplyr::filter(!freq >freq_i + 0.002) %>% 
+      dplyr::filter(!freq <freq_i - 0.002) 
   
     # Randomly select one SNP from the list of SNPs with similar frequencies
     selected_snp <- sample(snps_with_similar_freq$snps, 1)
@@ -436,15 +615,19 @@ random_snps_with_similar_freq[dups]
 
 # Exporting the sets of SNPs
 
-We save three sets of SNPs: 
+We save six sets of SNPs: 
 
-  - the candidate SNPs, i.e., SNPs identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
+  - `r length(all_cand)` candidate SNPs, i.e., SNPs identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
   
-  - the candidate SNPs with correction for population structure, i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
+  - `r length(corrected_cand)`  candidate SNPs with correction for population structure, i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
   
-  - the control SNPs.
-
-*<span style="color: orange;">Comment: </span>*In the paper and in the validation steps, we only use the candidate (i.e., those identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*) and control SNPs.
+  - `r length(common_cand)`  common candidate SNPs, i.e. SNPs identified by at least two GEA methods among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
+  
+  - `r length(control_snps)` control SNPs with random frequencies and the same number of candidate SNPs as in the set with all candidate SNPs.
+  
+  - `r length(random_snps_with_similar_freq)` control SNPs with similar frequencies than the set with all candidate SNPs, and with the same number of candidate SNPs as in the set with all candidate SNPs.
+  
+  - All SNPs, i.e. `r length(all_snps_id)` SNPs.
 
 
 ```{r SaveThreeSetsSNPs, eval=T}
@@ -454,13 +637,13 @@ snp_sets <- list(all_cand = list(set_code = "all_cand",
                  common_cand = list(set_code = "common_cand",
                                     set_name = paste0("Common candidate SNPs (", length(common_cand),")"),
                                     set_snps = common_cand),
-                 common_cand_corrected = list(set_code = "common_cand_corrected",
-                                              set_name = paste0("Common candidate SNPs with pop. struct. correction (", length(common_cand_corrected),")"),
-                                              set_snps = common_cand_corrected),
-                 control = list(set_code = "control",
-                                set_name = paste0("Control SNPs with random frequencies (", length(control_snps),")"),
-                                set_snps = control_snps),
-                 control_simfreq = list(set_code = "control_simfreq", 
+                 corrected_cand = list(set_code = "corrected_cand",
+                                       set_name = paste0("Candidate SNPs with pop. struct. correction (", length(corrected_cand),")"),
+                                       set_snps = corrected_cand),
+                 randomfreq_control = list(set_code = "randomfreq_control",
+                                           set_name = paste0("Control SNPs with random frequencies (", length(control_snps),")"),
+                                           set_snps = control_snps),
+                 simfreq_control = list(set_code = "simfreq_control", 
                                         set_name = paste0("Control SNPs with similar frequencies (", length(random_snps_with_similar_freq),")"),
                                         set_snps = random_snps_with_similar_freq),
                  all = list(set_code = "all",
@@ -509,6 +692,170 @@ listsnps %>% write_csv2(here("data/DryadRepo/SNPsInformation_WithOutliers.csv"),
 
 listsnps[1:10,] %>% kable_mydf()
 ```
+
+# Genome position of all sets of SNPs
+
+## Table
+
+```{r TableMappingAfterPruning, fig.height=8, fig.width=14}
+# SNPs position on the reference genome
+gen_coord <- read_delim("~/Documents/Projects/GOPredEvalPinpin/data/GenomicData/maritime_pine_coord.txt", show_col_types = FALSE) %>% 
+  mutate(chrom_names = if_else(CHROM %in% paste0("chr",1:12), paste0("Chromosome ", CHROM %>% str_sub(4,-1)), paste0("Contig ",CHROM)))
+
+
+# Counting the number of candidate SNPs per chromosome
+nb_per_chr_list <- lapply(snp_sets, function(x){
+  
+  df <- snppos %>% dplyr::filter(snp_ID %in% x$set_snps) 
+  
+  gen_coord %>% 
+    filter(AxiomID %in% df$affx_ID) %>% 
+    group_by(chrom_names) %>% 
+    summarise(n = n()) %>% 
+    set_colnames(c("Chromosome / contig", x$set_name))
+
+}) 
+
+
+# Merging the counts in one table
+nb_per_chr_df <- nb_per_chr_list[[1]] %>%
+  full_join(nb_per_chr_list[[2]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[3]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[4]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[5]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[6]], by = "Chromosome / contig") %>%
+  # Replace NA values with 0 across all numeric columns
+  mutate(across(where(is.numeric), ~replace_na(., 0))) 
+
+# Sum the total of SNPs mapped on the reference genome for each set of SNPs
+nb_per_chr_df <- nb_per_chr_df %>% summarise(
+  `Chromosome / contig` = "Total",
+  across(where(is.numeric), \(x) sum(x, na.rm = TRUE))) %>% 
+  bind_rows(nb_per_chr_df,.) 
+
+# for the text below
+all_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[2]], na.rm = TRUE)) %>% pull
+common_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[3]], na.rm = TRUE)) %>% pull
+corrected_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[4]], na.rm = TRUE)) %>% pull
+randomfreq_control_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[5]], na.rm = TRUE)) %>% pull
+simfreq_control_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[6]], na.rm = TRUE)) %>% pull
+all_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[7]], na.rm = TRUE)) %>% pull
+
+# show the table
+nb_per_chr_df %>%  kable_mydf()
+```
+
+Among the `r length(all_cand)` candidate SNPs identified by at least one GEA (all candidate SNPs), `r nb_per_chr_df[nrow(nb_per_chr_df),2][[1]]` SNPs were mapped on the reference genome, including `r all_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(common_cand)` candidate SNPs identified by at least two GEAs (common candidate SNPs), `r nb_per_chr_df[nrow(nb_per_chr_df),3][[1]]` SNPs were mapped on the reference genome, including `r corrected_cand_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(corrected_cand)` candidate SNPs identified by at least one GEA not correcting for population genetic structure (Candidate SNPs with population structure correction), `r nb_per_chr_df[nrow(nb_per_chr_df),4][[1]]` SNPs were mapped on the reference genome, including `r corrected_cand_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(control_snps)` control SNPs with random frequencies, `r nb_per_chr_df[nrow(nb_per_chr_df),5][[1]]` SNPs were mapped on the reference genome, including `r randomfreq_control_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(random_snps_with_similar_freq)` control SNPs with similar frequencies than the candidate SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),6][[1]]` SNPs were mapped on the reference genome, including `r simfreq_control_contig` on contigs not assembled on the chromosomes.
+
+Among the `r length(all_snps_id)` SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),7][[1]]` SNPs were mapped on the reference genome, including `r all_contig` on contigs not assembled on the chromosomes.
+
+```{r TableGenPos}
+nb_per_chr_df_SI <- nb_per_chr_df %>% 
+  filter(str_detect(`Chromosome / contig`, 'Contig')) %>% 
+  summarise(
+  `Chromosome / contig` = "Unassembled contigs",
+  across(where(is.numeric), \(x) sum(x, na.rm = TRUE))) %>% 
+  bind_rows(nb_per_chr_df,.) %>% 
+  filter(!str_detect(`Chromosome / contig`, 'Contig')) %>% 
+  mutate(`Chromosome / contig` = factor(`Chromosome / contig`, levels = c(paste0("Chromosome ", 1:12), "Unassembled contigs","Total"))) %>%
+  arrange(`Chromosome / contig`)
+
+nb_per_chr_df_SI %>% saveRDS(here("tables/GenomePositionReferenceGenome.rds"))
+
+nb_per_chr_df_SI %>% kable_mydf()
+```
+
+## Figure 
+
+```{r FigureMappingAfterPruning, fig.height=8, fig.width=14}
+# Formatting gen_coord for the figure
+gen_coord <- gen_coord %>%
+  filter(CHROM %in% paste0("chr", 1:12)) %>%
+  mutate(chrom_names = factor(chrom_names, levels=paste0("Chromosome ", 1:12)))
+  
+# create a list of df for each set of SNPs
+snp_sets <- lapply(snp_sets, function(x){
+  
+  df <- snppos %>% dplyr::filter(snp_ID %in% x$set_snps) 
+
+  x$gen_pos <- gen_coord %>% 
+    filter(AxiomID %in% df$affx_ID) %>% 
+    filter(CHROM %in% paste0("chr", 1:12))
+  
+  return(x)
+  
+})
+
+
+# PLOT
+#=====
+legend_levels <-  c(snp_sets$all$set_name,
+                    snp_sets$all_cand$set_name,
+                    snp_sets$corrected_cand$set_name,
+                    snp_sets$common_cand$set_name,
+                    snp_sets$randomfreq_control$set_name,
+                    snp_sets$simfreq_control$set_name)
+  
+alpha_snp_sets <- 0.7
+
+plot_chrm <- gen_coord %>%
+  ggplot() +
+  # All SNPs of the reference genome 
+  #geom_segment(aes(x = Absolute_POS, xend = Absolute_POS, y = 0, yend = 0.2, col = factor(legend_levels[[1]], levels = legend_levels)), size = 0.6, alpha=0.3) + 
+  
+   # All SNPs (red lines)
+  geom_segment(data = snp_sets$all$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0, yend = 0.18, col = factor(snp_sets$all$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha = alpha_snp_sets) + 
+  # All candidate SNPs (red lines)
+  geom_segment(data = snp_sets$all_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.2, yend = 0.38, col = factor(snp_sets$all_cand$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  # Common candidate SNPs (green lines)
+  geom_segment(data = snp_sets$common_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.4, yend = 0.58, col = factor(snp_sets$common_cand$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  # Candidate SNPs with correction (blue lines)
+  geom_segment(data = snp_sets$corrected_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.6, yend = 0.78, col = factor(snp_sets$corrected_cand$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  # Control SNPs with random frequencies
+  geom_segment(data = snp_sets$randomfreq_control$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.8, yend = 0.98, 
+                                                               col = factor(snp_sets$randomfreq_control$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  # Control SNPs with similar frequencies
+  geom_segment(data = snp_sets$simfreq_control$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 1, yend = 1.18, col = factor(snp_sets$simfreq_control$set_name, 
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  
+  ylim(0,1.2) +
+  facet_wrap(~chrom_names, scales = "free_x", ncol=3) +
+  xlab("SNP positions on the reference genome") +
+  ylab("") +
+  theme_bw(base_size = 11) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = "right",
+    legend.background = element_blank(),
+    panel.grid = element_blank(),
+    legend.box.background = element_blank(),
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    legend.text = element_text(size = rel(0.8)),
+    strip.text = element_text(size = 11)
+  ) +
+  # Define colors and labels for the legend
+  scale_color_manual(values = c("gray50","red", "green", "blue","orange","purple"), name="Sets of SNPs (after pruning)")
+
+plot_chrm
+ 
+ggsave(plot_chrm, filename=here("figs/GenomePosition_AfterPruning.pdf"), device="pdf", height=8, width=14)
+```
+
 
 
 
