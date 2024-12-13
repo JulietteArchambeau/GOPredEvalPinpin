@@ -111,7 +111,7 @@ Some figures generated in this report:
 
 ##### [12_ComparingGenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/12_ComparingGenomicOffsetPredictions.html) 
 
-  - Comparing genomic offset predictions across the different methods (GF, GDM, LFMM and RDA), SNPs sets (control and candidate SNPs; and also all SNPs for LFMM) and GCMs.
+  - Comparing genomic offset predictions under future climates across the different methods (GF, GDM, LFMM, RDA and pRDA), SNPs sets (the three sets of controls SNPs and the three sets of candidate SNPs) and the five GCMs. The variability in genomic offset predictions, considering all combinations of SNP sets, methods, and GCMs, along with their relationships to climatic distances, can be visualized [in the following Shiny app](https://juliettearchambeau.shinyapps.io/GenomicOffsetPredictionVariabilityInMaritimePine/).
 
 ##### [13_ValidationNFI.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/13_ValidationNFI.html) 
 
