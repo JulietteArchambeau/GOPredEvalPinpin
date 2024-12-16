@@ -1,0 +1,553 @@
+---
+title: "Supplementary Information of the paper: 'Evaluating genomic offset predictions in a forest tree with high population genetic structure' "
+date: last-modified
+format: 
+  pdf:
+    keep-tex: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    colorlinks: true
+    geometry:
+      - top=30mm
+      - left=20mm
+      - right=20mm
+      - heightrounded
+    fig-pos: 'H'
+    cap-location: top
+bibliography: 
+  - ../reports/references.bib
+  - ../reports/grateful-refs.bib
+csl: ../reports/molecular-ecology.csl
+header-includes:
+  - \usepackage{pdfpages}
+  - \usepackage{float}
+  - \floatplacement{table}{H}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=F, echo=F)
+options(width = 300)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(here)
+library(magrittr)
+library(readxl)
+library(formatdown)
+library(ggVennDiagram)
+library(ggpmisc)
+library(ggrepel)
+
+# My function to build tables
+# ---------------------------
+kable_mydf <- function(x, 
+                       boldfirstcolumn = F, 
+                       font_size = 10, 
+                       round_number = 2,
+                       latex_options = c("hover","HOLD_position"),
+                       booktabs = T){
+  x %>% 
+    mutate(across(where(is.numeric), \(x) round (x, round_number))) %>%
+    kable(booktabs=booktabs) %>%  
+    kable_styling(latex_options = latex_options, 
+                  font_size = font_size) %>% 
+    {if(boldfirstcolumn == TRUE) column_spec(., 1, bold = T) else .}
+}
+
+
+source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta data of the climatic variables in ClimateDT
+```
+
+
+{{< pagebreak >}}
+
+# Common garden data
+
+```{r}
+#| label: tbl-ClimCG
+#| tbl-cap: Climate in the five common gardens between the planting date and the measurement date. See Table S[-@tbl-SelectedClimaticVariableInformation] for the full names and units of the climatic variables.
+
+readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%
+  dplyr::select(c("bio1", "bio12", "bio15", "bio3", "bio4", "SHM")) %>% 
+  kable_mydf(font_size = 10)
+```
+
+```{r}
+#| label: tbl-ExpDesignCG
+#| tbl-cap: Sample sizes in the five common gardens.
+
+readRDS(file=here("tables/ExpDesign_CG.rds")) %>%
+kable_mydf(font_size = 8)
+```
+
+```{r}
+#| label: tbl-ExpDesignMortalityModelsPerPopCG
+#| tbl-cap: Number of dead and alive trees (dead / alive) per population in the five common gardens.
+
+readRDS(file=here("tables/ExpDesignMortalityModelsPerPopCG.rds")) %>%
+  mutate(Asturias = paste0(nb_dead_asturias," / ", nb_tot_asturias),
+         Bordeaux = paste0(nb_dead_bordeaux," / ", nb_tot_bordeaux),
+         "Cáceres" = paste0(nb_dead_caceres," / ", nb_tot_caceres),
+         Madrid = paste0(nb_dead_madrid," / ", nb_tot_madrid),
+         "Fundão" = paste0(nb_dead_portugal," / ", nb_tot_portugal)) %>% 
+  dplyr::select(-contains("nb_dead"), -contains("nb_tot")) %>% 
+  dplyr::rename(Population=pop) %>% 
+kable_mydf(font_size = 8)
+```
+
+```{r}
+#| label: tbl-SampleSizeGenomicData
+#| tbl-cap: Information about the 34 populations used in the study.
+
+# we load the allele counts for each genotype and we then count the number of genotype per population
+df <- tibble(clon = read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"), row.names = 1) %>%
+               colnames()) %>% 
+  mutate(pop=str_sub(clon,1,3))
+
+df_sum <- df %>% group_by(pop) %>% summarize(count=n())
+
+# We load the gene pool information (main  gene pool of each population)
+df <- readRDS(here("data/GenomicData/MainGenePoolInformation.rds"))$pop_level %>% 
+  dplyr::select(-color_main_gp_pop) %>% 
+  inner_join(df_sum, by="pop") %>% 
+  dplyr::select(pop, everything())
+
+# Add the population full name, latitude and longitude
+df <- read_csv(here("data/PopulationData/coordinates_pinaster_populations_juliette_phd.csv"),show_col_types = FALSE) %>% 
+  dplyr::rename(pop=CODE,
+                full_name=POPULATION,
+                Latitude = LATITUDE,
+                Longitude = LONGITUDE) %>% 
+  dplyr::select(pop,full_name, Latitude, Longitude) %>% 
+  inner_join(df, by="pop")
+
+df %>% 
+  dplyr::rename(Population = pop,
+                "Number of genotypes"=count,
+                "Main gene pool"=main_gp_pop,
+                "Full name" = full_name) %>% 
+  kable_mydf()
+```
+
+
+
+| Location            | Planting date | Measurement date | Age at measurement (months) |
+|---------------------|---------------|------------------|-----------------------------|
+| Asturias (Spain)    | February 2011 | March 2014       | 37                          |
+| Bordeaux (France)   | October 2011  | November 2018    | 85                          |
+| Cáceres (Spain)     | April 2011    | December 2011    | 8                           |
+| Madrid (Spain)      | November 2010 | December 2011    | 13                          |
+| Fundão (Portugal)   | February 2011 | May 2013         | 27                          |
+
+Table: Time periods between planting and measurement dates in the five common gardens. Note that for Cáceres, we calculated the climatic variables for the entire year 2011 (instead of calculating the variables only for months between April and December). Indeed, the calculation of the annual climatic variables would be wrong if we do not account for some months, e.g. the mean annual temperature will the overestimated because we do not account for some of the winter months.
+
+# NFI data
+
+![Annual precipitation and mean annual temperature at the location of the 11,917 NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool). Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf)
+
+
+![Isothermality and precipitation seasonality at the location of the 11,917 NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool).  Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf)
+
+
+
+# Selection of the climatic variables
+
+
+In a preselection step, we removed climatic variables that (i) had reduced biological relevance for the study goals, (ii) were highly correlated with any other variable ($\rho > 0.95$), or (iii) lacked meta-information on the ClimateDT website. The preselected climatic variables are described in the table below.
+
+```{r}
+# #| label: tbl-PreselectedClimaticVariableInformation
+#| tbl-cap: Preselected climatic variables
+#| fig-number: false
+
+readRDS(here("outputs/VariableSelection/PreselectedClimaticVariableNames.rds")) %>% 
+extract_climatedt_metadata() %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  mutate(Unit=case_when(Unit == "index" ~ "Index",
+                        TRUE ~ Unit)) %>% 
+  kableExtra::kbl(booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
+```
+
+
+## Criteria 1: biological relevance
+
+We aimed to provide genomic offset predictions that capture changes in both annual climatic conditions (e.g., mean annual temperature or precipitation) and seasonal climatic conditions (e.g., summer droughts).
+
+**Winter cold temperatures:** Previous studies have shown that maritime pine populations exhibit strong patterns of adaptation to temperatures, particularly cold temperatures [@grivet2011molecular; @archambeau2023reduced]. We chose not to include climatic variables related to winter cold temperatures because, in the context of climate change, the anticipated increase in winter cold temperatures may actually benefit maritime pine populations. In this scenario, populations experiencing significant variations in winter cold conditions may exhibit a high genomic offset, which would not indicate maladaptation but rather suggest a potential increase in fitness under climate change.
+
+We acknowledge that increased winter cold temperatures may also negatively affect the survival of young trees, the reproductive success of adult trees, or the dynamics of pests and pathogens. However, it remains unclear how these negative impacts might counterbalance the potential benefits of cooler winters. 
+
+Consequently, since we could not reliably interpret high genomic offset values associated with cooler winters, we excluded climatic variables related to winter cold temperatures from the set of climatic variables used for genomic offset predictions.
+
+
+
+## Criteria 2: contribution to genomic variation.
+
+We used a RDA-based stepwise selection procedure to identify the set of climatic variables maximizing the genetic variance explained [see for instance @capblancq2021redundancy]. We used the `ordiR2step` function of the package `vegan`, in which we have to specify two models: 
+
+  - a *null* model where genomic variation is explained only by an intercept.
+
+  - a *full* model including as predictors all the preselected climatic variables.
+
+For including new variables during the selection procedure, we used the default stopping criteria of the `ordi2step` function: variable significance of p < 0.01 using 1000 permutations and the comparison of adjusted variation ($R^2_{adj}$) explained by the selected variables to $R^2_{adj}$ explained by the full model. This selection criteria means that if the new variable is not significant or the $R^2_{adj}$ of the model including the new variable does not exceed the $R^2_{adj}$ of the full model, the selection procedure stops.
+
+We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected. The results are reported in the table below.
+
+```{r TableStepwiseSelection}
+# #| label: tbl-StepwiseSelection
+#| tbl-cap: Number of times that each climatic variable was selected among the 100 iterations of the RDA-based stepwise selection procedure.
+#| fig-number: false
+
+readRDS(file=here("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_100models.rds")) %>% kable_mydf()
+```
+
+## Criteria 3: exposure to climate change
+
+To compare the values of the climatic variables under current and future climates, we calculated the relative climatic distance $D$ for each climatic variable $x$:
+
+$$  D_x = \frac{\mu_{fut} - \mu_{ref}}{\mu_{ref}}$$
+
+where $\mu_{ref}$ is the average of the climatic variable of interest over the reference period (i.e. 1901-1950) and $\mu_{fut}$ is the average of the predictions for the climatic variable over the future period 2041-2070 and SSP 3-7.0. 
+
+The figure below shows the relative climatic distances for the six climatic variables used for genomic offset predictions. The relative climatic distances were calculated for five different GCMs, each corresponding to a different panel.
+
+![](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf)\
+
+## Final set of climatic variables {#sec-final-set-clim-var}
+
+```{r}
+#| label: tbl-SelectedClimaticVariableInformation
+#| tbl-cap: Final set of climatic variables used in the gene-environment association (GEA) methods and the genomic offset predictions.
+
+readRDS(here("data/ClimaticData/NamesSelectedVariables.rds")) %>% 
+extract_climatedt_metadata() %>% 
+  dplyr::select(label,description,unit) %>% 
+  set_colnames(str_to_title(colnames(.))) %>% 
+  mutate(Unit=case_when(Unit == "index" ~ "Index",
+                        TRUE ~ Unit)) %>% 
+  kableExtra::kbl(booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
+```
+
+![Distributions of the final set of climatic variables.](../figs/ExploratoryAnalyses/DistributionSelectedClimaticVariables.pdf){#fig-DistributionSelectedClimaticVariables}
+
+
+# Neutral population genetic structure
+
+```{r LoadGenomicDataWithMAF}
+geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv"))
+```
+
+
+The population neutral genetic structure was inferred with a Principal component analysis (PCA) on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs. These SNPs were not filtered for SNPs with minor allele frequency (MAF) lower then 1% because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). However, SNPs with a minor allele count (MAC) of one or two were removed to minimize the likelihood of genotyping errors. From the PCA, we retained the first three principal components (PCs) as a proxy for population evolutionary history in the RDA analysis.
+
+![PCA based the genomic data. Each point corresponds to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
+
+
+# Variance partitioning of genetic variation {#sec-VarPart}
+
+Following @capblancq2021redundancy, we used a combination of RDA and partial RDA (pRDA) to estimate the proportion of genetic variation that can be or cannot be uniquely attributed to climate, neutral population structure and geography. The response variable was the allele frequencies of the populations. The climate was represented by the six climatic variables that were selected in the previous section (Table S[-@tbl-SelectedClimaticVariableInformation]), i.e. the climatic variables that are then used to identify the loci potentially involved in local adaptation (with gene-environment association analyses) and to make genomic offset predictions. The neutral population genetic structure was accounted for with the first three PCs of the PCA based on the genomic data not filtered for MAF (Figure S[-@fig-PCA]). The geography was accounted for with distance-based Moran's eigenvector maps (dbMEMs) that had positive eigenvalues and that were calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2023].
+
+We first used an RDA model including all explanatory variables (i.e. climate, neutral genetic structure and geography), and named the 'full model'. The full model provides the total amount of genetic variance (i.e. inertia) explained by the explanatory variables together. We then used three pRDA models, named the 'pure models', to estimate the contribution of genetic variance that can be uniquely attributed to each explanatory variable. For that, for the three pRDA models, we used either the climate, geography and neutral population structure as explanatory variables, while conditioning on the remaining two variables. 
+
+These analyses were conducted using the function `rda` of the `vegan` R package v`r packageVersion("vegan")` [@vegan].
+
+```{r}
+#| label: tbl-VarPartMEMs
+#| tbl-cap: Variance partioning. `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography (i.e., the dbMEMs).
+
+readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>% 
+  mutate(across(where(is.numeric), \(x) round (x, 2))) %>%
+  kable(escape =T, format ="latex", booktabs = TRUE) %>% 
+  kable_styling(font_size = 9)
+```
+
+
+# SNPs with predictive power in GF models
+
+```{r TableNbOfSNPsPredictivePowerGFmodels}
+#| label: tbl-NbOfSNPsPredictivePowerGFmodels
+#| tbl-cap: Number of SNPs with predictive power in GF models.
+#| 
+read_csv(here("tables/NbSNPsWithPredictivePowerGFmodels.csv"),show_col_types = FALSE) %>% 
+  kable(escape =T, format ="latex", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+
+# SNP positions on the reference genome
+
+```{r GenomePositionTable}
+#| label: tbl-SNPGenPos
+#| tbl-cap: SNP positions on the reference genome (i.e., *Pinus tabuliformis* genome). Columns *Chr1* to *Chr12* refer to the chromosomes and *Contigs* refer to unassembled contigs.
+
+readRDS(file=here("tables/GenomePositionReferenceGenome.rds")) %>% 
+  mutate(`Chromosome / contig` = c(paste0("Chr", 1:12), "Contigs","Total")) %>% 
+  pivot_longer(-`Chromosome / contig`, names_to = "SNP sets", values_to = "Count") %>%
+  pivot_wider(names_from = `Chromosome / contig`, values_from = Count) %>% 
+  kable(escape =T, format ="latex", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+
+# Associations with Euclidean climatic distances
+
+```{r}
+# Load the genomic offset predictions and the climatic distances
+go_climdist_df <- readRDS(here("shiny/PredictionVariability/go_climdist_df.rds"))
+
+eucli_df <- go_climdist_df %>% filter(var_code == "eucli", gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop,) %>% 
+  dplyr::rename(eucli = val) 
+```
+
+
+```{r FigRelEucliDistCommonCand, warning=F, message=F}
+#| label: fig-RelEucliDistCommonCand
+#| fig-cap: Associations between genomic offset predictions based on common candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "Common candidate SNPs (69)"
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.28), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+```{r FigRelEucliDistAllCand, warning=F, message=F}
+#| label: fig-RelEucliDistAllCand
+#| fig-cap: Associations between genomic offset predictions based on all candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "All candidate SNPs (380)"
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.18), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+```{r FigRelEucliDistCandPopStructureCorrection, warning=F, message=F}
+#| label: fig-RelEucliDistCandPopStructureCorrection
+#| fig-cap: Associations between genomic offset predictions based on candidate SNPs with population structure correction and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "Candidate SNPs with pop. struct. correction (221)" 
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.20), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+
+```{r FigRelEucliDistControlSNPsRandom, warning=F, message=F}
+#| label: fig-RelEucliDistControlRandomSNPs
+#| fig-cap: Associations between genomic offset predictions based on control SNPs with random frequencies and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "Control SNPs with random frequencies (380)"
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.10), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+```{r FigRelEucliDistControlSNPsSimilarFreq, warning=F, message=F}
+#| label: fig-RelEucliDistControlSNPsSimilarFreq
+#| fig-cap: Associations between genomic offset predictions based on control SNPs with similar frequencies than the candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "Control SNPs with similar frequencies (380)"
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.10), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+```{r FigRelEucliDistAll, warning=F, message=F}
+#| label: fig-RelEucliDistAll
+#| fig-cap: Associations between genomic offset predictions based on all SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
+#| fig-height: 13
+#| fig-width: 12
+
+snp_set_i <- "All SNPs (9817)" 
+
+df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
+  dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
+  dplyr::rename(go = val) %>% 
+  left_join(eucli_df, by=c("pop", "main_gp_pop", "color_main_gp_pop"))
+  
+  
+ggplot(df_2, aes(x = eucli, y = go)) +
+  geom_point(aes(color = main_gp_pop), size = 4) +  # Plot points with color by group
+  scale_color_manual(values = setNames(df_2$color_main_gp_pop, df_2$main_gp_pop)) + # Custom colors
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") + # Linear fit line
+  theme_bw() + 
+  facet_wrap(~method_name, ncol=2) +
+  stat_poly_eq(
+    aes(label = paste(..rr.label.., sep = "~~~")), 
+    formula = y ~ x, parse = TRUE, size= 7, label.x.npc = 0.9, label.y.npc = 0.95) +
+  labs(x = "Euclidean climatic distances", 
+       y = paste0("Genomic offset predictions - ",snp_set_i), 
+       color = "Main gene pool") +
+  geom_text_repel(aes(label = pop), size = 5) +  # Add population names with repel to avoid overlap
+  theme(axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20),
+        legend.position = c(0.77,0.15),
+        axis.text.x =  element_text(size=17),
+        axis.text.y = element_text(size=17),
+        strip.text.x = element_text(size = 20),
+        plot.margin = margin(10, 10, 10, 10)
+  ) +
+  scale_x_continuous(expand = expansion(mult = 0.05)) + 
+  scale_y_continuous(limits = c(NA, 0.10), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
+```
+
+
+{{< pagebreak >}}
+

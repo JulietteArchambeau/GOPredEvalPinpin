@@ -33,7 +33,7 @@ ui <- fluidPage(
     tabPanel("About this app",
              htmlOutput("about_app_text")),
     
-    tabPanel("Bumpchart of population ranks",
+    tabPanel("Bumpcharts across methods and SNP sets",
              sidebarLayout(
                sidebarPanel(
                  width = 2,
@@ -47,7 +47,20 @@ ui <- fluidPage(
              )
     ),
     
-    tabPanel("Correlation matrices",
+    tabPanel("Bumpcharts across GCMs",
+               sidebarLayout(
+                 sidebarPanel(
+                   width = 2,
+                   selectInput("method_bumpchartGCM", "Method:", choices = unique(df$method), selected = "GF"),
+                   selectInput("snpset_names_bumpchartGCM", "SNP set:", choices = unique(df$snpset_names), selected = "All candidate SNPs (380)")
+                 ),
+                 mainPanel(
+                   plotOutput("bumpchartGCM", height = "900px")
+                 )
+               )
+    ),
+    
+    tabPanel("Correlation matrices across methods and SNP sets",
              sidebarLayout(
                sidebarPanel(
                  width = 2,
@@ -57,6 +70,20 @@ ui <- fluidPage(
                ),
                mainPanel(
                  plotOutput("correlation_plot", height = "800px", width = "1350px")
+               )
+             )
+    ),
+    
+    
+    tabPanel("Correlation matrices across GCMs",
+             sidebarLayout(
+               sidebarPanel(
+                 width = 2,
+                 selectInput("method_corrGCM", "Method:", choices = unique(df$method), selected = "GF"),
+                 selectInput("snpset_names_corrGCM", "SNP set:", choices = unique(df$snpset_names), selected = "All candidate SNPs (380)")
+               ),
+               mainPanel(
+                 plotOutput("correlation_plot_GCM", height = "800px", width = "1350px")
                )
              )
     ),
@@ -101,25 +128,32 @@ server <- function(input, output) {
   output$about_app_text <- renderUI({
     HTML(
       "</br>
-      <p>This application visualizes the variability in genomic offset predictions, based on the findings from Archambeau et al. (2024)
+      <p>This application visualizes the variability in genomic offset predictions, based on the findings from Archambeau et al. (2025)
       'Evaluating genomic offset predictions in a forest tree with high population genetic structure.'
       Available on <i>bioRxiv</i> at 
       <a href='https://www.biorxiv.org/content/10.1101/2024.05.17.594631v1.full.pdf'>https://www.biorxiv.org/content/10.1101/2024.05.17.594631v1.full.pdf</a>.</p>
       
       <p><b>Plots available:</b>
       
-      <p><b>Bumpcharts of population ranks: </b> these charts display population ranks based on their genomic offset predictions for each combination of method and SNP set. 
+      <p><b>Bumpcharts: </b> these charts display population ranks based on their genomic offset predictions. 
       Populations with a lower rank have a higher genomic offset, indicating that they may be more at risk under climate change. 
-      Colored populations are those having genomic offset values in the top three highest values in at least one combination of SNP set and method.</p>
+      Colored populations are those having genomic offset values in the top three highest values in at least one combination of SNP set and method.
+  <ul>
+    <li><b>Bumpcharts across methods and SNP sets</b> show the variability across methods and SNP sets for a specific Global Climate Model (GCM).</li>
+    <li><b>Bumpcharts across GCMs</b> show the variability across GCMs for a particular combination of method and SNP set.</li>
+  </ul>
+  
       
-      <p><b>Correlation matrices: </b> these plots show the correlation among genomic offset predictions from the different methods and SNP sets.</p>
+      <p><b>Correlation matrices: </b> these plots show the Pearson correlation coefficients among genomic offset predictions. 
       
+  <ul>
+    <li><b>Correlation matrice across methods and SNP sets</b> show the variability across methods and SNP sets for a specific Global Climate Model (GCM).</li>
+    <li><b>Correlation matrice across GCMs</b> show the variability across GCMs for a particular combination of method and SNP set.</li>
+  </ul>
+  
       <p><b>Scatter plots: </b> these plots allow users to explore relationships between two selected variables, including genomic offset predictions from 
       different methods and SNP sets, and climatic distances. The climatic distances correspond to the absolute difference between future and reference 
-      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables.</p>
-      
-      Plots can be generated for each Global Climate Model (GCM) or 
-      for the mean genomic offset predictions across the five GCMs used in the study (i.e. 'Average across GCMs').</p>"
+      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables."
     )
   })
 
@@ -168,6 +202,47 @@ output$bumpchart <- renderPlot({
     })
   
 
+
+output$bumpchartGCM <- renderPlot({
+  
+  plot_df <- df %>% filter(method == input$method_bumpchartGCM & snpset_names == input$snpset_names_bumpchartGCM)
+  
+  high_go_pops <- plot_df %>% filter(rank < 4) %>% pull(pop) %>% unique()    
+  
+  my_palette <- c(my_colors[1:length(high_go_pops)],"#E8E8E8")
+  
+  sub <- plot_df %>% 
+    mutate(flag = ifelse(pop %in% high_go_pops, TRUE, FALSE),
+           pop_col = if_else(flag == TRUE, pop, "Others")) %>% 
+    mutate(pop = factor(pop, levels=c(setdiff(unique(plot_df$pop), high_go_pops), high_go_pops)),
+           pop_col = factor(pop_col, levels = c(high_go_pops,"Others")))
+  
+  sub %>% ggplot(aes(x = gcm, y = rank, group = pop)) +
+    coord_flip() +
+    scale_y_continuous(breaks = 1:34, minor_breaks = 1:34) +
+    geom_point(aes(color = pop_col), size = 2, alpha = 0.9) +
+    geom_line(aes(color = pop_col), linewidth = 2, alpha = 0.8) +
+    scale_color_manual(values = my_palette) +
+    geom_text(data = sub %>% filter(gcm == last(levels(factor(sub$gcm)))),
+              # to only write the names of the highlighted pops
+              #data = sub %>% filter(method_snpset_names == last(levels(factor(sub$method_snpset_names))) & pop %in% high_go_pops), 
+              aes(label = pop, x = length(unique(sub$gcm)) + 0.1), 
+              color = "gray20", 
+              size = 4, 
+              angle = 40) +
+    theme_bw() +
+    ylab("Population rank") +
+    theme(#panel.grid.minor.x = element_blank(),
+      panel.grid.major.y = element_blank(),
+      legend.position = "none",
+      axis.text.y = element_text(size=12),
+      axis.text.x = element_text(size=11),
+      axis.title.x = element_text(size=16),
+      axis.title.y = element_blank()) 
+  
+})
+
+
 output$correlation_plot <- renderPlot({
 
   correlations <- df %>% 
@@ -196,6 +271,35 @@ output$correlation_plot <- renderPlot({
       labs(x = NULL, y = NULL)
 
   })
+
+output$correlation_plot_GCM <- renderPlot({
+  
+  correlations <- df %>% 
+    filter(method == input$method_corrGCM & snpset_names == input$snpset_names_corrGCM) %>% 
+    pivot_wider(id_cols = pop, values_from = go, names_from = gcm)  %>% 
+    dplyr::select(-pop) %>% 
+    cor()
+  
+  # Order variables alphabetically
+  correlations <- correlations[order(rownames(correlations)), order(colnames(correlations))]
+  
+  # Melt the correlation matrix into a long format
+  cor_data <- reshape2::melt(correlations)
+  
+  # Filter to only show the lower triangle
+  cor_data <- cor_data %>% filter(as.numeric(Var1) > as.numeric(Var2))
+  
+  # Plot
+  ggplot(cor_data, aes(Var1, Var2, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "#BB4444", mid = "#FFFFFF", high = "#4477AA", midpoint = 0, limits = c(-1, 1), name="Correlation") +
+    geom_text(aes(label = round(value, 2)), color = "black", size = 3) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(size=15,angle = 45, hjust = 1),
+          axis.text.y = element_text(size=15)) +
+    labs(x = NULL, y = NULL)
+  
+})
 
 output$scatter_plot <- renderPlot({
   

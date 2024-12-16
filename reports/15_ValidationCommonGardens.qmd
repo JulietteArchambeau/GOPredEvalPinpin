@@ -155,7 +155,7 @@ list_snps <- list()
 
 list_snps$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x$set_code]][["go_cg"]]
 list_snps$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x$set_code]][["go_cg"]]
-list_snps$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x$set_code]][["go_cg"]]
+list_snps$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions.rds"))[[x$set_code]][["go_cg"]]
 list_snps$pRDA <- readRDS(file=here(paste0("outputs/RDA/go_predictions_",RDA_method,".rds")))[[x$set_code]][["go_cg_corrected"]]
 list_snps$RDA <- readRDS(file=here(paste0("outputs/RDA/go_predictions_",RDA_method,".rds")))[[x$set_code]][["go_cg_uncorrected"]]
 
@@ -247,7 +247,7 @@ return(clim_dist)
                                 input_code == "bio3" ~ "Isothermality (bio3, index)",
                                 input_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
                                 input_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
-                                input_code == "EucliDist" ~ "Euclidean climatic distance"),
+                                input_code == "EucliDist" ~ "Euclidean"),
          method_input_code = paste0("CTD_", input_code),
          method_input_name = paste0("CTD - ", input_name)) %>% 
   bind_rows(df)
@@ -926,7 +926,7 @@ readRDS(file = here("tables/MortalityPredCGs.rds"))  %>% kable_mydf()
 
 We export in a table with the number and proportion of dead trees for each population in each common garden.
 
-```{r ExpDesignMortalityModels, eval=T}
+```{r ExpDesignMortalityModels, eval=F}
 ExpDesignTab <- lapply(unique(survival_data$site),function(site_i){
   
 survival_data %>% 
@@ -949,7 +949,7 @@ survival_data %>%
 #       file = paste0(here("tables/ExpDesignMortalityModelsPerPopCG.tex")), 
 #       include.rownames=FALSE)
 
-# Export the table for the Supplemetary Information
+# Export the table for the Supplementary Information
 # =================================================
 ExpDesignTab %>% 
   dplyr::select(-contains("prop_dead")) %>% 
@@ -971,12 +971,12 @@ ExpDesignTab[,-1] %>%
 
 Stan code of the mortality model without the genomic offset predictions or the CTD (i.e. only with height as predictor).
 
-```{r CompileMortalityModelWithoutGO, message=F,warning=F}
+```{r CompileMortalityModelWithoutGO, message=F,warning=F, eval=F}
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_BinomialMortalityModel_WithoutGO.stan"))
 print(stancode)
 ```
 
-```{r RunMortalityModelWithoutGO, message=F,warning=F}
+```{r RunMortalityModelWithoutGO, message=F,warning=F, eval=F}
 lapply(unique(survival_data$site),function(site_i){
   
 # Subset the data for the site i and add the initial heights
@@ -1005,7 +1005,7 @@ list(mod = mod,
 })
 ```
 
-```{r extractMortalityProbabilityModelWithoutGO}
+```{r extractMortalityProbabilityModelWithoutGO, eval=T}
 corrtab <- lapply(unique(survival_data$site),function(site_i){
   
   list_mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",site_i,"_ModelWithoutGO.rds")))
@@ -1080,7 +1080,7 @@ corrtab <- lapply(unique(survival_data$site),function(site_i){
 
 We plot the correlations.
 
-```{r PlotCorrelationsModelWithoutGO}
+```{r PlotCorrelationsModelWithoutGO, eval=T}
 correlation_types <- c("pearson_correlation", "spearman_correlation")
 
 lapply(correlation_types, function(coeff){
@@ -1297,7 +1297,7 @@ p_allvar <- p %>%
               ymax = conf_high,
               color = input_name,
               shape = input_name)) +
-  #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
@@ -1348,7 +1348,7 @@ p_SNPs <- p %>%
              ymax = conf_high,
              color = input_name,
              shape = input_name)) +
-  #{if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.01)} + 
+  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
   {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
   geom_hline(yintercept = 0,color="gray") +
@@ -1564,7 +1564,7 @@ lapply(unique(height_data$cg), function(site_i){
 })
 ```
 
-```{r BuildCoeffTableM1, eval=F}
+```{r BuildCoeffTableM1, eval=T}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -1608,7 +1608,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r ModelCoeffM1, fig.height=9, fig.width=12}
+```{r ModelCoeffM1, fig.width=14, fig.height=11, eval=T}
 generate_interval_plots(model_i = "M1")
 ```
 
@@ -1834,7 +1834,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM2, fig.width=12, fig.height=9, eval=T}
+```{r IntervalPlotsM2, fig.width=14, fig.height=11, eval=T}
 generate_interval_plots(model_i = "M2")
 ```
 
@@ -1860,6 +1860,7 @@ The graphs above do not show the estimate uncertainty. We generate some graphs t
 #############################################################################
 # Visualizing the relationships between GO predictions and height predictions
 #############################################################################
+model_i <- "M2"
 
 coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds"))) %>% 
   mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
@@ -2072,6 +2073,9 @@ lapply(unique(height_data$cg), function(site_i){
 })
 ```
 
+Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#bulk-ess"
 
 ```{r BuildCoeffTableM3, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
@@ -2117,7 +2121,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM3, fig.width=12, fig.height=9, eval=T}
+```{r IntervalPlotsM3, fig.width=14, fig.height=11, eval=T}
 generate_interval_plots(model_i = "M3")
 ```
 
@@ -2203,6 +2207,9 @@ lapply(unique(height_data$cg), function(site_i){
 })
 ```
 
+Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#bulk-ess"
 
 ```{r BuildCoeffTableM4, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
@@ -2247,7 +2254,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM4, fig.width=12, fig.height=9, eval=T}
+```{r IntervalPlotsM4, fig.width=14, fig.height=11, eval=T}
 generate_interval_plots(model_i = "M4")
 ```
 

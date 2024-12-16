@@ -237,7 +237,7 @@ pdf(here(paste0("figs/GF/GFplots_",snp_set$set_code,".pdf")), width=12,height=8)
 plot(snp_set$gf_mod, plot.type="Overall.Importance")
 
 # splits density plot
-make_split_density_plot(x=snp_set$gf_mod)
+# make_split_density_plot(x=snp_set$gf_mod)
 
 # species cumulative plot
 make_species_cumulative_plot(x=snp_set$gf_mod)
@@ -550,7 +550,7 @@ for(i in clim_var){clim_ref_df[,i] <- (clim_ref_df[,i] - scale_params[[i]]$mean)
 ```
 
 
-```{r ProjectMeanGO, eval=F}
+```{r ProjectMeanGO, eval=T}
 # GF predictions under current climates
 ref_pred <- predict(snp_set$gf_mod,clim_ref_df[,clim_var])
 

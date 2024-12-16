@@ -464,6 +464,10 @@ kable_mydf(geno_pop_maf[1:10,1:8], boldfirstcolumn = F)
 
 We run the PCA with the `rda` function of the `vegan` package, which performs a PCA when no predictor is included.
 
+In the `rda` function, the columns of the response variable matrix $Y$ are automatically centered. If `scale = TRUE`, the columns are also divided by their standard deviation; if `scale = FALSE`, they are not.
+
+Here we set `scale=T`.
+
 ```{r RunPCA, fig.height=4,fig.width=6}
 pca <- rda(geno_pop_maf[,-1], scale=T)
 
@@ -637,7 +641,7 @@ Reminder of the study goals:
 
   - *evaluate* the genomic offset predictions with different methods.
   
-  - provide *GO estimates* for the studied populations to identify populations that will show the highest disruption of their current gene-environment relationships under climate change (those estimates will be provided based on the 'best performing' genomic offset predictions in the evaluation part).
+  - provide *genomic offset estimates* for the studied populations to identify populations that will show the highest disruption of their current gene-environment relationships under climate change (those estimates will be provided based on the 'best performing' genomic offset predictions in the evaluation part).
   
 Given the study goals, the set of selected climatic variables has to capture the changes in climatic conditions that are likely to threaten the viability of the maritime pine populations. In the context of climate change and in the Mediterranean area, it appears necessary to include climatic variables capturing the summer drought conditions. 
 
@@ -680,9 +684,9 @@ It may also be interesting to evaluate the association between summer-drought ge
 It would be very interesting to compare the genomic offset predictions with predictions of the risk of hydraulic failure from ecophysiological models such as Surreau. In this case, the genomic offset predictions should capture potential maladaptation to summer-drought conditions. However, in the present study, we did not go further on this point.
 
 
-### Climatic variables relevant for providing GO predictions
+### Climatic variables relevant for providing genomic offset predictions
 
-We aimed to provide GO predictions capturing both the changes in annual climatic conditions (e.g. mean annual temperature or precipitation) and in seasonal climatic conditions (e.g. summer droughts).
+We aimed to provide genomic offset predictions capturing both the changes in annual climatic conditions (e.g. mean annual temperature or precipitation) and in seasonal climatic conditions (e.g. summer droughts).
 
 **Winter cold temperatures:**  Previous studies found that maritime pine populations show strong patterns of adaption to temperatures, and especially cold temperatures [@grivet2011molecular and @archambeau2023reduced]. We did not include climatic variables related to winter cold temperatures because, in the context of climate change, the expected increase in winter cold temperatures may benefit maritime pine populations. In such a scenario, populations undergoing strong variations in winter cold conditions will have a high genomic offset, which will not reflect a potential maladaptation but will, on the contrary, inform about a potential increase in their fitness under climate change. Increased winter cold temperatures may also impact the survival of young trees, the reproductive ability of adult trees or the dynamics of pests and pathogens. However, it is not clear how this negative impacts may counterbalance the positive effects of cooler winter, and that is why we did not include climatic variables related to winter cold temperatures in the set of climatic variables used to make genomic offset predictions.
 
@@ -1263,7 +1267,7 @@ plot_RDA <- function(df,x,GPs){
 
 
 
-```{r RunRDAmodels, eval=F, results="hide"}
+```{r RunRDAmodels, eval=T, results="hide"}
 # We store in a list the four combinations of: 
   # - the two sets of selected climatic variables
   # - correction or not by population structure

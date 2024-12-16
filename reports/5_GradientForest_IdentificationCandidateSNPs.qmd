@@ -392,7 +392,7 @@ However, outlier SNPs identified across successive runs are not exactly the same
 
 Therefore, we run the GF models three times, each time with a different `set_seed`.
 
-```{r GFRuns, eval=F}
+```{r GFRuns, eval=T}
 set_seed_numbers <- c(4930,394,442)
 
 lapply(set_seed_numbers, function(set_seed){

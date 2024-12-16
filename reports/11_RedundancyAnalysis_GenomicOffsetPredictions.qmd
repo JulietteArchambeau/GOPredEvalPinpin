@@ -62,6 +62,14 @@ world <- ne_countries(scale = "medium", returnclass = "sf")
 
 Most analyses conducted in this document are based on @capblancq2021redundancy and the associated [Github repository](https://github.com/Capblancq/RDA-landscape-genomics).
 
+**Methodological comment**
+
+Two methods can be used to generate predictions based on the RDA models: the "predict" and the "loadings" methods.
+
+The "predict" method uses the linear combinations of predictors identified for each underlying linear model (e.g., gen ~ env) to predict the genotype or allele frequency of each SNP under present and future environmental conditions. It directly applies the fitted model, making it generally more reliable for predictions. In contrast, the "loadings" method uses the scores of individuals or sites in the RDA space to compute weighted averages for each environmental variable, estimating their contribution based on these averaged scores. While the two methods can produce similar results if the model is well-fitted, discrepancies may arise if individuals or sites are not perfectly positioned in the RDA space due to unaccounted factors. Such differences are more likely when the model explains only a small proportion of the variance, introducing noise into the weighted averages.
+
+In our study, we use the "predict" method to generate the predictions.
+
 ```{r PredictVsLoadings}
 # Do we use "predict" or "loadings" in the RDA?
 rda_method <- "predict"
@@ -227,19 +235,26 @@ grid_RDAbiplots
 
 # Adaptive landscape
 
-We may project the genetic composition across the landscape as estimated by the RDA models.
+We project the genetic composition across the landscape as estimated by the RDA models.
 
-```{r ProjectingAdaptiveIndex, eval=F}
+SNP set used for projecting the adaptive landscape:
+
+```{r AdaptiveLandscapeSelectedSNPset}
 # SNP set
-selected_snp_set <- "common_cand"
+selected_snp_set <- "all_cand" # All candidate SNPs
+```
 
-# Load the function to make the projections
-source(here("scripts/functions/project_adaptive_index.R"))
+Correction for population structure ?
 
-# Correction for population structure ?
+```{r AdaptiveLandscapePopStructureCorrection}
 pop_structure <- "uncorrected" # "uncorrected" or "corrected"
 # I did not write the code to project the index based on a RDA corrected for population structure
 # because I would need for that to project the population structure across the landscape
+```
+
+```{r ProjectingAdaptiveIndex, eval=F}
+# Load the function to make the projections
+source(here("scripts/functions/project_adaptive_index.R"))
 
 # calculate the genetic index across the landscape
 ai_proj <- project_adaptive_index(clim_var = clim_var,
@@ -281,12 +296,20 @@ ggmap <- ggplot(data = TAB_RDA) +
   theme(panel.grid = element_blank(), plot.background = element_blank(), panel.background = element_blank(), strip.text = element_text(size=11))
 
 # Save the map
-ggmap %>% ggsave(here(paste0("figs/RDA/AdaptiveIndexMap_",selected_snp_set,"_",rda_method,"_PS",pop_structure,".pdf")), ., width=10,height=6)
+ggmap %>% ggsave(here(paste0("figs/RDA/AdaptiveIndexMap_",
+                             selected_snp_set,"_",
+                             rda_method,"_PS",
+                             pop_structure,".pdf")), ., width=10,height=6)
+
+ggmap %>% ggsave(here(paste0("figs/RDA/AdaptiveIndexMap_",
+                             selected_snp_set,"_",
+                             rda_method,"_PS",
+                             pop_structure,".png")), ., width=10,height=6)
 
 # to rm the title, use theme(plot.title = element_blank())
-
-ggmap
 ```
+
+![](../figs/RDA/AdaptiveIndexMap_all_cand_predict_PSuncorrected.png)
 
 
 # Genomic offset predictions
@@ -343,6 +366,13 @@ if(method == "predict"){
   pred_ref <- predict(selected_mod, clim_ref, type = "lc")[,1:K]
   pred_fut <- predict(selected_mod, clim_pred, type = "lc")[,1:K]
   
+  if(!is.null(weights)){
+    for(i in 1:K){
+      pred_ref[,i] <- pred_ref[,i] * weights[i]
+      pred_fut[,i] <- pred_fut[,i] * weights[i]
+    }
+    }
+  
   list_AI <- list(pred_ref,pred_fut)
 }
 
@@ -367,7 +397,8 @@ if(method == "loadings"){
       }) %>% 
       setNames(paste0("RDA", 1:length(.))) %>% 
       as.data.frame()
-    })}
+  })
+  }
 
 if(CG==F){
   
@@ -669,9 +700,15 @@ lapply(names(snp_sets[[1]]$go_corrected), function(gcm){
 
 ## Using rasters
 
+We predict the genomic offset across the maritime pine distribution only for the three sets of candidate SNPs.
+
+For these predictions, we use RDA models that are not corrected for population genetic structure. Correcting for population genetic structure would require projecting it across the entire maritime pine distribution. However, the exact geographical distribution of gene pools in maritime pine (i.e., the spatial distribution of population genetic structure) is not known. Interpolating this structure would introduce substantial noise into the predictions. Therefore, we only use RDA models without correction for population genetic structure in the genomic offset predictions presented in this section.
+
+```{r PopStructureCorrectionGOPredictionRasters}
+popstructure_correction = "PSuncorrected"
+```
 
 ```{r FunctionCalculateGORasters, eval=F}
-
 # Function to calculate the RDA genetic offset using rasters
 # ==========================================================
 
@@ -684,22 +721,22 @@ lapply(names(snp_sets[[1]]$go_corrected), function(gcm){
 # clim_ref_adj = TRUE or FALSE, specify whether the point estimate climatic data used to scale the rasters should be adjusted or not for elevation
 # ref_period = the reference period used to calculate the adaptive index, can be 1901-1950 or 1960-1991
 # method = `loadings` or `predict` 
-
+# popstructure_correction = using the RDA model corrected or not for population genetic structure
 
 
 pred_GO_rasters <- function(snp_set, 
                             clim_var,
                             K, 
-                            pop_structure,
+                            popstructure_correction,
                             gcm,
                             range_buffer = shapefile(here('data/Mapping/PinpinDistriEUforgen_NFIplotsBuffer10km.shp')),
                             method,
                             clim_ref_adj = FALSE,
                             ref_period = "ref_1901_1950"){
 
-if(pop_structure == T){
+if(popstructure_correction == "PScorrected"){
   selected_mod <- snp_set$rda_model_corrected
-} else {
+} else if(popstructure_correction =="PSuncorrected"){
   selected_mod <- snp_set$rda_model_uncorrected
 }
   
@@ -838,68 +875,62 @@ if(method == "loadings"){
 
 ```{r GenerateGORasters, message=F, results="hide", warning=F, eval=F}
 # For each snp set and each GCM, we apply the function pred_GO_rasters
-go_rasters <- snp_sets %>% lapply(function(snp_set){
+go_rasters <- snp_sets[1:3] %>% lapply(function(snp_set){
   lapply(names(clim_dfs$clim_pred), function(gcm){
   
-  pred_GO_rasters(snp_set,clim_var,K=2,gcm, method = rda_method)}) %>% 
+  pred_GO_rasters(snp_set,
+                  clim_var,
+                  K=2,
+                  popstructure_correction,
+                  gcm = gcm, 
+                  method = rda_method)}) %>% 
     setNames(names(clim_dfs$clim_pred)) %>% 
-    saveRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_set$set_code,"_",rda_method,".rds")))
+    saveRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_set$set_code,"_",rda_method,"_",popstructure_correction,".rds")))
   })
+```
 
-
+```{r GenerateGOMapsWithRasters, message=F, results="hide", warning=F, eval=T}
 # Map options
 # ===========
-point_size=2
+point_size = 2
 x_limits = c(-10, 15)
 y_limits = c(31, 52)
 
-# get maximum and minimum genomic offset values across the different GO predictions (for each snp set and each GCM)
-# so that comparing the maps will be easier
-go_limits <- names(snp_sets) %>% lapply(function(x){
-  
-lapply(names(clim_dfs$clim_pred), function(gcm){
 
-go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,"_",rda_method,".rds")))  
+# Mapping
+# =======
+names(snp_sets)[1:3] %>% lapply(function(x){
 
-rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble() %>% pull(global_offset)
+go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,"_",rda_method,"_",
+                                      popstructure_correction,".rds")))
 
-}) %>% 
-    unlist()
-  
-}) %>% 
-  unlist() %>% 
+go_dfs <- lapply(names(clim_dfs$clim_pred),function(gcm){
+  rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()}) %>% 
+  setNames(names(clim_dfs$clim_pred))
+
+go_limits <- go_dfs %>% lapply(function(x) x %>% pull(global_offset)) %>% unlist() %>%
   range()
 
 # The minimum GO value is very very small, almost zero, so we fix it to zero.
 go_limits[[1]] <- 0
 
-# Mapping
-# =======
-names(snp_sets) %>% lapply(function(x){
-
-go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,"_",rda_method,".rds"))) 
-
 go_maps <- lapply(names(clim_dfs$clim_pred), function(gcm){
-  
-# extract genomic offset values 
-go_dfs <- rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()
 
-
-ggplot(data = go_dfs) + 
-  geom_sf(data = world, fill="gray98") + 
+ggplot(data = go_dfs[[gcm]]) +
+  geom_sf(data = world, fill="gray98") +
   scale_x_continuous(limits = x_limits) +
-  scale_y_continuous(limits = y_limits) + 
-  geom_raster(aes(x = x, y = y, fill = global_offset), alpha = 1) + 
-  scale_fill_gradient2(low="blue", mid= "yellow", high="red", 
+  scale_y_continuous(limits = y_limits) +
+  geom_raster(aes(x = x, y = y, fill = global_offset), alpha = 1) +
+  scale_fill_gradient2(low="blue", mid= "yellow", high="red",
                        midpoint=(max(go_limits[[2]])-min(go_limits[[1]]))/2,
                        limits=go_limits,
                        name = "Genomic offset") +
   xlab("Longitude") + ylab("Latitude") +
   ggtitle(gcm) +
   theme_bw(base_size = 11) +
-  theme(panel.grid = element_blank(), 
-        plot.background = element_blank(), 
-        panel.background = element_blank(), 
+  theme(panel.grid = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
         #legend.position = c(0.85,0.15),
         legend.box.background = element_rect(colour = "gray80"),
         strip.text = element_text(size=11))
@@ -914,36 +945,28 @@ go_maps$legend_maps <- legend_maps
 
 go_maps <- plot_grid(plotlist=go_maps)
 
-ggsave(here(paste0("figs/RDA/GOMap_",x,"_",rda_method,".pdf")), go_maps, width=11,height=7, device="pdf")
-ggsave(here(paste0("figs/RDA/GOMap_",x,"_",rda_method,".png")), go_maps, width=11,height=7)
-  
+ggsave(here(paste0("figs/RDA/GOMap_",x,"_",rda_method,"_",
+                                      popstructure_correction,".pdf")), go_maps, width=11,height=7, device="pdf")
+ggsave(here(paste0("figs/RDA/GOMap_",x,"_",rda_method,"_",
+                                      popstructure_correction,".png")), go_maps, width=11,height=7)
+
 })
 ```
 
 We visualize the generated maps. 
 
-> Candidate SNPs
+> All candidate SNPs 
 
-This figure is included in the Supplementary Information.
+![](../figs/RDA/GOMap_all_cand_predict_PSuncorrected.png)
 
-![](../figs/RDA/GOMap_cand_predict.png)
+> Common candidate SNPs
 
+![](../figs/RDA/GOMap_common_cand_predict_PSuncorrected.png)
 
-> Control SNPs
+> Candidate SNPs with correction for population genetic structure
 
-This figure is included in the Supplementary Information.
+![](../figs/RDA/GOMap_corrected_cand_predict_PSuncorrected.png)
 
-<!-- ![](../figs/RDA/GOMap_control_predict.png) -->
-
-> All SNPs
-
-<!-- ![](../figs/RDA/GOMap_all_predict.png) -->
-
-> Candidate SNPs with correction for population structure
-
-i.e., SNPs identified by at least one GEA method correcting for population structure (*pRDA*, *LFMM* and *BayPass*).
-
-<!-- ![](../figs/RDA/GOMap_cand_corrected_predict.png) -->
 
 
 ### Corr btw predictions with rasters or spatial points 
@@ -952,17 +975,20 @@ We check that the genomic offset predictions we obtained with the spatial points
 
 <span style="color: orange;">**Comment**</span> When we extract the genomic offset values from the rasters at the location of the populations, we have missing values for some populations. Indeed, some populations are not included in the buffer of the species range that I used, based on the EUFORGEN distribution and 10km around the NFI plots. <span style="color: orange;">**We may want to modify the buffer of the species range to include those populations!**</span>
 
-```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters, eval=F}
+```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters, eval=T}
 # checking correlations
-names(snp_sets) %>% lapply(function(x){
+names(snp_sets)[1:3] %>% lapply(function(x){
   
 cor_go <- lapply(names(clim_dfs$clim_pred), function(gcm){
 
-go_rasters <- readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,"_",rda_method,".rds"))) 
+go_rasters <- readRDS(file=here(paste0("outputs/RDA/go_rasters_",
+                                       snp_sets[[x]]$set_code,"_",
+                                       rda_method,"_",
+                                       popstructure_correction,".rds"))) 
   
 go_rast <- raster::extract(go_rasters[[gcm]]$go_global_proj, pop_coord[,c("longitude","latitude")])
 
-cor(snp_sets[[x]]$go[[gcm]],go_rast,use= "complete.obs")
+cor(snp_sets[[x]]$go_uncorrected[[gcm]],go_rast,use= "complete.obs")
   
 }) %>% unlist() 
   
@@ -970,7 +996,7 @@ tibble(gcm=names(clim_dfs$clim_pred),
        cor_go=cor_go)
   
 }) %>% 
-  setNames(names(snp_sets)) %>% 
+  setNames(names(snp_sets)[1:3]) %>% 
   bind_rows(.id="snp_set") %>% 
   kable_mydf()
 ```
@@ -1108,7 +1134,7 @@ p
 
 We look at the correlation across the different genomic offset predictions in the NFI plots.
 
-```{r CorrelationGONFIPlots, fig.height=7,fig.width=7, results="hide"}
+```{r CorrelationGONFIPlots, fig.height=8,fig.width=8, results="hide"}
 lapply(c("uncorrected","corrected"), function(correction){
   
   lapply(snp_sets, function(x) x[[paste0("go_nfi_",correction)]]) %>% as_tibble() %>% bind_cols(nfi_coords[,"plotcode"])
