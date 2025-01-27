@@ -889,27 +889,30 @@ go_rasters <- snp_sets[1:3] %>% lapply(function(snp_set){
   })
 ```
 
-```{r GenerateGOMapsWithRasters, message=F, results="hide", warning=F, eval=T}
+### GCM specific maps
+
+```{r MapOptionGOprojections}
 # Map options
 # ===========
 point_size = 2
 x_limits = c(-10, 15)
 y_limits = c(31, 52)
+```
 
-
-# Mapping
-# =======
+```{r GenerateGOMapsWithRasters, message=F, results="hide", warning=F, eval=F}
 names(snp_sets)[1:3] %>% lapply(function(x){
 
 go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",snp_sets[[x]]$set_code,"_",rda_method,"_",
                                       popstructure_correction,".rds")))
 
-go_dfs <- lapply(names(clim_dfs$clim_pred),function(gcm){
+go_dfs <- lapply(names(go_rasters), function(gcm){
   rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()}) %>% 
-  setNames(names(clim_dfs$clim_pred))
+  setNames(names(go_rasters))
 
-go_limits <- go_dfs %>% lapply(function(x) x %>% pull(global_offset)) %>% unlist() %>%
-  range()
+
+## GCM specific maps
+####################
+go_limits <- go_dfs %>% lapply(function(x) x %>% pull(global_offset)) %>% unlist() %>% range()
 
 # The minimum GO value is very very small, almost zero, so we fix it to zero.
 go_limits[[1]] <- 0
@@ -967,6 +970,57 @@ We visualize the generated maps.
 
 ![](../figs/RDA/GOMap_corrected_cand_predict_PSuncorrected.png)
 
+
+### Maps of GO mean across GCM predictions
+
+We generate a map with the mean of genomic offset predictions across GCMs for the set with all candidate SNPs.
+
+```{r PreparationDatasetMeanGOprojectionAllCandidateSNPs, eval=F}
+go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+
+go_dfs <- lapply(names(go_rasters), function(gcm){
+  rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()}) %>% 
+  setNames(names(go_rasters))
+
+go_df_mean <- go_dfs %>% 
+  bind_rows(.id="GCM") %>% 
+  pivot_wider(names_from = "GCM", values_from = "global_offset") %>% 
+  rowwise() %>% 
+  mutate(mean_offset = mean(c_across(`GFDL-ESM4`:`UKESM1-0-LL`), na.rm = TRUE)) %>% 
+  ungroup()
+
+saveRDS(go_df_mean, file=here(paste0("outputs/RDA/go_df_mean_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+```
+
+```{r MeanGOprojectionAllCandidateSNPs, fig.height=6, fig.width=6}
+go_df_mean <- readRDS(file=here(paste0("outputs/RDA/go_df_mean_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+
+p <- ggplot(data = go_df_mean) +
+  geom_sf(data = world, fill="gray98") +
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) +
+  geom_raster(aes(x = x, y = y, fill = mean_offset), alpha = 1) +
+  scale_fill_gradient2(low="blue", mid= "yellow", high="red",
+                       midpoint=(max(go_df_mean$mean_offset)-min(go_df_mean$mean_offset))/2,
+                       limits=c(0, max(go_df_mean$mean_offset)),
+                       name = "Genomic offset from RDA") +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        legend.position = c(0.8,0.15),
+        legend.box.background = element_rect(colour = "gray80"),
+        legend.title = element_text(size=10),
+        strip.text = element_text(size=11))
+
+ggsave(here(paste0("figs/RDA/GOmeanProjections_all_cand_",rda_method,"_",
+                                      popstructure_correction,".pdf")), p, width=6, height=6, device="pdf")
+ggsave(here(paste0("figs/RDA/GOmeanProjections_all_cand_",rda_method,"_",
+                                      popstructure_correction,".png")), p, width=6, height=6)
+
+p
+```
 
 
 ### Corr btw predictions with rasters or spatial points 

@@ -274,7 +274,7 @@ p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1,
                      list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
                      list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
 
-pdf(file=here("figs/UpsetPlot_AllOutliers_TwoColors.pdf"), onefile=FALSE, width = 5.5, height = 4.5)
+pdf(file=here("figs/UpsetPlot_AllOutliers_TwoColors.pdf"), onefile=FALSE, width = 5.5, height = 5.5)
 p
 dev.off()
 
@@ -285,8 +285,10 @@ p
 Figure in which all SNPs are shown with the same color.
 
 ```{r GeneratingFigure2ManuscriptUpsetPlotOneColor, fig.width=9, fig.height=7, results="hide"}
-color_two_methods_snps <- "seagreen2"
-color_one_method_snps <- "seagreen2"  # "gray60"
+
+# Manuscript
+color_two_methods_snps <- "gray50"
+color_one_method_snps <- "gray50"  # "gray50"
 
 p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1, 
       main.bar.color = c(rep(color_one_method_snps,4),rep(color_two_methods_snps,3),color_one_method_snps,rep(color_two_methods_snps, 11)),
@@ -298,12 +300,31 @@ p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1,
                      list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
                      list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
 
-pdf(file=here("figs/UpsetPlot_AllOutliers_OneColor.pdf"), onefile=FALSE, width = 5.5, height = 4.5)
+pdf(file=here(paste0("figs/UpsetPlot_AllOutliers_OneColor",color_one_method_snps,".pdf")), onefile=FALSE, width = 8, height = 5)
 p
 dev.off()
 
 p
 
+# Presentations
+color_two_methods_snps <- "skyblue"
+color_one_method_snps <- "skyblue"  # "gray50"
+
+p <- upset(fromList(selected_methods),order.by = "freq",  point.size = 3.1, 
+      main.bar.color = c(rep(color_one_method_snps,4),rep(color_two_methods_snps,3),color_one_method_snps,rep(color_two_methods_snps, 11)),
+      matrix.color = color_two_methods_snps,
+      
+      queries = list(list(query = intersects, params=names(selected_methods)[1], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[2], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[3], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[4], active=T, color=color_one_method_snps),
+                     list(query = intersects, params=names(selected_methods)[5], active=T, color=color_one_method_snps)))
+
+pdf(file=here(paste0("figs/UpsetPlot_AllOutliers_OneColor_",color_one_method_snps,".pdf")), onefile=FALSE, width = 6, height = 6)
+p
+dev.off()
+
+p
 ```
 
 # SNP pruning based on physical proximity
@@ -549,11 +570,11 @@ set.seed(36)
 control_snps <- sample(no_candidates,nb_snps,replace = F)
 ```
 
-## with similar allele frequencies
+## with frequency-matched allele frequencies
 
-We select control SNPs randomly but with similar allele frequencies that the candidate SNPs.
+We select control SNPs randomly among the SNPs non identified by a gene-environment association methods, and with similar allele frequencies that the candidate SNPs (i.e., frequencies that matched those of the candidate SNPs).
 
-```{r ControlSNPsSimilarFrequencies, eval=T}
+```{r ControlSNPsMatchedFrequencies, eval=T}
 # Set a seed for reproducibility
 set.seed(96)
 
@@ -576,8 +597,8 @@ snp_freq <- geno %>%
 no_candidates_freq <- snp_freq %>%  
   dplyr::filter(snps %in% no_candidates)
 
-# Initialize an empty list to store random SNPs with similar frequencies
-list_random_snps_with_similar_freq <- list()
+# Initialize an empty list to store random SNPs with matched frequencies
+list_random_snps_with_matched_freq <- list()
 
 # Loop through each SNP in the "all_cand" list
   for (i in all_cand) {
@@ -587,29 +608,29 @@ list_random_snps_with_similar_freq <- list()
       dplyr::filter(snps == i) %>% 
       .[["freq"]]
     
-    # Find SNPs from the non-candidate dataset that have a frequency similar to the current SNP
-    # A threshold of ± 0.001 is used to find SNPs with similar frequencies
-    snps_with_similar_freq <-  no_candidates_freq %>% 
+    # Find SNPs from the non-candidate dataset that have a frequency close to the frequency of the candidate SNP
+    # A threshold of ± 0.001 is used to find SNPs with matched frequencies
+    snps_with_matched_freq <-  no_candidates_freq %>% 
       dplyr::filter(!freq >freq_i + 0.002) %>% 
       dplyr::filter(!freq <freq_i - 0.002) 
   
-    # Randomly select one SNP from the list of SNPs with similar frequencies
-    selected_snp <- sample(snps_with_similar_freq$snps, 1)
+    # Randomly select one SNP from the list of SNPs with matched frequencies
+    selected_snp <- sample(snps_with_matched_freq$snps, 1)
     
     # Remove the selected SNP from the non-candidate dataset to avoid re-selecting it
     no_candidates_freq <- no_candidates_freq %>% 
       dplyr::filter(!snps == selected_snp)
 
     # Add the selected SNP to the list of random SNPs for this candidate SNP
-    list_random_snps_with_similar_freq[[i]] <- selected_snp
+    list_random_snps_with_matched_freq[[i]] <- selected_snp
   }
   
-# Combine the list into a vector of randomly selected SNPs with similar frequencies to the candidate SNPs
-random_snps_with_similar_freq <- list_random_snps_with_similar_freq %>% unlist(use.names = F)
+# Combine the list into a vector of randomly selected SNPs with matched frequencies
+random_snps_with_matched_freq <- list_random_snps_with_matched_freq %>% unlist(use.names = F)
 
 # Check for duplicated SNPs in the final list of random SNPs (there shouldn't be any, but we check just in case)
-dups <- duplicated(random_snps_with_similar_freq)
-random_snps_with_similar_freq[dups]
+dups <- duplicated(random_snps_with_matched_freq)
+random_snps_with_matched_freq[dups]
 ```
 
 
@@ -625,7 +646,7 @@ We save six sets of SNPs:
   
   - `r length(control_snps)` control SNPs with random frequencies and the same number of candidate SNPs as in the set with all candidate SNPs.
   
-  - `r length(random_snps_with_similar_freq)` control SNPs with similar frequencies than the set with all candidate SNPs, and with the same number of candidate SNPs as in the set with all candidate SNPs.
+  - `r length(random_snps_with_matched_freq)` control SNPs with matched frequencies (i.e., similar frequencies to the frequencies of the set with all candidate SNPs), and with the same number of candidate SNPs as in the set with all candidate SNPs.
   
   - All SNPs, i.e. `r length(all_snps_id)` SNPs.
 
@@ -638,14 +659,14 @@ snp_sets <- list(all_cand = list(set_code = "all_cand",
                                     set_name = paste0("Common candidate SNPs (", length(common_cand),")"),
                                     set_snps = common_cand),
                  corrected_cand = list(set_code = "corrected_cand",
-                                       set_name = paste0("Candidate SNPs with pop. struct. correction (", length(corrected_cand),")"),
+                                       set_name = paste0("Candidate SNPs considering pop. struct. correction (", length(corrected_cand),")"),
                                        set_snps = corrected_cand),
                  randomfreq_control = list(set_code = "randomfreq_control",
-                                           set_name = paste0("Control SNPs with random frequencies (", length(control_snps),")"),
+                                           set_name = paste0("Control SNPs unmatching allele frequencies (", length(control_snps),")"),
                                            set_snps = control_snps),
                  simfreq_control = list(set_code = "simfreq_control", 
-                                        set_name = paste0("Control SNPs with similar frequencies (", length(random_snps_with_similar_freq),")"),
-                                        set_snps = random_snps_with_similar_freq),
+                                        set_name = paste0("Control SNPs matching allele frequencies (", length(random_snps_with_matched_freq),")"),
+                                        set_snps = random_snps_with_matched_freq),
                  all = list(set_code = "all",
                             set_name = paste0("All SNPs (", length(all_snps_id),")"),
                             set_snps = all_snps_id))
@@ -671,9 +692,11 @@ Meaning of the columns:
   11. `GF_outliers`: `TRUE` if the SNP was identified as an outlier with the GF algorithm; `FALSE` otherwise.
   12. `LFMM_outliers`: `TRUE` if the SNP was identified as an outlier woth LFMM; `FALSE` otherwise.
   13. `BayPass_outliers`: `TRUE` if the SNP was identified as an outlier with BayPass; `FALSE` otherwise.
-  14. `common_outliers`: `TRUE` if the SNP was a common outlier, i.e. an outlier identified by at least one GEA method among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise. These SNPs were used for GO predictions.
-  15. `control_snps`: `TRUE` if the SNP was included in the set of control SNPs; `FALSE` otherwise.
-  
+  14. `all_candidate_SNPs`: `TRUE` if the SNP was an outlier identified by at least one GEA method among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise.
+  15. `common_candidate_SNPs`: `TRUE` if the SNP was an outlier identified by at least two GEA methods among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise.
+  16. `candidate_SNPs_corrected_pop_structure`: `TRUE` if the SNP was an outlier identified by at least one GEA method correcting for population genetic structure (i.e., pRDA, LFMM or BayPass); `FALSE` otherwise.
+  17. `random_control_SNPs`: `TRUE` if the SNP was a control SNP randomly sampled among the SNPs not identified by any GEA method; `FALSE` otherwise.
+  18. `control_SNPs_matching_allele_freq`: `TRUE` if the SNP was a control SNP sampled among the SNPs not identified by any GEA method, and has a similar allele frequency to a candidate SNP; `FALSE` otherwise.
 
 Below are shown the first 10 rows of the dataset.
 
@@ -684,8 +707,11 @@ listsnps <- read_csv2(here("data/GenomicData/SNPsInformation.csv"),show_col_type
          GF_outliers = ifelse(snp_ID %in% list_candidates$GF, TRUE, FALSE),
          LFMM_outliers = ifelse(snp_ID %in% list_candidates$LFMM, TRUE, FALSE),
          BayPass_outliers = ifelse(snp_ID %in% list_candidates$BayPass, TRUE, FALSE),
-         common_outliers = ifelse(snp_ID %in% common_cand, TRUE, FALSE),
-         control_snps = ifelse(snp_ID %in% control_snps, TRUE, FALSE))
+         all_candidate_SNPs = ifelse(snp_ID %in% all_cand, TRUE, FALSE),
+         common_candidate_SNPs = ifelse(snp_ID %in% common_cand, TRUE, FALSE),
+         candidate_SNPs_corrected_pop_structure = ifelse(snp_ID %in% corrected_cand, TRUE, FALSE),
+         random_control_SNPs = ifelse(snp_ID %in% control_snps, TRUE, FALSE),
+         control_SNPs_matching_allele_freq = ifelse(snp_ID %in% random_snps_with_matched_freq, TRUE, FALSE))
 
 
 listsnps %>% write_csv2(here("data/DryadRepo/SNPsInformation_WithOutliers.csv"),append=FALSE)
@@ -753,7 +779,7 @@ Among the `r length(corrected_cand)` candidate SNPs identified by at least one G
 
 Among the `r length(control_snps)` control SNPs with random frequencies, `r nb_per_chr_df[nrow(nb_per_chr_df),5][[1]]` SNPs were mapped on the reference genome, including `r randomfreq_control_contig` on contigs not assembled on the chromosomes.
 
-Among the `r length(random_snps_with_similar_freq)` control SNPs with similar frequencies than the candidate SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),6][[1]]` SNPs were mapped on the reference genome, including `r simfreq_control_contig` on contigs not assembled on the chromosomes.
+Among the `r length(random_snps_with_matched_freq)` control SNPs with similar frequencies than the candidate SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),6][[1]]` SNPs were mapped on the reference genome, including `r simfreq_control_contig` on contigs not assembled on the chromosomes.
 
 Among the `r length(all_snps_id)` SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),7][[1]]` SNPs were mapped on the reference genome, including `r all_contig` on contigs not assembled on the chromosomes.
 
@@ -827,7 +853,7 @@ plot_chrm <- gen_coord %>%
   geom_segment(data = snp_sets$randomfreq_control$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.8, yend = 0.98, 
                                                                col = factor(snp_sets$randomfreq_control$set_name, 
                                                                 levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
-  # Control SNPs with similar frequencies
+  # Control SNPs with matched frequencies
   geom_segment(data = snp_sets$simfreq_control$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 1, yend = 1.18, col = factor(snp_sets$simfreq_control$set_name, 
                                                                 levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
   

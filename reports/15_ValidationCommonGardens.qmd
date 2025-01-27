@@ -247,7 +247,7 @@ return(clim_dist)
                                 input_code == "bio3" ~ "Isothermality (bio3, index)",
                                 input_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
                                 input_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
-                                input_code == "EucliDist" ~ "Euclidean"),
+                                input_code == "EucliDist" ~ "All climatic variables (Euclidean distance)"),
          method_input_code = paste0("CTD_", input_code),
          method_input_name = paste0("CTD - ", input_name)) %>% 
   bind_rows(df)
@@ -468,7 +468,7 @@ list(mod = mod,
 
 ```
 
-```{r CoefftabMortalityModels, eval=F}
+```{r CoefftabMortalityModels, eval=T}
 coefftab <- lapply(unique(survival_data$site),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -526,8 +526,8 @@ Below, we plot the mean and 95% credible intervals of:
 Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting higher mortality rates in populations with higher GO predictions.
 
 ```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
-coeff_match <- list(beta_H = "Regression coefficients $\\beta_H$",
-                    beta_X = "Regression coefficients $\\beta_X$")
+coeff_match <- list(beta_H = "Regression coefficients $\\beta_H$ in mortality models",
+                    beta_X = "Regression coefficients $\\beta_X$ in mortality models")
 
 p <- lapply(c("beta_X","beta_H"), function(coeff){
   
@@ -736,7 +736,7 @@ In Bordeaux, there were even less dead trees than in Asturias (119 dead trees). 
 
 Let's visualize the uncertainty around the estimation of the probability of tree mortality $p$.
 
-```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
+```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
 ####################################################################################################
 # Visualizing the relationships between GO predictions or CTDs and mortality probability predictions
 ####################################################################################################
@@ -850,7 +850,7 @@ In the table below:
   
   - percent change in $p$ associated with a one-unit increase in $x$ (which corresponds to a one-standard deviation increase).
 
-```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
+```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
 p_pred <- lapply(names(cg_names), function(site_i){
   
 lapply(unique(df$method_input_code), function(method_input_code_i){   
@@ -1075,12 +1075,16 @@ corrtab <- lapply(unique(survival_data$site),function(site_i){
   
 
 }) %>% bind_rows()
+
+saveRDS(corrtab, here("outputs/ValidationCommonGarden/MortalityModels/corrtab.rds"))
 ```
 
 
 We plot the correlations.
 
 ```{r PlotCorrelationsModelWithoutGO, eval=T}
+corrtab <- readRDS(here("outputs/ValidationCommonGarden/MortalityModels/corrtab.rds"))
+
 correlation_types <- c("pearson_correlation", "spearman_correlation")
 
 lapply(correlation_types, function(coeff){
@@ -1132,9 +1136,9 @@ p_allvar <- p %>% ggplot(aes(x = method,
   geom_point(position = position_dodge(width = .5), size=5) +
   facet_wrap(~cg_name, ncol=2) + 
   {if(coeff=="pearson_correlation") ylab("Pearson correlation estimates")} + 
-  {if(coeff=="spearman_correlation") ylab("Spearman correlation estimates (rank correlation)") } + 
+  {if(coeff=="spearman_correlation") ylab("Spearman correlation estimates (rank correlations)") } + 
   xlab("") +
-  ylim(c(-0.44,0.55)) +
+  ylim(c(-0.44,0.6)) +
   scale_color_manual(values=colors_coeff)+
   scale_shape_manual(values = c(16,18)) + #, name="p-value of the correlations"
   theme_bw() +
@@ -1232,167 +1236,343 @@ height_data[1:5,] %>% kable_mydf
 We write a function to plot the model coefficients :
 
 ```{r FunctionPlotCoefficients, eval=T}
-coeff_y_axis <- list(beta_X1 = "Regression coefficients $\\beta_{X_1}$",
-                     beta_X2 = "Regression coefficients $\\beta_{X_2}$",
-                     beta_H = "Regression coefficients $\\beta_H$",
-                     R_squared = "Proportion of variance explained ($R^2$)",
-                     classic_R2 = "Classic $R^2$",
-                     bayes_R2_res = "Residual-based Bayes $R^2$",
-                     bayes_R2_mod = "Model-based Bayes $R^2$")
+coeff_y_axis <- list(beta_X1 = "Regression coefficients $\\beta_{X_1}$ in height models",
+                     beta_X2 = "Regression coefficients $\\beta_{X_2}$ in height models",
+                     beta_H = "Regression coefficients $\\beta_H$ in height models",
+                     R_squared = "Proportion of variance explained ($R^2$) in height models",
+                     classic_R2 = "Classic $R^2$ in height models",
+                     bayes_R2_res = "Residual-based Bayes $R^2$ in height models",
+                     bayes_R2_mod = "Model-based Bayes $R^2$ in height models")
+
 
 generate_interval_plots <- function(model_i){
-
-coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
-
-params <-  coefftab$term %>% unique() %>% str_subset("^beta|squared|R2")
-
-p <- lapply(params, function(coeff){
-
-p <- coefftab %>% 
-  filter(term==coeff) %>% 
-  mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
-                             cg == "bordeaux" ~ "Bordeaux, France (85 months)",
-                             cg == "caceres" ~ "Cáceres, Spain (8 months)",
-                             cg == "madrid" ~ "Madrid, Spain (13 months)",
-                             cg == "portugal" ~ "Fundão, Portugal (27 months)"),
-         input_name = factor(input_name, levels = c(unique(coefftab$input_name)[[13]],
-                                                    unique(coefftab$input_name)[[11]],
-                                                    unique(coefftab$input_name)[[12]],
-                                                    unique(coefftab$input_name)[[10]],
-                                                    unique(coefftab$input_name)[[8]],
-                                                    unique(coefftab$input_name)[[9]],
-                                                    unique(coefftab$input_name)[[1]],
-                                                    unique(coefftab$input_name)[[2]],
-                                                    unique(coefftab$input_name)[[3]],
-                                                    unique(coefftab$input_name)[[4]],
-                                                    unique(coefftab$input_name)[[5]],
-                                                    unique(coefftab$input_name)[[6]],
-                                                    unique(coefftab$input_name)[[7]])),
-         method = factor(method, levels = c(unique(coefftab$method)[[2]],
-                                            unique(coefftab$method)[[3]],
-                                            unique(coefftab$method)[[4]],
-                                            unique(coefftab$method)[[5]],
-                                            unique(coefftab$method)[[6]],
-                                            unique(coefftab$method)[[1]])),
-         cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
-                                              "Cáceres, Spain (8 months)",
-                                              "Asturias, Spain (37 months)",
-                                              "Bordeaux, France (85 months)",
-                                              "Fundão, Portugal (27 months)")))
-
-
-if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2"){
-  nullR2 <- readRDS(file = here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds")) %>%
-    filter(term==coeff) %>% 
-    inner_join(distinct(p[,c("cg","cg_name")]),by="cg")
-}
-
+  
+  coefftab <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/coefftab_",model_i,".rds")))
+  params <-  coefftab$term %>% unique() %>% str_subset("^beta|squared|R2")
+  
+  
+  p <- lapply(params, function(coeff){
+    
+    if(coeff %in% c("beta_X1", "beta_X2","beta_H","R_squared")){
+      p_beta <- coefftab %>% 
+        filter(term %in% c("beta_X1", "beta_X2")) %>% 
+        pivot_wider(names_from = "term", values_from = c("mean","conf_low","conf_high","std_deviation")) %>% 
+        mutate(expected = ifelse(conf_high_beta_X1<0 & conf_low_beta_X2<0 & conf_high_beta_X2>0 , "Expected associations", "Non-expected associations")) %>% 
+        dplyr::select(-contains("mean"),-contains("conf"), -contains("deviation"))
+      }
+    
+    p <- coefftab %>% filter(term==coeff) 
+    
+    if(coeff %in% c("beta_X1", "beta_X2","beta_H","R_squared")){p <- p %>% left_join(p_beta)}
+    
+    p <- p %>% mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                                          cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                                          cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                                          cg == "madrid" ~ "Madrid, Spain (13 months)",
+                                          cg == "portugal" ~ "Fundão, Portugal (27 months)"),
+                      input_name = factor(input_name, levels = c(unique(coefftab$input_name)[[13]],
+                                                                 unique(coefftab$input_name)[[11]],
+                                                                 unique(coefftab$input_name)[[12]],
+                                                                 unique(coefftab$input_name)[[10]],
+                                                                 unique(coefftab$input_name)[[8]],
+                                                                 unique(coefftab$input_name)[[9]],
+                                                                 unique(coefftab$input_name)[[1]],
+                                                                 unique(coefftab$input_name)[[2]],
+                                                                 unique(coefftab$input_name)[[3]],
+                                                                 unique(coefftab$input_name)[[4]],
+                                                                 unique(coefftab$input_name)[[5]],
+                                                                 unique(coefftab$input_name)[[6]],
+                                                                 unique(coefftab$input_name)[[7]])),
+                      method = factor(method, levels = c(unique(coefftab$method)[[2]],
+                                                         unique(coefftab$method)[[3]],
+                                                         unique(coefftab$method)[[4]],
+                                                         unique(coefftab$method)[[5]],
+                                                         unique(coefftab$method)[[6]],
+                                                         unique(coefftab$method)[[1]])),
+                      cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                                           "Cáceres, Spain (8 months)",
+                                                           "Asturias, Spain (37 months)",
+                                                           "Bordeaux, France (85 months)",
+                                                           "Fundão, Portugal (27 months)")))
 
 # Plots with CTD and SNP sets
 # ===========================
-p_allvar <- p %>% 
-   ggplot(aes(x = method,
-              y = mean,
-              ymin = conf_low, 
-              ymax = conf_high,
-              color = input_name,
-              shape = input_name)) +
-  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
-  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
-  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
-  geom_hline(yintercept = 0,color="gray") +
-  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
-  facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
-  ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
-  scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
-  theme_bw() +
-  labs(color="",shape="") +
-  theme(axis.text.x =  element_text(size=13),
-        axis.text.y = element_text(size=13),
-        axis.title.y = element_text(size=16),
-        axis.title.x = element_text(size=1),
-        legend.title=element_text(size=13), 
-        strip.text.x = element_text(size = 16),
-        strip.background = element_blank(),
-        legend.position = c(0.77,0.15),
-        legend.text=element_text(size=11),
-        panel.grid.minor.x=element_blank(),
-        panel.grid.major.x=element_blank()) +
-  guides(color=guide_legend(ncol=1),
-         shape = guide_legend(override.aes = list(size =2 )))
-
-p_allvar 
-
-# save in pdf
-ggsave(p_allvar,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.pdf")),
-       device="pdf",
-       height=11,
-       width=14)
-
-# save in png
-# ggsave(p_allvar,
-#        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.png")),
-#        height=9,
-#        width=12)
-
-
-# Plots only SNP sets
-# ===================
-p_SNPs <- p %>% 
-  filter(!method == "CTD") %>% 
-  ggplot(aes(x = method,
-             y = mean,
-             ymin = conf_low, 
-             ymax = conf_high,
-             color = input_name,
-             shape = input_name)) +
-  {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
-  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=conf_low, ymax=conf_high), color="transparent", fill="brown", alpha=0.2)} + 
-  {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
-  geom_hline(yintercept = 0,color="gray") +
-  geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
-  facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
-  ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
-  scale_color_manual(values=colors_coeff) +
-  scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
-  theme_bw() +
-  labs(color="",shape="") +
-  theme(axis.text.x =  element_text(size=13),
-        axis.text.y = element_text(size=13),
-        axis.title.y = element_text(size=16),
-        axis.title.x = element_text(size=1),
-        legend.title=element_text(size=13), 
-        strip.text.x = element_text(size = 16),
-        strip.background = element_blank(),
-        legend.position = c(0.77,0.15),
-        legend.text=element_text(size=13),
-        panel.grid.minor.x=element_blank(),
-        panel.grid.major.x=element_blank()) +
-  guides(color=guide_legend(ncol=1),
-         shape = guide_legend(override.aes = list(size =2 )))
-
-
-# save in pdf
-ggsave(p_SNPs,
-       file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.pdf")),
-       device="pdf",
-       height=10,
-       width=12)
-
-# save in png
-# ggsave(p_SNPs,
-#        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.png")),
-#        height=7,
-#        width=8)
-
-return(p_allvar)
-
-})
-
-return(p)
+    if(coeff %in% c("beta_X1", "beta_X2","beta_H", "R_squared")){
+      p_allvar <- p %>% 
+        ggplot(aes(x = method,
+                   y = mean,
+                   ymin = conf_low, 
+                   ymax = conf_high,
+                   color = input_name,
+                   shape = expected)) +
+        {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} +
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf,
+                                                                                                                                      ymin=conf_low, ymax=conf_high),
+                                                                                                   color="transparent", fill="brown", alpha=0.2)} + 
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} +
+        geom_hline(yintercept = 0,color="gray") +
+        geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
+        facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
+        ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
+        scale_color_manual(values=colors_coeff) +
+        scale_shape_manual(
+          values = c(16, 3),
+          labels = c(expression("Expected associations, i.e., " ~ CI[95~"%"](beta[X1]) < 0 ~ "& " ~ 0 %in% CI[95~"%"](beta[X2])),
+                     "Non-expected associations")) +
+        theme_bw() +
+        labs(color="",shape="") +
+        theme(axis.text.x =  element_text(size=13),
+              axis.text.y = element_text(size=13),
+              axis.title.y = element_text(size=16),
+              axis.title.x = element_text(size=1),
+              legend.title=element_blank(), 
+              strip.text.x = element_text(size = 16),
+              strip.background = element_blank(),
+              legend.position = c(0.77,0.15),
+              legend.box.spacing = unit(0, "pt"),
+              legend.text=element_text(size=11),
+              panel.grid.minor.x=element_blank(),
+              panel.grid.major.x=element_blank()) +
+        guides(color=guide_legend(ncol=1),
+               shape = guide_legend(override.aes = list(size =2)))
+      
+       # save in pdf
+      ggsave(p_allvar,
+             file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.pdf")),
+             device="pdf",
+             height=13.6,
+             width=15)
+      
+      
+      
+      # Figure in the main manuscript
+      ###############################
+      
+      # We want to add some images to represent the climatic differences among common gardens
+      
+      
+      if(coeff=="beta_X1"& model_i=="M2"){
+        
+        annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, data){ layer(data = data, 
+                                                                                                             stat = StatIdentity, 
+                                                                                                             position = PositionIdentity, 
+                                                                                                             geom = ggplot2:::GeomCustomAnn,
+                                                                                                             inherit.aes = TRUE, 
+                                                                                                             params = list(grob = grob, 
+                                                                                                                           xmin = xmin, 
+                                                                                                                           xmax = xmax, 
+                                                                                                                           ymin = ymin, 
+                                                                                                                           ymax = ymax))}
+        
+        df_png <- p %>% 
+          dplyr::select(cg_name) %>%
+          distinct %>% 
+          dplyr::mutate(image = case_when(cg_name == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
+                                          cg_name == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
+                                          cg_name == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
+                                          cg_name == "Madrid, Spain (13 months)" ~ "reports/sun.png",
+                                          cg_name == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
+        
+        list_pngs <- lapply(unique(p$cg_name), function(cg_name_i){
+          sub <-  p %>% 
+            filter(cg_name==cg_name_i) %>%
+            slice(1)
+          
+          png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_name_i,"image"])),interpolate=TRUE), 
+                                      ymin = -0.44,
+                                      ymax= -0.3,
+                                      xmin = 0.37,
+                                      xmax = 1.4, 
+                                      data=sub)
+          })
+        
+        
+        p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+        
+        # save in pdf
+        ggsave(p_allvar_images,
+               file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD_WithCloudAndSunImages.pdf")),
+               device="pdf",
+               height=13.6,
+               width=15)
+      }
+      }
+    
+    if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2"){
+      nullR2 <- readRDS(file = here("outputs/ValidationCommonGarden/HeightModels/coefftab_M2_WithoutPredictor.rds")) %>%
+        filter(term==coeff) %>% 
+        inner_join(distinct(p[,c("cg","cg_name")]),by="cg")
+      
+      
+      p_allvar <- p %>% 
+        ggplot(aes(x = method,
+                   y = mean,
+                   ymin = conf_low, 
+                   ymax = conf_high,
+                   color = input_name,
+                   shape = input_name)) +
+        {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf,
+                                                                                                                                      ymin=conf_low, ymax=conf_high),
+                                                                                                   color="transparent", fill="brown", alpha=0.2)} + 
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} +
+        geom_hline(yintercept = 0,color="gray") +
+        geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) + # 
+        facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
+        ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
+        scale_color_manual(values=colors_coeff) +
+        scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
+        theme_bw() +
+        labs(color="",shape="") +
+        theme(axis.text.x =  element_text(size=13),
+              axis.text.y = element_text(size=13),
+              axis.title.y = element_text(size=16),
+              axis.title.x = element_text(size=1),
+              legend.title=element_blank(), 
+              strip.text.x = element_text(size = 16),
+              strip.background = element_blank(),
+              legend.position = c(0.77,0.15),
+              legend.text=element_text(size=11),
+              panel.grid.minor.x=element_blank(),
+              panel.grid.major.x=element_blank()) +
+        guides(color=guide_legend(ncol=1),
+               shape = guide_legend(override.aes = list(size =2 )))
+      
+          # save in pdf
+      ggsave(p_allvar,
+             file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.pdf")),
+             device="pdf",
+             height=11,
+             width=11)
 }
+    
+
+    
+    # save in png
+    # ggsave(p_allvar,
+    #        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsandCTD.png")),
+    #        height=11,
+    #        width=14)
+    
+    
+    # Plots only SNP sets
+    # ===================
+    if(coeff %in% c("beta_X1", "beta_X2", "beta_H",  "R_squared")){
+
+            p_SNPs <- p %>% 
+              filter(!method == "CTD") %>% 
+              ggplot(aes(x = method,
+                         y = mean,
+                         ymin = conf_low, 
+                         ymax = conf_high,
+                         color = input_name,
+                         shape = expected)) +
+              {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} +
+              {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, 
+                                                                                                                                            xmax=Inf,
+                                                                                                                                            ymin=conf_low,
+                                                                                                                                            ymax=conf_high),
+                                                                                                         color="transparent", fill="brown", alpha=0.2)} + 
+
+              {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} + 
+              geom_hline(yintercept = 0,color="gray") +
+              geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
+              facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
+              ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
+              scale_color_manual(values=colors_coeff) +
+              scale_shape_manual(
+                values = c(16, 3),
+                labels = c(expression("Expected associations, i.e., " ~ CI[95~"%"](beta[X1]) < 0 ~ "& " ~ 0 %in% CI[95~"%"](beta[X2])),
+                           "Non-expected associations"))+
+              theme_bw() +
+              labs(color="",shape="") +
+              theme(axis.text.x =  element_text(size=13),
+                    axis.text.y = element_text(size=13),
+                    axis.title.y = element_text(size=16),
+                    axis.title.x = element_text(size=1),
+                    legend.title=element_blank(), 
+                    strip.text.x = element_text(size = 16),
+                    strip.background = element_blank(),
+                    legend.position = c(0.77,0.15),
+                    legend.text=element_text(size=13),
+                    panel.grid.minor.x=element_blank(),
+                    panel.grid.major.x=element_blank()) +
+              guides(color=guide_legend(ncol=1),
+                     shape = guide_legend(override.aes = list(size =2 )))
+            
+                # save in pdf
+            ggsave(p_SNPs,
+                   file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.pdf")),
+                   device="pdf",
+                   height=12,
+                   width=12)
+    
+    }
+    
+    
+    
+    if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2"){
+      
+      p_SNPs <- p %>% 
+        filter(!method == "CTD") %>% 
+        ggplot(aes(x = method,
+                   y = mean,
+                   ymin = conf_low, 
+                   ymax = conf_high,
+                   color = input_name,
+                   shape = input_name)) +
+        {if(coeff=="beta_X1")  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005)} + 
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_rect(data=nullR2,inherit.aes=FALSE, aes(xmin=-Inf, 
+                                                                                                                                      xmax=Inf,
+                                                                                                                                      ymin=conf_low, 
+                                                                                                                                      ymax=conf_high),
+                                                                                                   color="transparent", fill="brown", alpha=0.2)} + 
+        {if(coeff %in% c("classic_R2", "bayes_R2_mod", "bayes_R2_res") & model_i=="M2")  geom_hline(data=nullR2,aes(yintercept=mean), color="brown")} +
+        geom_hline(yintercept = 0,color="gray") +
+        geom_pointinterval(position = position_dodge(width = .4),point_size=3.5,size=3) +
+        facet_wrap(~cg_name, ncol=2) + #, scales="free_x", space = "free" 
+        ylab(TeX(coeff_y_axis[[coeff]])) + xlab("") +
+        scale_color_manual(values=colors_coeff) +
+        scale_shape_manual(values = c(rep(17,6),rep(16,7))) +
+        theme_bw() +
+        labs(color="",shape="") +
+        theme(axis.text.x =  element_text(size=13),
+              axis.text.y = element_text(size=13),
+              axis.title.y = element_text(size=16),
+              axis.title.x = element_text(size=1),
+              legend.title=element_blank(), 
+              strip.text.x = element_text(size = 16),
+              strip.background = element_blank(),
+              legend.position = c(0.77,0.15),
+              legend.text=element_text(size=13),
+              panel.grid.minor.x=element_blank(),
+              panel.grid.major.x=element_blank()) +
+        guides(color=guide_legend(ncol=1),
+               shape = guide_legend(override.aes = list(size =2 )))
+      
+      
+      # save in pdf
+      ggsave(p_SNPs,
+             file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.pdf")),
+             device="pdf",
+             height=11,
+             width=11)
+      }
+
+    
+    # save in png
+    # ggsave(p_SNPs,
+    #        file=here(paste0("figs/ValidationCommonGarden/HeightModels/",coeff,"_",model_i,"_SNPsets.png")),
+    #        height=7,
+    #        width=8)
+    
+    
+    return(p_allvar)
+    
+    })
+  
+  return(p)
+  }
 ```
 
 We write a function to plot the quadratic relationships between tree height and the GO predictions / CTD.
@@ -1608,7 +1788,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r ModelCoeffM1, fig.width=14, fig.height=11, eval=T}
+```{r ModelCoeffM1, fig.width=15, fig.height=13.6, eval=T}
 generate_interval_plots(model_i = "M1")
 ```
 
@@ -1709,7 +1889,7 @@ lapply(unique(height_data$cg), function(site_i){
 ```
 
 
-```{r BuildCoeffTableM2, eval=F}
+```{r BuildCoeffTableM2, eval=T}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -1777,19 +1957,14 @@ In the main manuscript, we report results from the model-based Bayesian $\mathca
 
 ```{r M2WithoutPredictor, eval=F}
 stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M2_WithoutPredictor.stan"))
-print(stancode)
 
-params_to_estimate <- c("beta_H","sigma","alpha_bloc",
-                        "classic_R2","bayes_R2_mod","bayes_R2_res")
+params_to_estimate <- c("beta_H","sigma","alpha_bloc","classic_R2","bayes_R2_mod","bayes_R2_res")
 
 coefftab <- lapply(unique(height_data$cg), function(site_i){
   
     # Subset the data
-    df_sub <- df %>% filter(method == "CTD_bio1" & cg == site_i)
-    
     sub_data <- height_data %>% 
       filter(cg == site_i) %>% 
-      left_join(df_sub, by = c("cg","pop")) %>% 
       left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
       
     # Data in a list for Stan
@@ -1804,7 +1979,7 @@ coefftab <- lapply(unique(height_data$cg), function(site_i){
                     pars = params_to_estimate) 
     
     # Save the models
-    mod %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2_",site_i,"_WithoutPredictor.rds")))
+    mod %>% saveRDS(file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/M2_",site_i,"_WithoutPredictor.rds")))
     
     
     # Extract coefficients
@@ -1834,7 +2009,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM2, fig.width=14, fig.height=11, eval=T}
+```{r IntervalPlotsM2, fig.width=15, fig.height=13.6, eval=T}
 generate_interval_plots(model_i = "M2")
 ```
 
@@ -1856,7 +2031,7 @@ The graphs above do not show the estimate uncertainty. We generate some graphs t
   
   - the uncertainty in tree height predictions (i.e. after accounting for $\sigma$ in the predictions).
 
-```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
+```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
 #############################################################################
 # Visualizing the relationships between GO predictions and height predictions
 #############################################################################
@@ -1996,6 +2171,231 @@ lapply(unique(coefftab$cg), function(cg_i){
   })
 ```
 
+### Correlation coefficients
+
+Stan code of the height model without the genomic offset predictions or the CTD (i.e. only with height as predictor).
+
+```{r CompileHeightModelWithoutPredictorWithPredictions, message=F, warning=F, eval=F}
+stancode = stan_model(here("scripts/StanModels/ValidationCommonGarden_HeightModel_M2_WithoutPredictor_WithPredictions.stan"))
+print(stancode)
+```
+
+```{r RunHeightModelWithoutPredictorWithPredictions, message=F,warning=F, eval=F}
+lapply(unique(height_data$cg), function(site_i){
+  
+  # Subset the data
+  sub_data <- height_data %>% 
+    filter(cg == site_i) %>% 
+    left_join(pop_heights %>% dplyr::select(any_of(c("height", "pop"))) %>% dplyr::rename(init_height=height), by="pop")
+  
+  # Data in a list for Stan
+  stanlist <- list(N = nrow(sub_data),
+                   Y=(sub_data$height-mean(sub_data$height))/sd(sub_data$height),
+                   H=(sub_data$init_height -mean(sub_data$init_height))/sd(sub_data$init_height),
+                   nb_bloc = length(unique(sub_data$block)),
+                   bloc = as.numeric(as.factor(sub_data$block)))
+
+  # Run the models
+  mod <- sampling(stancode, 
+                  data = stanlist, 
+                  iter = 2000, 
+                  chains = 4, 
+                  cores = 4, 
+                  save_warmup = FALSE,
+                  warmup = 1400,
+                  pars = "y_pred")
+  
+  # Save the stanlist and the model
+  saveRDS(list(data=sub_data, mod=mod),
+          file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/M2_WithoutPredictorWithPredictions_",site_i,".rds")))
+                  
+})
+```
+
+```{r BuildCorrTabHeightModelWithoutPredictorWithPredictions, message=F, warning=F, eval=T}
+corrtab <-lapply(unique(height_data$cg), function(site_i){
+  
+  mod <- readRDS(mod, file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/M2_WithoutPredictorWithPredictions_",site_i,".rds")))
+  
+  # Model coefficients
+  coefftab <- broom.mixed::tidyMCMC(mod$mod,
+                                    pars= "y_pred",
+                                    droppars = NULL, 
+                                    robust = FALSE, # give mean and standard deviation
+                                    ess = T, # effective sample size estimates
+                                    rhat = T, # Rhat estimates
+                                    conf.int = T, 
+                                    conf.level = 0.95 # include 95% credible intervals
+                                    ) %>% 
+    dplyr::rename(conf95_low=conf.low,
+                  conf95_high=conf.high,
+                  mean=estimate,
+                  std_deviation=std.error)  
+  
+  res_height_df <- mod$data %>%
+    mutate(height_sd = (height-mean(height))/sd(height)) %>% 
+    bind_cols(coefftab) %>% 
+    mutate(res_height = height_sd - mean) %>% # observed height - predicted height 
+    dplyr::select(cg, pop, res_height) %>% 
+    group_by(pop) %>% 
+    summarise(mean_res_height_pop =mean(res_height))
+  
+  
+  
+  lapply(unique(df$method_input_code), function(method_input_code_i){
+    
+    sub_data <- df %>% 
+      filter(method_input_code == method_input_code_i & cg == site_i) %>% 
+      inner_join(res_height_df, by="pop")
+    
+    tibble(pearson_correlation = cor.test(sub_data$varX, sub_data$mean_res_height_pop, method="pearson")$estimate[[1]],
+           pearson_pvalue = cor.test(sub_data$varX, sub_data$mean_res_height_pop, method="pearson")$p.value,
+           spearman_correlation = cor.test(sub_data$varX, sub_data$mean_res_height_pop, method="spearman")$estimate[[1]],
+           spearman_pvalue = cor.test(sub_data$varX, sub_data$mean_res_height_pop, method="spearman")$p.value,
+           method_input_code = method_input_code_i,
+           method_input_name = unique(sub_data$method_input_name),
+           input_name = unique(sub_data$input_name),
+           input_code = unique(sub_data$input_code),
+           method = unique(sub_data$method),
+           cg = site_i)
+    }) %>% bind_rows()   
+  }) %>% bind_rows()
+
+saveRDS(corrtab, here("outputs/ValidationCommonGarden/HeightModels/corrtab_M2.rds"))
+```
+
+
+```{r PlotCorrelationsHeightModelWithoutPredictorWithPredictions, eval=T}
+corrtab <- readRDS(here("outputs/ValidationCommonGarden/HeightModels/corrtab_M2.rds"))
+
+correlation_types <- c("pearson_correlation", "spearman_correlation")
+
+lapply(correlation_types, function(coeff){
+  
+  p <- corrtab %>%
+    pivot_longer(values_to = "correlation_estimate", names_to = "correlation_type", cols = all_of(correlation_types)) %>% 
+    mutate(correlation_pvalue = ifelse(correlation_type == "pearson_correlation", pearson_pvalue, spearman_pvalue)) %>% 
+    dplyr::select(-pearson_pvalue,-spearman_pvalue) %>% 
+    mutate(pvalue_signi = ifelse(correlation_pvalue < 0.05, "p-value < 0.05", "p-value ≥ 0.05")) %>% 
+    filter(correlation_type == coeff) %>% 
+    mutate(cg_name = case_when(cg == "asturias" ~ "Asturias, Spain (37 months)",
+                               cg == "bordeaux" ~ "Bordeaux, France (85 months)",
+                               cg == "caceres" ~ "Cáceres, Spain (8 months)",
+                               cg == "madrid" ~ "Madrid, Spain (13 months)",
+                               cg == "portugal" ~ "Fundão, Portugal (27 months)")) %>% 
+    mutate(input_name = factor(input_name, levels = c(unique(corrtab$input_name)[[13]],
+                                                      unique(corrtab$input_name)[[11]],
+                                                      unique(corrtab$input_name)[[12]],
+                                                      unique(corrtab$input_name)[[10]],
+                                                      unique(corrtab$input_name)[[8]],
+                                                      unique(corrtab$input_name)[[9]],
+                                                      unique(corrtab$input_name)[[1]],
+                                                      unique(corrtab$input_name)[[2]],
+                                                      unique(corrtab$input_name)[[3]],
+                                                      unique(corrtab$input_name)[[4]],
+                                                      unique(corrtab$input_name)[[5]],
+                                                      unique(corrtab$input_name)[[6]],
+                                                      unique(corrtab$input_name)[[7]])),
+           method = factor(method, levels = c(unique(corrtab$method)[[2]],
+                                              unique(corrtab$method)[[3]],
+                                              unique(corrtab$method)[[4]],
+                                              unique(corrtab$method)[[5]],
+                                              unique(corrtab$method)[[6]],
+                                              unique(corrtab$method)[[1]])),
+           cg_name = factor(cg_name, levels = c("Madrid, Spain (13 months)",
+                                                "Cáceres, Spain (8 months)",
+                                                "Asturias, Spain (37 months)",
+                                                "Bordeaux, France (85 months)",
+                                                "Fundão, Portugal (27 months)")))
+
+# Plots with CTD and SNP sets
+# ===========================
+p_allvar <- p %>% ggplot(aes(x = method,
+                             y = correlation_estimate,
+                             color = input_name,
+                             shape = pvalue_signi)) +
+  geom_rect(inherit.aes=FALSE, aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), color="transparent", fill="green", alpha=0.005) + 
+  geom_hline(yintercept = 0,color="gray") +
+  geom_point(position = position_dodge(width = .5), size=5) +
+  facet_wrap(~cg_name, ncol=2) + 
+  {if(coeff=="pearson_correlation") ylab("Pearson correlation estimates")} + 
+  {if(coeff=="spearman_correlation") ylab("Spearman correlation estimates (rank correlation)") } + 
+  xlab("") +
+  #ylim(c(-0.44,0.55)) +
+  scale_color_manual(values=colors_coeff)+
+  scale_shape_manual(values = c(16,18)) + #, name="p-value of the correlations"
+  theme_bw() +
+  labs(color="",shape="") +
+  theme(axis.text.x =  element_text(size=13),
+        axis.text.y = element_text(size=13),
+        axis.title.y = element_text(size=16),
+        legend.title = element_blank(), 
+        strip.text.x = element_text(size = 16),
+        strip.background = element_blank(),
+        legend.position = c(0.77,0.15),
+        legend.text=element_text(size=13),
+        panel.grid.minor.x=element_blank(),
+        panel.grid.major.x=element_blank()) +
+  guides(color = guide_legend(ncol=1),
+         shape = guide_legend(override.aes = list(size =2 )))
+p_allvar
+# save in pdf and png
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/Correlations/",coeff,"_SNPsandCTD.pdf")),
+       device="pdf",
+       height=13.6,
+       width=15)
+
+ggsave(p_allvar,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/Correlations/",coeff,"_SNPsandCTD.png")),
+       height=13.6,
+       width=15)
+
+
+
+# Adding some images to represent the climatic differences among common gardens
+annotation_custom2 <- function (grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, data){ layer(data = data, stat = StatIdentity, position = PositionIdentity, 
+        geom = ggplot2:::GeomCustomAnn,
+        inherit.aes = TRUE, params = list(grob = grob, 
+                                          xmin = xmin, xmax = xmax, 
+                                          ymin = ymin, ymax = ymax))}
+
+df_png <- p %>% 
+  dplyr::select(cg_name) %>%
+  distinct %>% 
+  dplyr::mutate(image = case_when(cg_name == "Asturias, Spain (37 months)" ~ "reports/cloud.png",
+                                  cg_name == "Bordeaux, France (85 months)" ~ "reports/cloud.png",
+                                  cg_name == "Cáceres, Spain (8 months)" ~ "reports/sun.png",
+                                  cg_name == "Madrid, Spain (13 months)" ~ "reports/sun.png",
+                                  cg_name == "Fundão, Portugal (27 months)" ~ 'reports/cloud_and_sun.png'))
+
+list_pngs <- lapply(unique(p$cg_name), function(cg_name_i){
+  
+sub <-  p %>% 
+  filter(cg_name==cg_name_i) %>%
+  slice(1)
+
+png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_name_i,"image"])),interpolate=TRUE), 
+                            ymin = -0.65,
+                            ymax= -0.45,
+                            xmin = 0.5,
+                            xmax = 1.1, 
+                            data=sub)
+})
+
+p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
+
+p_allvar_images
+
+# save in pdf and png
+ggsave(p_allvar_images,
+       file=here(paste0("figs/ValidationCommonGarden/HeightModels/Correlations/",coeff,"_SNPsandCTD_WithImages.pdf")),
+       device="pdf",
+       height=13.6,
+       width=15)
+
+})
+```
 
 ## Model 3
 
@@ -2077,7 +2477,7 @@ Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicat
 Running the chains for more iterations may help. See
 https://mc-stan.org/misc/warnings.html#bulk-ess"
 
-```{r BuildCoeffTableM3, eval=F}
+```{r BuildCoeffTableM3, eval=T}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -2121,7 +2521,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM3, fig.width=14, fig.height=11, eval=T}
+```{r IntervalPlotsM3, fig.width=15, fig.height=13.6, eval=T}
 generate_interval_plots(model_i = "M3")
 ```
 
@@ -2211,7 +2611,7 @@ Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicat
 Running the chains for more iterations may help. See
 https://mc-stan.org/misc/warnings.html#bulk-ess"
 
-```{r BuildCoeffTableM4, eval=F}
+```{r BuildCoeffTableM4, eval=T}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -2254,7 +2654,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM4, fig.width=14, fig.height=11, eval=T}
+```{r IntervalPlotsM4, fig.width=15, fig.height=13.6, eval=T}
 generate_interval_plots(model_i = "M4")
 ```
 

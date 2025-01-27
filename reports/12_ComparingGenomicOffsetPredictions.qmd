@@ -415,14 +415,9 @@ sub_df %>%
 
 ```{r eval=F}
 list_highpops <- list(LFMM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
-                      RDA = readRDS(here("outputs/RDA/high_go_pops.rds"))[[2]],
+                      RDA = readRDS(here("outputs/RDA/high_go_pops_predict.rds"))[[2]],
                       GDM = readRDS(here("outputs/GDM/high_go_pops.rds"))[[2]],
-                      GF = readRDS(here("outputs/GF/high_go_pops.rds"))[[2]])
-
-list_highpops <- list(LFMM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
-                      RDA = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
-                      GDM = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]],
-                      GF = readRDS(here("outputs/LFMM/high_go_pops.rds"))[[2]])
+                      GF = readRDS(here("outputs/GF/high_go_pops_common_cand.rds"))[[2]])
 
 list_highpops[[1]] <- list_highpops[[1]] + theme(legend.position = "none")
 list_highpops[[2]] <- list_highpops[[2]] + theme(legend.position = "none")
@@ -430,6 +425,44 @@ list_highpops[[3]] <- list_highpops[[3]] + theme(legend.position = "none")
 
 plot_grid(plotlist = list_highpops, nrow=2)
 ```
+
+```{r GOmeanPredictionsPopLocationsAcrossMethods, fig.height=6, fig.width=6}
+# Function to make the genomic offset maps
+source(here("scripts/functions/make_go_map.R"))
+
+# Population coordinates
+pop_coord <-  readRDS(here(paste0("data/ClimaticData/MaritimePinePops/ClimatePopulationLocationPointEstimates_ReferencePeriods_noADJ.rds")))[[1]]$ref_means %>% dplyr::select(pop,longitude,latitude)
+
+go_df_mean <- go_df %>% 
+  filter(gcm == "GCMs_average" & snp_set == "all_cand") %>% 
+  group_by(pop) %>%
+  summarize(mean_rank = mean(rank, na.rm = TRUE), .groups = "drop") %>% 
+  left_join(pop_coord, by="pop")
+
+p <- ggplot() + 
+    geom_sf(data = world, fill="gray98") + 
+    theme_bw() +
+    scale_x_continuous(limits = c(-10, 12)) +
+    scale_y_continuous(limits = c(33, 50)) + 
+    geom_point(data=go_df_mean, aes(x=longitude, y=latitude, color=mean_rank), size= 3) + 
+    xlab("Longitude") + ylab("Latitude") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid = element_blank(), 
+          plot.background = element_blank(), 
+          panel.background = element_blank(), 
+          legend.position = c(0.8,0.15),
+          legend.box.background = element_rect(colour = "gray80"),
+          legend.title = element_text(size=12),
+          legend.text = element_text(size=10),
+          strip.text = element_text(size=11)) +
+    scale_color_gradientn(name = "Mean rank", colours = rainbow(5))
+
+p %>% ggsave(here(paste0("figs/GOmeanPredictions_AllCandidateSNPs_AcrossGOMethods.pdf")),., width=6,height=6, device="pdf")
+p %>% ggsave(here(paste0("figs/GF/GOmeanProjections_AllCandidateSNPs_AcrossGOMethods.png")),., width=6,height=6)
+
+p
+```
+
 
 # Climatic distance
 

@@ -263,6 +263,33 @@ nfi_data %>%
 ```
 
 
+## viz the annual prob of mortality
+
+```{r ObservedAnnualProbMortalityMap, fig.width=6, fig.height=6}
+p <- ggplot() + 
+    geom_sf(data = world, fill="gray98") + 
+    theme_bw() +
+    scale_x_continuous(limits = c(-10, 11)) +
+    scale_y_continuous(limits = c(35, 51)) + 
+    geom_point(data=nfi_data, aes(x=longitude,y=latitude,color=annual_prop_dead), size=1, alpha = 0.8) + 
+  xlab("") + ylab("") +
+    ggtitle(NULL) +
+    theme(legend.position = c(0.8,0.2),
+          axis.text = element_text(size=14),
+          legend.box.background = element_rect(fill = "white", linewidth=0.6, colour="gray")) +
+  geom_point(data=nfi_data %>% filter(annual_prop_dead>0.07),
+             aes(x=longitude,y=latitude,color=annual_prop_dead), size=1.4, alpha = 0.3) +
+  geom_point(data=nfi_data %>% filter(annual_prop_dead>0.13),
+             aes(x=longitude,y=latitude,color=annual_prop_dead), size=1.4, alpha = 0.3) +
+  scale_color_gradientn(name = "Observed annual\nproportion of mortality", 
+                        colours = c("#00FF66", "#0066FF",rep("#CCFF00",2),rep("orange",3),rep("#FF0000",5)), limits=NULL)
+
+ggsave(plot = p, filename = here("figs/ValidationNFI/ObservedAnnualMortalityProportionMap.pdf"), height = 6, width = 6)
+
+p
+```
+
+
 # Climatic data
 
 ## Generating file for ClimateDT
@@ -568,7 +595,7 @@ clim_dist <- clim_dist %>%
                                   snp_set_code == "bio3" ~ "Isothermality (bio3, index)",
                                   snp_set_code == "bio4" ~ "Temperature seasonality (bio4, °C)",
                                   snp_set_code == "SHM" ~ "Summer heat moisture index (SHM, °C/mm)",
-                                  snp_set_code == "EucliDist" ~ "Euclidean climatic distance"),
+                                  snp_set_code == "EucliDist" ~ "All climatic variables (Euclidean distance)"),
          method_snp_set_name = paste0("CD - ", snp_set_name)) 
 ```
 
@@ -847,14 +874,14 @@ Stan code of the model (model M6_2 in the report `14_ValidationNFI_ModelComparis
 ```{r CompileMortalityModelM62, message=F,warning=F}
 stancode = stan_model(here("scripts/StanModels/ValidationNFI_m6_2.stan"))
 print(stancode)
+
+# Parameters to estimate
+params_to_estimate <- c("alpha_country","beta_GO","beta_C", "beta_DBH","beta_C_DBH")
 ```
 
 ### Running the model
 
 ```{r RunMortalityModelsM62, eval=F}
-# Parameters to estimate
-params_to_estimate <- c("alpha_country","beta_GO","beta_C", "beta_DBH","beta_C_DBH")
-
 # Running one model for each of the nine sets of method / SNP set
 lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
 
@@ -1214,16 +1241,16 @@ Below, we plot the 95% credible intervals of:
 ```{r IntervalPlotsM62, fig.height=8, fig.width=10, eval=T, results="hide"}
 coefftab <- readRDS(file=here("outputs/ValidationNFI/ModelM62_coefftab.rds"))
   
-coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{X}$",
+coeff_match <- list(beta_GO=list("Regression coefficients $\\beta_{X}$ in mortality models",
                                  c(0.5,0.85),
                                  c(-0.2,0.4)), 
-                    beta_C=list("Regression coefficients $\\beta_C$",
+                    beta_C=list("Regression coefficients $\\beta_C$ in mortality models",
                                 c(0.5,0.85),
                                 c(-0.01,0.2)),
-                    beta_DBH=list("Regression coefficients $\\beta_{DBH}$",
+                    beta_DBH=list("Regression coefficients $\\beta_{DBH}$ in mortality models",
                                   c(0.5,0.85),
                                   c(-0.05,0.45)),
-                    beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$",
+                    beta_C_DBH=list("Regression coefficients $\\beta_{C*DBH}$ in mortality models",
                                     c(0.5,0.85),
                                     c(-0.2,0.1)))
 
@@ -1646,26 +1673,28 @@ corrtab <- lapply(unique(df$method_snp_set_code), function(method_snp_set_i){
          snp_set_code = unique(sub_data$snp_set_code),
          method = unique(sub_data$method))
 }) %>% 
-  bind_rows() %>% 
-  mutate(snp_set_name = factor(snp_set_name, levels = c(unique(coefftab$snp_set_name)[[6]],
-                                                        unique(coefftab$snp_set_name)[[4]],
-                                                        unique(coefftab$snp_set_name)[[5]],
-                                                        unique(coefftab$snp_set_name)[[3]],
-                                                        unique(coefftab$snp_set_name)[[1]],
-                                                        unique(coefftab$snp_set_name)[[2]],
-                                                        unique(coefftab$snp_set_name)[[7]],
-                                                        unique(coefftab$snp_set_name)[[8]],
-                                                        unique(coefftab$snp_set_name)[[9]],
-                                                        unique(coefftab$snp_set_name)[[10]],
-                                                        unique(coefftab$snp_set_name)[[11]],
-                                                        unique(coefftab$snp_set_name)[[12]],
-                                                        unique(coefftab$snp_set_name)[[13]])),
-          method = factor(method, levels = c(unique(coefftab$method)[[1]],
-                                             unique(coefftab$method)[[2]],
-                                             unique(coefftab$method)[[3]],
-                                             unique(coefftab$method)[[4]],
-                                             unique(coefftab$method)[[5]],
-                                             unique(coefftab$method)[[6]]))) 
+  bind_rows() 
+
+corrtab <- corrtab %>% 
+  mutate(snp_set_name = factor(snp_set_name, levels = c(unique(corrtab$snp_set_name)[[6]],
+                                                        unique(corrtab$snp_set_name)[[4]],
+                                                        unique(corrtab$snp_set_name)[[5]],
+                                                        unique(corrtab$snp_set_name)[[3]],
+                                                        unique(corrtab$snp_set_name)[[1]],
+                                                        unique(corrtab$snp_set_name)[[2]],
+                                                        unique(corrtab$snp_set_name)[[7]],
+                                                        unique(corrtab$snp_set_name)[[8]],
+                                                        unique(corrtab$snp_set_name)[[9]],
+                                                        unique(corrtab$snp_set_name)[[10]],
+                                                        unique(corrtab$snp_set_name)[[11]],
+                                                        unique(corrtab$snp_set_name)[[12]],
+                                                        unique(corrtab$snp_set_name)[[13]])),
+          method = factor(method, levels = c(unique(corrtab$method)[[1]],
+                                             unique(corrtab$method)[[2]],
+                                             unique(corrtab$method)[[3]],
+                                             unique(corrtab$method)[[4]],
+                                             unique(corrtab$method)[[5]],
+                                             unique(corrtab$method)[[6]]))) 
 ```
 
 **Comment:** When estimating the Spearman correlations, we get the following message:

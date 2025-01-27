@@ -1,5 +1,3 @@
-# Function to 
-
 # Arguments
 
 # go_limits: limits of the GO values for the legend scale across the different plots (ie to help comparison across plots)

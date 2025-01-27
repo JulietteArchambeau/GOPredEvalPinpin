@@ -54,14 +54,14 @@ geno <- read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_witho
                      row.names = 1)
 ```
 
-We run a PCA on the allele frequencies of the **candidate SNPs**, and generate the scree plot and the PCA plot with the populations.
+We run a PCA on the allele frequencies of all candidate SNPs and generate the scree plot and the PCA plot with the populations.
 
 ```{r PlotsCandidateSNPs}
 # names of the candidate SNPs
-cand <- readRDS(here("outputs/list_snp_sets.rds"))[["cand"]]$set_snps
+all_cand <- readRDS(here("outputs/list_snp_sets.rds"))[["all_cand"]]
 
 # keep the genomic data of the candidate SNPs
-geno_cand <- geno[,cand]
+geno_cand <- geno[,all_cand$set_snps]
 
 # performing the PCA with the FactoMineR package
 pca <- PCA(geno_cand, scale.unit = TRUE, ncp = 5, graph = F)
@@ -71,7 +71,7 @@ screeplot_cand <- fviz_eig(pca,
                            addlabels = TRUE, 
                            ylim = c(0, 70),
                            ggtheme = theme_bw(),
-                           title="Candidate SNPs")
+                           title=all_cand$set_name)
 
 # PCA plot with the populations
 pcaplot_cand <- fviz_pca_ind(pca, 
@@ -79,18 +79,18 @@ pcaplot_cand <- fviz_pca_ind(pca,
                              repel = TRUE, # Aaoid text overlapping (slow if many points)
                              ggtheme = theme_bw(),
                              legend="none",
-                             title="Candidate SNPs",
+                             title=all_cand$set_name,
                              mean.point = FALSE)
 ```
 
-We run a PCA on the allele frequencies of the **control SNPs**, and generate the scree plot and the PCA plot with the populations.
+We run a PCA on the allele frequencies of all SNPs and generate the scree plot and the PCA plot with the populations.
 
 ```{r PlotsControlSNPs}
 # names of the control SNPs
-control <- readRDS(here("outputs/list_snp_sets.rds"))[["control"]]$set_snps
+all <- readRDS(here("outputs/list_snp_sets.rds"))[["all"]]
 
 # keep the genomic data of the control SNPs
-geno_control  <- geno[,control]
+geno_control  <- geno[,all$set_snps]
 
 # performing the PCA with the FactoMineR package
 pca <- PCA(geno_control, scale.unit = TRUE, ncp = 5, graph = F)
@@ -100,7 +100,7 @@ screeplot_control <- fviz_eig(pca,
                            addlabels = TRUE, 
                            ylim = c(0, 70),
                            ggtheme = theme_bw(),
-                           title="Control SNPs")
+                           title=all$set_name)
 
 
 # PCA plot with the populations
@@ -109,7 +109,7 @@ pcaplot_control <- fviz_pca_ind(pca,
                              repel = TRUE, # Aaoid text overlapping (slow if many points)
                              ggtheme = theme_bw(),
                              legend="none",
-                             title="Control SNPs",
+                             title=all$set_name,
                              mean.point = FALSE)
 ```
 

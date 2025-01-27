@@ -137,10 +137,11 @@ server <- function(input, output) {
       
       <p><b>Bumpcharts: </b> these charts display population ranks based on their genomic offset predictions. 
       Populations with a lower rank have a higher genomic offset, indicating that they may be more at risk under climate change. 
-      Colored populations are those having genomic offset values in the top three highest values in at least one combination of SNP set and method.
+      Colored populations are those with genomic offset ranks in the top three lowest positions (i.e., highest genomic offset values) in at least one
+row, where each row represents either a combination of SNP (single nucleotide polymorphism) set and method (bumpcharts across methods and SNP sets) or a general circulation model (bumpchart across GCMs).
   <ul>
-    <li><b>Bumpcharts across methods and SNP sets</b> show the variability across methods and SNP sets for a specific Global Climate Model (GCM).</li>
-    <li><b>Bumpcharts across GCMs</b> show the variability across GCMs for a particular combination of method and SNP set.</li>
+    <li><b>Bumpcharts across methods and SNP sets</b> show the variability across methods and SNP sets for a specific general circulation model (GCM).</li>
+    <li><b>Bumpcharts across GCMs</b> show the variability across general circulation models for a particular combination of method and SNP set.</li>
   </ul>
   
       
@@ -153,7 +154,28 @@ server <- function(input, output) {
   
       <p><b>Scatter plots: </b> these plots allow users to explore relationships between two selected variables, including genomic offset predictions from 
       different methods and SNP sets, and climatic distances. The climatic distances correspond to the absolute difference between future and reference 
-      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables."
+      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables.
+      
+
+      <p><b>Genomic offset methods:</b> 
+      <ul>
+      <li>Generalized Dissimilarity Modeling (GDM)
+      <li>Gradient Forest (GF)
+      <li>Latent Factor Mixed Model (LFMM)
+      <li>Redundancy Analysis (RDA)
+      <li>Partial Redundancy Analysis (pRDA)
+      </ul>
+        
+      <p><b>SNP sets</b> 
+      <ul>
+      <li>All candidate SNPs (380 SNPs), i.e., SNPs identified by at least one gene-environment association (GEA) method among RDA, pRDA, LFMM, BayPass and GF.
+      <li>Candidate SNPs considering population structure correction (221 SNPs), i.e., SNPs identified by at least one GEA method correcting for population structure (pRDA, LFMM and BayPass).
+      <li>Common candidate SNPs (69 SNPs), i.e., SNPs identified by at least two GEA methods.
+      <li>Control SNPs unmatching allele frequencies (380 SNPs), i.e., SNPs that were randomly sampled among the non-candidate SNPs and with the same number of SNPs as in the set with all candidate SNPs.
+      <li>Control SNPs matching allele frequencies (380 SNPs), i.e., SNPs that were sampled among non-candidate SNPs and that have similar allele frequencies and the same number of SNPs as the set with all candidate SNPs.
+      <li>All SNPs, i.e., 9817 SNPs.
+      </ul>
+      "
     )
   })
 

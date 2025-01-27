@@ -19,7 +19,7 @@ Juliette Archambeau<sup>1,2</sup>, Marta Benito-Garzón<sup>1</sup>, Marina de-M
 
 **Paper abstract**
 
-Predicting how tree populations will respond to climate change is an urgent societal concern. An increasingly popular way to make such predictions is the genomic offset (GO) approach, which uses current gene-environment associations to identify populations that may experience climate maladaptation in the near future. However, GO has strong limitations and, despite promising validation of its predictions using height data from common gardens, it still lacks broad empirical testing. Using maritime pine, a tree species from southwestern Europe and North Africa with a marked population genetic structure, we evaluated GO predictions from four methods, namely Gradient Forest (GF), Redundancy Analysis (RDA), latent factor mixed models (LFMM) and Generalised Dissimilarity Modeling (GDM). GO was predicted using 9,817 SNPs genotyped on 454 trees from 34 populations and was then validated with mortality data from National Forest Inventories and mortality and height data from five common gardens. We found high variability in GO predictions and validation. GO predictions with GDM and GF (and to a lesser extent RDA) based on candidate SNPs potentially involved in climate adaptation showed the strongest and most consistent associations with mortality rates in common gardens and NFI plots. We found almost no association between GO predictions and tree height in common gardens, most likely due to the overwhelming effect of population genetic structure on tree height. Our study demonstrates the imperative to validate GO predictions with a range of independent data sources before they can be used as informative and reliable metrics in conservation or management strategies.
+Genomic offset models are increasingly popular tools for identifying populations at risk of maladaptation under climate change. These models estimate the extent of genetic change required for populations to remain adapted under future climate change scenarios, but face strong limitations and still lack broad empirical testing. Using 9,817 single nucleotide polymorphisms (SNPs) genotyped in 454 trees from 34 populations of maritime pine, a species with a marked population genetic structure, we found substantial variability across genomic offset predictions from different methods, SNP sets, and general circulation models. Using five common gardens, we mostly found positive associations between genomic offset predictions and mortality, as expected. However, contrary to our expectations, we observed very few negative monotonic associations between genomic offset predictions and height. Higher mortality rates were also observed in national forest inventory plots with high genomic offset, but only for some methods and SNP sets. The differing genomic offset patterns produced by the best-validated methods across the maritime pine range hindered drawing definitive conclusions for the species. Our study demonstrates the imperative of employing different methods and validating genomic offset predictions with independent data sources before using them as reliable metrics to inform conservation or management.
 
 ***
 
@@ -134,8 +134,12 @@ Imputed allele frequencies of the populations. SNPs in columns and populations i
   11. `GF_outliers`: `TRUE` if the SNP was identified as an outlier with the GF algorithm; `FALSE` otherwise.
   12. `LFMM_outliers`: `TRUE` if the SNP was identified as an outlier woth LFMM; `FALSE` otherwise.
   13. `BayPass_outliers`: `TRUE` if the SNP was identified as an outlier with BayPass; `FALSE` otherwise.
-  14. `common_outliers`: `TRUE` if the SNP was a common outlier, i.e. an outlier identified by at least one GEA method among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise. These SNPs were used for GO predictions.
-  15. `control_snps`: `TRUE` if the SNP was included in the set of control SNPs; `FALSE` otherwise.
+  14. `all_candidate_SNPs`: `TRUE` if the SNP was an outlier identified by at least one GEA method among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise.
+  15. `common_candidate_SNPs`: `TRUE` if the SNP was an outlier identified by at least two GEA methods among RDA, pRDA, LFMM, BayPass and GF; `FALSE` otherwise.
+  16. `candidate_SNPs_corrected_pop_structure`: `TRUE` if the SNP was an outlier identified by at least one GEA method correcting for population genetic structure (i.e., pRDA, LFMM or BayPass); `FALSE` otherwise.
+  17. `random_control_SNPs`: `TRUE` if the SNP was a control SNP randomly sampled among the SNPs not identified by any GEA method; `FALSE` otherwise.
+  18. `control_SNPs_matching_allele_freq`: `TRUE` if the SNP was a control SNP sampled among the SNPs not identified by any GEA method, and has a similar allele frequency to a candidate SNP; `FALSE` otherwise.
+
 
 &nbsp;
 
@@ -334,7 +338,7 @@ Quarto (or rmarkdown) and html versions of these scripts are available in the DR
 
   - Selection of the climatic variables based on their biological relevance for maritime pine, their contribution to the genetic variance using a RDA-based stepwise selection (Capblancq and Forester 2021) and the magnitude of their exposure to climate change.
   - Partitioning genomic variation among climate, neutral population genetic structure (accounted for with the main axes of a PCA) and geography (accounted for with population coordinates or distance-based Moran's eigenvector maps).
-  - Identification of the outlier SNPs using Redundancy analysis (RDA); approach developed in Capblancq et al. (2018) and Capblancq and Forester (2021).
+  - Identification of the outlier SNPs using Redundancy analysis (RDA) and partial RDA; approach developed in Capblancq et al. (2018) and Capblancq and Forester (2021).
 
 `5_GradientForest_IdentificationCandidateSNPs.qmd`
 
@@ -350,10 +354,11 @@ Quarto (or rmarkdown) and html versions of these scripts are available in the DR
 
 `8_GeneratingSNPsets.qmd`
 
-  - Identifying the common outlier SNPs across the different gene-environment association (GEA) methods.
-  - Checking the genome position of the outlier SNPs; when some of them were located on the same scaffold/contig, only the SNP with the lower $p$-value in the RDA was kept in the final set of candidate SNPs.
-  - Generating a set of control SNPs (with the same number of SNPs as in the set of candidate SNPs).
-
+  - Identifying common outlier SNPs across the different gene-environment association (GEA) methods.
+  - Checking the genome position of the outlier SNPs; when some of them were located on the same scaffold/contig, only the SNP with the lower $p$-value in the RDA was kept in the final sets of candidate SNPs.
+  - Mapping SNP position on the reference genome of *Pinus tabuliformis* (Niu et al. 2022).
+  - Generating three sets of candidate SNPs and two sets of control SNPs (with the same number of SNPs as in the set with all candidate SNPs).
+  
 `9_GeneralizedDissimilarityModelling_GenomicOffsetPredictions.qmd`
 
   - Genomic offset predictions with the Generalized Dissimilarity Modelling (GDM) approach, as described in Fitzpatrick & Keller (2015), Mokany et al. (2022) and the [GDM website](https://mfitzpatrick.al.umces.edu/gdm/).
@@ -364,18 +369,18 @@ Quarto (or rmarkdown) and html versions of these scripts are available in the DR
     
 `11_RedundancyAnalysis_GenomicOffsetPredictions.qmd` 
 
-  - Genomic offset predictions with Redundancy Analysis (RDA); approach described in Capblancq and Forester (2021).
+  - Genomic offset predictions with Redundancy Analysis (RDA) and partial RDA; approach described in Capblancq and Forester (2021).
 
 `12_ComparingGenomicOffsetPredictions.qmd` 
 
-  - Comparing genomic offset predictions across the different methods (GF, GDM, LFMM and RDA), SNPs sets (control and candidate SNPs; and also all SNPs for LFMM) and GCMs.
+  - Comparing genomic offset predictions across the different methods (GF, GDM, LFMM, RDA and pRDA), SNPs sets (control and candidate SNPs) and GCMs.
 
 `13_ValidationNFI.qmd` 
 
   - Filtering and exploring mortality data from the National Forest Inventory (NFI) plots of France and Spain; see Changenet et al. (2021). 
   - Extracting climatic data at the location of the NFI plots. 
   - Calculating the average of the climatic variables for the reference period (1901-1950) and the inventory period (specific to each NFI plot).
-  - Estimating the association between the genomic offset predictions and mortality rates in the NFI plots. 
+  - Estimating the association between the genomic offset predictions and mortality rates in the NFI plots (with regression coefficients or correlations). 
 
 `14_ValidationNFI_ModelComparison.qmd` 
 
@@ -469,3 +474,6 @@ Gougherty AV, Keller SR and Fitzpatrick MC (2021). Maladaptation, migration and 
 Jaramillo-Correa JP, Rodrı́guez-Quilón I, Grivet D, Lepoittevin C, Sebastiani F, Heuertz M et al. (2015). Molecular proxies for climate maladaptation in a long-lived tree (*Pinus pinaster* Aiton, Pinaceae). Genetics 199(3):793–807.
 
 Mokany K, Ware C, Woolley SN, Ferrier S and Fitzpatrick MC (2022). A working guide to harnessing generalized dissimilarity modelling for biodiversity analysis and conservation assessment. Global Ecology and Biogeography 31(4):802-821.
+
+Niu S, Li J, Bo W, Yang W, Zuccolo A, Giacomello S, ... & Wu HX (2022). The Chinese pine genome and methylome unveil key features of conifer evolution. Cell, 185(1), 204-217.
+

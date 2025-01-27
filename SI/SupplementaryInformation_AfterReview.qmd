@@ -23,6 +23,7 @@ header-includes:
   - \usepackage{pdfpages}
   - \usepackage{float}
   - \floatplacement{table}{H}
+  - \usepackage[font=small]{caption}
 editor_options: 
   chunk_output_type: console
 ---
@@ -47,7 +48,7 @@ kable_mydf <- function(x,
                        boldfirstcolumn = F, 
                        font_size = 10, 
                        round_number = 2,
-                       latex_options = c("hover","HOLD_position"),
+                       latex_options = c("hover","HOLD_position","repeat_header"),
                        booktabs = T){
   x %>% 
     mutate(across(where(is.numeric), \(x) round (x, round_number))) %>%
@@ -65,38 +66,6 @@ source(here("scripts/functions/extract_climatedt_metadata.R")) # extracting meta
 {{< pagebreak >}}
 
 # Common garden data
-
-```{r}
-#| label: tbl-ClimCG
-#| tbl-cap: Climate in the five common gardens between the planting date and the measurement date. See Table S[-@tbl-SelectedClimaticVariableInformation] for the full names and units of the climatic variables.
-
-readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%
-  dplyr::select(c("bio1", "bio12", "bio15", "bio3", "bio4", "SHM")) %>% 
-  kable_mydf(font_size = 10)
-```
-
-```{r}
-#| label: tbl-ExpDesignCG
-#| tbl-cap: Sample sizes in the five common gardens.
-
-readRDS(file=here("tables/ExpDesign_CG.rds")) %>%
-kable_mydf(font_size = 8)
-```
-
-```{r}
-#| label: tbl-ExpDesignMortalityModelsPerPopCG
-#| tbl-cap: Number of dead and alive trees (dead / alive) per population in the five common gardens.
-
-readRDS(file=here("tables/ExpDesignMortalityModelsPerPopCG.rds")) %>%
-  mutate(Asturias = paste0(nb_dead_asturias," / ", nb_tot_asturias),
-         Bordeaux = paste0(nb_dead_bordeaux," / ", nb_tot_bordeaux),
-         "Cáceres" = paste0(nb_dead_caceres," / ", nb_tot_caceres),
-         Madrid = paste0(nb_dead_madrid," / ", nb_tot_madrid),
-         "Fundão" = paste0(nb_dead_portugal," / ", nb_tot_portugal)) %>% 
-  dplyr::select(-contains("nb_dead"), -contains("nb_tot")) %>% 
-  dplyr::rename(Population=pop) %>% 
-kable_mydf(font_size = 8)
-```
 
 ```{r}
 #| label: tbl-SampleSizeGenomicData
@@ -133,6 +102,40 @@ df %>%
 ```
 
 
+```{r}
+#| label: tbl-ClimCG
+#| tbl-cap: Climate in the five common gardens between the planting date and the measurement date. See Table S[-@tbl-SelectedClimaticVariableInformation] for the full names and units of the climatic variables.
+
+readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%
+  dplyr::select(c("bio1", "bio12", "bio15", "bio3", "bio4", "SHM")) %>% 
+  kable_mydf(font_size = 10)
+```
+
+```{r}
+#| label: tbl-ExpDesignCG
+#| tbl-cap: Sample sizes in the five common gardens.
+
+readRDS(file=here("tables/ExpDesign_CG.rds")) %>%
+kable_mydf(font_size = 8)
+```
+
+```{r}
+#| label: tbl-ExpDesignMortalityModelsPerPopCG
+#| tbl-cap: Number of dead and alive trees (dead / alive) per population in the five common gardens.
+
+readRDS(file=here("tables/ExpDesignMortalityModelsPerPopCG.rds")) %>%
+  mutate(Asturias = paste0(nb_dead_asturias," / ", nb_tot_asturias),
+         Bordeaux = paste0(nb_dead_bordeaux," / ", nb_tot_bordeaux),
+         "Cáceres" = paste0(nb_dead_caceres," / ", nb_tot_caceres),
+         Madrid = paste0(nb_dead_madrid," / ", nb_tot_madrid),
+         "Fundão" = paste0(nb_dead_portugal," / ", nb_tot_portugal)) %>% 
+  dplyr::select(-contains("nb_dead"), -contains("nb_tot")) %>% 
+  dplyr::rename(Population=pop) %>% 
+kable_mydf(font_size = 8)
+```
+
+
+
 
 | Location            | Planting date | Measurement date | Age at measurement (months) |
 |---------------------|---------------|------------------|-----------------------------|
@@ -144,14 +147,6 @@ df %>%
 
 Table: Time periods between planting and measurement dates in the five common gardens. Note that for Cáceres, we calculated the climatic variables for the entire year 2011 (instead of calculating the variables only for months between April and December). Indeed, the calculation of the annual climatic variables would be wrong if we do not account for some months, e.g. the mean annual temperature will the overestimated because we do not account for some of the winter months.
 
-# NFI data
-
-![Annual precipitation and mean annual temperature at the location of the 11,917 NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool). Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf)
-
-
-![Isothermality and precipitation seasonality at the location of the 11,917 NFI plots (in gray) and the 34 sampled populations (colored according their main gene pool).  Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf)
-
-
 
 # Selection of the climatic variables
 
@@ -159,7 +154,7 @@ Table: Time periods between planting and measurement dates in the five common ga
 In a preselection step, we removed climatic variables that (i) had reduced biological relevance for the study goals, (ii) were highly correlated with any other variable ($\rho > 0.95$), or (iii) lacked meta-information on the ClimateDT website. The preselected climatic variables are described in the table below.
 
 ```{r}
-# #| label: tbl-PreselectedClimaticVariableInformation
+#| # label: tbl-PreselectedClimaticVariableInformation
 #| tbl-cap: Preselected climatic variables
 #| fig-number: false
 
@@ -188,7 +183,7 @@ Consequently, since we could not reliably interpret high genomic offset values a
 
 ## Criteria 2: contribution to genomic variation.
 
-We used a RDA-based stepwise selection procedure to identify the set of climatic variables maximizing the genetic variance explained [see for instance @capblancq2021redundancy]. We used the `ordiR2step` function of the package `vegan`, in which we have to specify two models: 
+We used a RDA-based stepwise selection procedure to identify the set of climatic variables maximizing the genetic variance explained [see for instance @capblancq2021redundancy]. We used the `ordiR2step` function of the `vegan` package, in which we have to specify two models: 
 
   - a *null* model where genomic variation is explained only by an intercept.
 
@@ -198,10 +193,9 @@ For including new variables during the selection procedure, we used the default 
 
 We performed 100 iterations of the stepwise selection procedure and counted the number of times each climate variable was selected. The results are reported in the table below.
 
-```{r TableStepwiseSelection}
-# #| label: tbl-StepwiseSelection
+```{r}
+#| label: tbl-StepwiseSelection
 #| tbl-cap: Number of times that each climatic variable was selected among the 100 iterations of the RDA-based stepwise selection procedure.
-#| fig-number: false
 
 readRDS(file=here("outputs/VariableSelection/SummaryStepwiseSelection_PopLevel_100models.rds")) %>% kable_mydf()
 ```
@@ -214,9 +208,7 @@ $$  D_x = \frac{\mu_{fut} - \mu_{ref}}{\mu_{ref}}$$
 
 where $\mu_{ref}$ is the average of the climatic variable of interest over the reference period (i.e. 1901-1950) and $\mu_{fut}$ is the average of the predictions for the climatic variable over the future period 2041-2070 and SSP 3-7.0. 
 
-The figure below shows the relative climatic distances for the six climatic variables used for genomic offset predictions. The relative climatic distances were calculated for five different GCMs, each corresponding to a different panel.
-
-![](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf)\
+![Relative climatic distances for the six climatic variables used for genomic offset predictions. The relative climatic distances were calculated for five different general circulation models, each corresponding to a different panel.](../figs/ExploratoryAnalyses/RelativeClimaticDistances_SelectedVariables.pdf)
 
 ## Final set of climatic variables {#sec-final-set-clim-var}
 
@@ -243,10 +235,13 @@ extract_climatedt_metadata() %>%
 geno_pop_maf <-  read.csv(here("data/DryadRepo/ImputedGenomicData_AlleleFrequencies_withmaf.csv"))
 ```
 
+The population neutral genetic structure was inferred with a Principal component analysis (PCA) on the population allele frequencies based on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` single nucleotide polymorphisms (SNPs). These SNPs were not filtered for SNPs with minor allele frequency (MAF) lower then 1% because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). However, SNPs with a minor allele count (MAC) of one or two were removed to minimize the likelihood of genotyping errors.
 
-The population neutral genetic structure was inferred with a Principal component analysis (PCA) on a set of `r (ncol(geno_pop_maf)-1) %>% format_power(omit_power = c(-2, 5))` SNPs. These SNPs were not filtered for SNPs with minor allele frequency (MAF) lower then 1% because small genetic variation can be informative to differentiate the neutral genetic groups (i.e. hereafter 'gene pools'). However, SNPs with a minor allele count (MAC) of one or two were removed to minimize the likelihood of genotyping errors. From the PCA, we retained the first three principal components (PCs) as a proxy for population evolutionary history in the RDA analysis.
+We used the `rda` function from the `vegan` R package v`r packageVersion("vegan")` [@vegan]. In this function, each column of the Y matrix (i.e., the SNPs) is centered, and the argument `scale = TRUE/FALSE` specifies whether the columns should also be scaled (i.e., divided by their standard deviation). In our case, we set `scale = TRUE`, ensuring that the allele frequencies were both centered and scaled.
 
-![PCA based the genomic data. Each point corresponds to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
+From the PCA, we retained the first three principal components (PCs) as a proxy for population evolutionary history in the RDA analysis.
+
+![PCA based the population allele frequencies. Each point corresponds to a population and the colors correspond to the main gene pool of each population.](../figs/RDA/PCAplot.pdf){#fig-PCA}
 
 
 # Variance partitioning of genetic variation {#sec-VarPart}
@@ -262,22 +257,11 @@ These analyses were conducted using the function `rda` of the `vegan` R package 
 #| tbl-cap: Variance partioning. `Y` refers to the genomic data (i.e. the population allele frequencies filtered for MAF), `clim` refers to climate, `pgs` refers to the population neutral genetic structure and `geo` refers to the geography (i.e., the dbMEMs).
 
 readRDS(file=here("outputs/RDA/SummaryVartPartPopLevel_dbMEMs.rds"))[[2]] %>% 
-  mutate(across(where(is.numeric), \(x) round (x, 2))) %>%
+  mutate(across(where(is.numeric), \(x) round (x, 3))) %>%
   kable(escape =T, format ="latex", booktabs = TRUE) %>% 
   kable_styling(font_size = 9)
 ```
 
-
-# SNPs with predictive power in GF models
-
-```{r TableNbOfSNPsPredictivePowerGFmodels}
-#| label: tbl-NbOfSNPsPredictivePowerGFmodels
-#| tbl-cap: Number of SNPs with predictive power in GF models.
-#| 
-read_csv(here("tables/NbSNPsWithPredictivePowerGFmodels.csv"),show_col_types = FALSE) %>% 
-  kable(escape =T, format ="latex", booktabs = TRUE, linesep = "") %>% 
-  kable_styling(latex_options="scale_down")
-```
 
 
 # SNP positions on the reference genome
@@ -295,6 +279,17 @@ readRDS(file=here("tables/GenomePositionReferenceGenome.rds")) %>%
 ```
 
 
+# SNPs with predictive power in GF models
+
+```{r}
+#| label: tbl-NbOfSNPsPredictivePowerGFmodels
+#| tbl-cap: Number of SNPs with predictive power in GF models.
+#| 
+read_csv(here("tables/NbSNPsWithPredictivePowerGFmodels.csv"),show_col_types = FALSE) %>% 
+  kable(escape =T, format ="latex", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(latex_options="scale_down")
+```
+
 # Associations with Euclidean climatic distances
 
 ```{r}
@@ -309,8 +304,8 @@ eucli_df <- go_climdist_df %>% filter(var_code == "eucli", gcm == "Average acros
 
 ```{r FigRelEucliDistCommonCand, warning=F, message=F}
 #| label: fig-RelEucliDistCommonCand
-#| fig-cap: Associations between genomic offset predictions based on common candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on common candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
 snp_set_i <- "Common candidate SNPs (69)"
@@ -349,8 +344,8 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ```{r FigRelEucliDistAllCand, warning=F, message=F}
 #| label: fig-RelEucliDistAllCand
-#| fig-cap: Associations between genomic offset predictions based on all candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on all candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
 snp_set_i <- "All candidate SNPs (380)"
@@ -389,11 +384,11 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ```{r FigRelEucliDistCandPopStructureCorrection, warning=F, message=F}
 #| label: fig-RelEucliDistCandPopStructureCorrection
-#| fig-cap: Associations between genomic offset predictions based on candidate SNPs with population structure correction and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on candidate SNPs considering population structure correction and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
-snp_set_i <- "Candidate SNPs with pop. struct. correction (221)" 
+snp_set_i <- "Candidate SNPs considering pop. struct. correction (221)" 
 
 df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
   dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
@@ -430,11 +425,11 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ```{r FigRelEucliDistControlSNPsRandom, warning=F, message=F}
 #| label: fig-RelEucliDistControlRandomSNPs
-#| fig-cap: Associations between genomic offset predictions based on control SNPs with random frequencies and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on control SNPs with unmatched allele frequencies and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
-snp_set_i <- "Control SNPs with random frequencies (380)"
+snp_set_i <- "Control SNPs unmatching allele frequencies (380)"
 
 df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
   dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
@@ -470,11 +465,11 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ```{r FigRelEucliDistControlSNPsSimilarFreq, warning=F, message=F}
 #| label: fig-RelEucliDistControlSNPsSimilarFreq
-#| fig-cap: Associations between genomic offset predictions based on control SNPs with similar frequencies than the candidate SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on control SNPs with matched allele frequencies and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
-snp_set_i <- "Control SNPs with similar frequencies (380)"
+snp_set_i <- "Control SNPs matching allele frequencies (380)"
 
 df_2 <- go_climdist_df %>% filter(var_name == snp_set_i, gcm == "Average across GCMs") %>% 
   dplyr::select(pop, val, main_gp_pop, color_main_gp_pop, method_name) %>% 
@@ -510,8 +505,8 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ```{r FigRelEucliDistAll, warning=F, message=F}
 #| label: fig-RelEucliDistAll
-#| fig-cap: Associations between genomic offset predictions based on all SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five GCMs, while Euclidean climatic distances are calculated based on the average climatic values across the five GCMs.
-#| fig-height: 13
+#| fig-cap: Associations between genomic offset predictions based on all SNPs and Euclidean climatic distances. Genomic offset predictions correspond to the averages of genomic offset predictions across the five general circulation models, while Euclidean climatic distances are calculated based on the average climatic values across the five general circulation models.
+#| fig-height: 12
 #| fig-width: 12
 
 snp_set_i <- "All SNPs (9817)" 
@@ -548,6 +543,54 @@ ggplot(df_2, aes(x = eucli, y = go)) +
   scale_y_continuous(limits = c(NA, 0.10), expand = expansion(mult = 0.05))  # Set y-axis upper limit to 0.2
 ```
 
+# Validation in common gardens
+
+## Mortality models
+
+![Estimated mean and 95\% credible intervals of the regression coefficients $\beta_H$ standing for the association between mortality rates and the proxy for initial tree height $H_p$ (equation 1 of the manuscript).](../figs/ValidationCommonGarden/MortalityModels/beta_H_SNPsandCTD.pdf)
+
+![Rank (Spearman) correlations between mortality rates and genomic offset predictions or climate transfer distances in the five common gardens.](../figs/ValidationCommonGarden/MortalityModels/spearman_correlation_SNPsandCTD_WithImages.pdf)
+
+![Pearson correlations between mortality rates and genomic offset predictions or climate transfer distances in the five common gardens. Graph titles include the time in months corresponding to the age at which mortality was recorded.](../figs/ValidationCommonGarden/MortalityModels/pearson_correlation_SNPsandCTD_WithImages.pdf)
+
+
+## Height models
+
+![Estimated mean and 95\% credible intervals of the regression coefficients $\beta_H$ standing for the association between height and the proxy for initial tree height $H_p$ (equation 2 of the manuscript).](../figs/ValidationCommonGarden/HeightModels/beta_H_M2_SNPsandCTD.pdf)
+
+<!-- ![Estimated mean and 95\% credible intervals of the regression coefficients $\beta_{X_1}$ standing for the association between tree height and genomic offset predictions or CTDs in the five common gardens. Graph titles include the time in months corresponding to the age at which height was recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher genomic offset predictions or CTDs.](../figs/ValidationCommonGarden/HeightModels/beta_X1_M2_SNPsandCTD.pdf){#fig-ValCGHeightModelsBetaX1} -->
+
+<!-- ![Estimated mean and 95\% credible intervals of the regression coefficients $\beta_{X_2}$ standing for the association between tree height and genomic offset predictions or CTDs in the five common gardens. Graph titles include the time in months corresponding to the age at which height was recorded.](../figs/ValidationCommonGarden/HeightModels/beta_X2_M2_SNPsandCTD.pdf){#fig-ValCGHeightModelsBetaX2} -->
+
+![Estimated mean and 95\% credible intervals of the Bayesian version of the proportion of variance explained $R^2$ introduced in @gelmanRsquaredBayesianRegression2019: $\mathcal{R}^{2}=Var_\mu/(Var_\mu + Var_{res})$ where $Var_\mu$ is the variance of the modelled predictive means and $Var_{res}$ is the modelled residual variance, such as $Var_{res} = \sigma^2$. For each common garden, the brown line and uncertainty interval correspond to the estimated mean and 95\% credible interval of $R^2$ in a model that does not contain genomic offset predictions or climate transfer distances as predictors (i.e., only including the block intercepts and the initial tree height $H_p$).](../figs/ValidationCommonGarden/HeightModels/bayes_R2_mod_M2_SNPsandCTD.pdf){#fig-ValCGHeightModelsR2}
+
+![Rank (Spearman) correlations between height and genomic offset predictions or climate transfer distances in the five common gardens.](../figs/ValidationCommonGarden/HeightModels/Correlations/spearman_correlation_SNPsandCTD_WithImages.pdf)
+
+![Pearson correlations between height and genomic offset predictions or climate transfer distances in the five common gardens.](../figs/ValidationCommonGarden/HeightModels/Correlations/pearson_correlation_SNPsandCTD_WithImages.pdf)
+
+
+# Validation in national foret inventory plots
+
+![Regression coefficients $\beta_{C}$ standing for the association between mortality rates and the basal area $C$ of all tree species confounded in the national foret inventory plots (i.e., a proxy of the competition among trees). The mean and 95\% credible intervals are shown.](../figs/ValidationNFI/ModelM62_beta_C_IntervalPlots.pdf){#fig-ValNFIBetaC}
+
+![Regression coefficients $\beta_{DBH}$ standing for the association between mortality rates in the national foret inventory plots and the mean diameter at breast height ($DBH$) of the maritime pines in the national foret inventory plots (including adults, dead trees and recruitment trees). The mean and 95\% credible intervals are shown.](../figs/ValidationNFI/ModelM62_beta_DBH_IntervalPlots.pdf){#fig-ValNFIBetaDBH}
+
+![Regression coefficients $\beta_{C*DBH}$ standing for the association between mortality rates and the interaction between the basal area $C$ and the mean diameter at breat height $DBH$ in the national foret inventory plots. The mean and 95\% credible intervals are shown.](../figs/ValidationNFI/ModelM62_beta_C_DBH_IntervalPlots.pdf){#fig-ValNFIBetaCDBH}
+
+![Estimated mean and 95\% credible intervals of the $\beta_X$ coefficients capturing the association between mortality rates in the inventory plots and genomic offset predictions or climate distances ("predicted" in the legend), and $\beta_X$ coefficients capturing the association between mortality rates and a randomly generated variable ("random" in the legend). For that, we ran again the model on the inventory data but we replaced genomic offset predictions by a randomly generated variable $X$ such as $X \sim \mathcal{N}(0,1)$. We repeated this step 100 times and obtained a distribution of $\beta_X$ coefficients capturing the relationship between mortality rates and a randomly generated variable. ](../figs/ValidationNFI/ModelM62_IntervalPlots_RandomGO_vs_PredictedGO.pdf){#fig-ValNFIRandomGOvsPredictedGO}
+
+
+![Rank (Spearman) correlations between mortality rates and genomic offset predictions or climatic distances in the national foret inventory plots.](../figs/ValidationNFI/ModelM62_spearman_correlation_CorrelationPlots.pdf)
+
+![Pearson correlations between mortality rates and genomic offset predictions or climatic distances in the national foret inventory plots.](../figs/ValidationNFI/ModelM62_pearson_correlation_CorrelationPlots.pdf)
+
+
+![Annual precipitation and mean annual temperature at the location of the national foret inventory plots (in gray) and the 34 sampled populations (colored according their main gene pool). Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio1vsBio12.pdf)
+
+
+![Isothermality and precipitation seasonality at the location of the national foret inventory plots (in gray) and the 34 sampled populations (colored according their main gene pool).  Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf)
+
+  
 
 {{< pagebreak >}}
 

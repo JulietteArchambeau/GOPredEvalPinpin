@@ -550,7 +550,7 @@ for(i in clim_var){clim_ref_df[,i] <- (clim_ref_df[,i] - scale_params[[i]]$mean)
 ```
 
 
-```{r ProjectMeanGO, eval=T}
+```{r ProjectMeanGO, eval=F}
 # GF predictions under current climates
 ref_pred <- predict(snp_set$gf_mod,clim_ref_df[,clim_var])
 
@@ -593,7 +593,7 @@ df %>% saveRDS(here("outputs/GF/go_pred_rasters.rds"))
 <span style="color: orange;">**MANUSCRIPT FIGURE:** This figure corresponds to Figure 6b in the main manuscript.</span>
 
 
-```{r PlotMeanGOProjections, fig.height=8, fig.width=8, message=FALSE, warning=F}
+```{r PlotMeanGOProjections, fig.height=6, fig.width=6, message=FALSE, warning=F}
 # Map options
 # ===========
 point_size = 2
@@ -625,8 +625,8 @@ p <- ggplot(data=df) +
         legend.title = element_text(size=10),
         strip.text = element_text(size=11))
 
-p %>% ggsave(here(paste0("figs/GF/GOmeanProjections_",snp_set$set_code,".pdf")),., width=8,height=8, device="pdf")
-p %>% ggsave(here(paste0("figs/GF/GOmeanProjections_",snp_set$set_code,".png")),., width=8,height=8)
+p %>% ggsave(here(paste0("figs/GF/GOmeanProjections_",snp_set$set_code,".pdf")),., width=6,height=6, device="pdf")
+p %>% ggsave(here(paste0("figs/GF/GOmeanProjections_",snp_set$set_code,".png")),., width=6,height=6)
 
 p
 ```
@@ -696,8 +696,8 @@ ggsave(here(paste0("figs/GF/NFI_GOmap_",x$set_code,".png")), p, width=6,height=6
   
 
 # If needed
-# p <- p + theme(plot.title = element_blank())
-# ggsave(here(paste0("figs/GF/NFI_GOmap_",x$set_code,"_noTitle.pdf")), p, width=6,height=6, device="pdf")
+p <- p + theme(plot.title = element_blank())
+ggsave(here(paste0("figs/GF/NFI_GOmap_",x$set_code,"_noTitle.pdf")), p, width=6,height=6, device="pdf")
 
 # Show maps in the Quarto document
 # ================================
