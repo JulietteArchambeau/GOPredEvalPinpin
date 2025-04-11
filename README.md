@@ -15,7 +15,12 @@ Juliette Archambeau<sup>1,2</sup>, Marta Benito-Garzón<sup>1</sup>, Marina de-M
 
 ***
 
-This repository contains the scripts needed to reproduce the analyses in Archambeau *et al*. (2024).
+
+
+This repository contains all the scripts that we played around with during our long journey to arrive at the final version of Archambeau *et al*. (2025). Let’s be honest—scientific papers often take us on many detours that lead absolutely nowhere! If you’re after a tidier dataset that includes only the code used in the final paper, then I’d suggest checking out the Dryad repository, which also contains the data used in this work: <https://datadryad.org/dataset/doi:10.5061/dryad.bnzs7h4jt>.
+
+
+***
 
 **Paper abstract**
 
@@ -32,14 +37,15 @@ The code (`.qmd` and `Rmd` files) used to generate the following `html` reports 
   - Checking population information (coordinates and elevation data) from different sources (e.g. collected from different studies).
   - Extracting climatic data from [Climate Downscaling Tool (ClimateDT)](https://www.ibbr.cnr.it/climate-dt/) at the location of the populations.
   - Calculating the average of the climatic variables across the time periods of interest.
+  - Attributing to each clone and population its main gene pool based on the ancestry coefficients estimated with the STRUCTURE software in [Jaramillo-Correa et al. (2015)](https://academic.oup.com/genetics/article/199/3/793/5935834).
 
 ##### [1_FormattingGenomicData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/1_FormattingGenomicData.html)
 
   - Formatting genomic data: converting letters (e.g. A/A, A/G) to numbers (0,1 or 2), and `---` to `NA`.
   - Filtering genomic data for monomorphic SNPs, minor allele counts (MAC), proportion of missing data per clone and per SNP, minor allele frequencies (MAF).
   - Estimating statistical correlations among SNPs and LD.
-  - Determining SNPs position on the genome.
-  - Exploring genomic data, e.g., number of SNPs/clones genotyped in each assay, Average and maximum number of missing values per clone.
+  - Looking at SNP positions on the genome (i.e., scaffold/contigs of the SNPs).
+  - Exploring genomic data, e.g., number of SNPs/clones genotyped in each assay, average and maximum number of missing values per clone.
   - Imputation of missing data.
 
 ##### [2_CommonGardenData.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/2_CommonGardenData.html)
@@ -99,12 +105,7 @@ Some figures generated in this report:
 
   - Genomic offset predictions with the Gradient Forest (GF) algorithm, approach described in [Fitzpatrick & Keller 2015](https://onlinelibrary.wiley.com/doi/full/10.1111/ele.12376) and [Gougherty et al. 2021](https://www.nature.com/articles/s41558-020-00968-6).
 
-Some figures generated in this report:
-
-  * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand.pdf" target="_blank">GFplots_cand.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods among RDA, pRDA, GF, LFMM and BayPass.
-  * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_cand_corrected.pdf" target="_blank">GFplots_cand_corrected.pdf</a> GF plots for the set of candidate SNPs identified by at least two GEA methods correcting for population structure (i.e pRDA, LFMM, BayPass).  
-  * <a href="https://juliettearchambeau.github.io/GOPredEvalPinpin/GFplots_control.pdf" target="_blank">GFplots_control.pdf</a> GF plots for the set of control SNPs.
-    
+  
 ##### [11_RedundancyAnalysis_GenomicOffsetPredictions.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/11_RedundancyAnalysis_GenomicOffsetPredictions.html)
 
   - Genomic offset predictions with Redundancy Analysis (RDA) and partial RDA; approach described in [Capblancq and Forester (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13722).
@@ -135,7 +136,7 @@ Some figures generated in this report:
 
 ##### [16_PCAplotIDpops.html](https://juliettearchambeau.github.io/GOPredEvalPinpin/16_PCAplotIDpops.html)
 
-  - Generating figures for the Supplementary Information based on the PCA of the control and candidate SNPs: screeplots and PCA plots with the ALT and ARM populations highlighted.
+  - Generating additional figures based on the PCA of the control and candidate SNPs: screeplots and PCA plots with the ALT and ARM populations highlighted.
 
 
 ## License

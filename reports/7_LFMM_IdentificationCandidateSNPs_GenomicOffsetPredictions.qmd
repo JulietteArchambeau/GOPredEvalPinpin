@@ -704,6 +704,9 @@ We load the climatic data of the NFI plots.
 # Load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
 
+nfi_clim$clim_ref <- nfi_clim$clim_ref %>% arrange(plotcode)
+nfi_clim$clim_survey <- nfi_clim$clim_survey %>% arrange(plotcode)
+
 # Keep only the climatic variables of interest and scale the climatic data
 source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
 nfi_dfs <- generate_scaled_nfi_clim_datasets(clim_var, clim_ref = nfi_clim$clim_ref, clim_pred = nfi_clim$clim_survey)

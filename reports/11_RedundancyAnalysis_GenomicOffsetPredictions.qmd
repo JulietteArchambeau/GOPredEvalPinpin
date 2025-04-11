@@ -973,53 +973,63 @@ We visualize the generated maps.
 
 ### Maps of GO mean across GCM predictions
 
-We generate a map with the mean of genomic offset predictions across GCMs for the set with all candidate SNPs.
+We generate a map with the mean of genomic offset predictions across GCMs for the three sets of candidate SNPs.
 
 ```{r PreparationDatasetMeanGOprojectionAllCandidateSNPs, eval=F}
-go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+cand_set_names <- snp_sets[1:3] %>%  names()
 
-go_dfs <- lapply(names(go_rasters), function(gcm){
-  rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()}) %>% 
-  setNames(names(go_rasters))
-
-go_df_mean <- go_dfs %>% 
-  bind_rows(.id="GCM") %>% 
-  pivot_wider(names_from = "GCM", values_from = "global_offset") %>% 
-  rowwise() %>% 
-  mutate(mean_offset = mean(c_across(`GFDL-ESM4`:`UKESM1-0-LL`), na.rm = TRUE)) %>% 
-  ungroup()
-
-saveRDS(go_df_mean, file=here(paste0("outputs/RDA/go_df_mean_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+lapply(cand_set_names, function(set_i){
+  
+  go_rasters <-readRDS(file=here(paste0("outputs/RDA/go_rasters_",set_i,"_",rda_method,"_",popstructure_correction,".rds")))
+  
+  go_dfs <- lapply(names(go_rasters), function(gcm){
+    rasterToPoints(go_rasters[[gcm]]$go_global_proj) %>% as_tibble()}) %>% 
+    setNames(names(go_rasters))
+  
+  go_df_mean <- go_dfs %>% 
+    bind_rows(.id="GCM") %>% 
+    pivot_wider(names_from = "GCM", values_from = "global_offset") %>% 
+    rowwise() %>% 
+    mutate(mean_offset = mean(c_across(`GFDL-ESM4`:`UKESM1-0-LL`), na.rm = TRUE)) %>% 
+    ungroup()
+  
+  saveRDS(go_df_mean, file=here(paste0("outputs/RDA/go_df_mean_",set_i,"_",rda_method,"_",popstructure_correction,".rds")))
+})
 ```
 
-```{r MeanGOprojectionAllCandidateSNPs, fig.height=6, fig.width=6}
-go_df_mean <- readRDS(file=here(paste0("outputs/RDA/go_df_mean_all_cand_",rda_method,"_",popstructure_correction,".rds")))
+```{r MeanGOprojectionCandidateSNPs, fig.height=6, fig.width=6}
+cand_set_names <- snp_sets[1:3] %>%  names()
 
-p <- ggplot(data = go_df_mean) +
-  geom_sf(data = world, fill="gray98") +
-  scale_x_continuous(limits = x_limits) +
-  scale_y_continuous(limits = y_limits) +
-  geom_raster(aes(x = x, y = y, fill = mean_offset), alpha = 1) +
-  scale_fill_gradient2(low="blue", mid= "yellow", high="red",
-                       midpoint=(max(go_df_mean$mean_offset)-min(go_df_mean$mean_offset))/2,
-                       limits=c(0, max(go_df_mean$mean_offset)),
-                       name = "Genomic offset from RDA") +
-  xlab("Longitude") + ylab("Latitude") +
-  theme_bw(base_size = 11) +
-  theme(panel.grid = element_blank(),
-        plot.background = element_blank(),
-        panel.background = element_blank(),
-        legend.position = c(0.8,0.15),
-        legend.box.background = element_rect(colour = "gray80"),
-        legend.title = element_text(size=10),
-        strip.text = element_text(size=11))
-
-ggsave(here(paste0("figs/RDA/GOmeanProjections_all_cand_",rda_method,"_",
+lapply(cand_set_names, function(set_i){
+  
+  go_df_mean <- readRDS(file=here(paste0("outputs/RDA/go_df_mean_",set_i,"_",rda_method,"_",popstructure_correction,".rds")))
+  
+  p <- ggplot(data = go_df_mean) +
+    geom_sf(data = world, fill="gray98") +
+    scale_x_continuous(limits = x_limits) +
+    scale_y_continuous(limits = y_limits) +
+    geom_raster(aes(x = x, y = y, fill = mean_offset), alpha = 1) +
+    scale_fill_gradient2(low="blue", mid= "yellow", high="red",
+                         midpoint=(max(go_df_mean$mean_offset)-min(go_df_mean$mean_offset))/2,
+                         limits=c(0, max(go_df_mean$mean_offset)),
+                         name = "Genomic offset from RDA") +
+    xlab("Longitude") + ylab("Latitude") +
+    theme_bw(base_size = 11) +
+    theme(panel.grid = element_blank(),
+          plot.background = element_blank(),
+          panel.background = element_blank(),
+          legend.position = c(0.8,0.15),
+          legend.box.background = element_rect(colour = "gray80"),
+          legend.title = element_text(size=10),
+          strip.text = element_text(size=11))
+  
+  ggsave(here(paste0("figs/RDA/GOmeanProjections_",set_i,"_",rda_method,"_",
                                       popstructure_correction,".pdf")), p, width=6, height=6, device="pdf")
-ggsave(here(paste0("figs/RDA/GOmeanProjections_all_cand_",rda_method,"_",
+  ggsave(here(paste0("figs/RDA/GOmeanProjections_",set_i,"_",rda_method,"_",
                                       popstructure_correction,".png")), p, width=6, height=6)
-
-p
+  
+  p
+  })
 ```
 
 
@@ -1063,6 +1073,8 @@ This is ok!
 ```{r PredictNFIGenomicOffset, fig.width=8,fig.height=8, results="hide"}
 # Load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds"))
+#nfi_clim$clim_ref <- nfi_clim$clim_ref %>% arrange(plotcode)
+#nfi_clim$clim_survey <- nfi_clim$clim_survey %>% arrange(plotcode)
   
 # Keep only the climatic variables of interest and scale the climatic data
 source(here("scripts/functions/generate_scaled_nfi_clim_datasets.R"))
@@ -1100,24 +1112,24 @@ snp_sets <- lapply(snp_sets, function(x){
 
 # without correction for population structure  
 x$go_nfi_uncorrected <- pred_GO_spatial_points(snp_set = x,
-                                   K = 2,
-                                   pop_structure = F,
-                                   clim_var=clim_var,
-                                   clim_ref = nfi_dfs$clim_ref,
-                                   clim_pred = nfi_dfs$clim_pred,
-                                   weights = T,
-                                   method = rda_method)
+                                               K = 2,
+                                               pop_structure = F,
+                                               clim_var=clim_var,
+                                               clim_ref = nfi_dfs$clim_ref,
+                                               clim_pred = nfi_dfs$clim_pred,
+                                               weights = T,
+                                               method = rda_method)
 
 
 # With correction for population structure
 x$go_nfi_corrected <- pred_GO_spatial_points(snp_set = x,
-                                   K = 2,
-                                   pop_structure = T,
-                                   clim_var=clim_var,
-                                   clim_ref = nfi_dfs$clim_ref %>% inner_join(nfi_coords[,c("plotcode","PC1","PC2","PC3")], by="plotcode"),
-                                   clim_pred = nfi_dfs$clim_pred %>% inner_join(nfi_coords[,c("plotcode","PC1","PC2","PC3")], by="plotcode"),
-                                   weights = T,
-                                   method = rda_method)
+                                             K = 2,
+                                             pop_structure = T,
+                                             clim_var=clim_var,
+                                             clim_ref = nfi_dfs$clim_ref %>% inner_join(nfi_coords[,c("plotcode","PC1","PC2","PC3")], by="plotcode"),
+                                             clim_pred = nfi_dfs$clim_pred %>% inner_join(nfi_coords[,c("plotcode","PC1","PC2","PC3")], by="plotcode"),
+                                             weights = T,
+                                             method = rda_method)
 
 return(x)
 })
@@ -1161,23 +1173,9 @@ lapply(snp_sets, function(x) {
       y_limits = c(35, 51),
       plot_title = plot_title)
 
-# Figure for the SI
-# =================
-if(x$set_code=="common_cand"){ 
-  p_SI <- p + theme(plot.title = element_blank())
-  ggsave(here(paste0("figs/RDA/NFI_GOmap_CommonCandidateSNPs_PS",correction,"_",rda_method,".pdf")), p_SI, width=6,height=6, device="pdf")
-  ggsave(here(paste0("figs/RDA/NFI_GOmap_CommonCandidateSNPs_PS",correction,"_",rda_method,".png")), p_SI, width=6,height=6)
-  
-  } else if(x$set_code=="control"){
-    p_SI <- p + theme(plot.title = element_blank())
-    ggsave(here(paste0("figs/RDA/NFI_GOmap_ControlSNPs_PS",correction,"_",rda_method,".pdf")), p_SI, width=6,height=6, device="pdf")
-    ggsave(here(paste0("figs/RDA/NFI_GOmap_ControlSNPs_PS",correction,"_",rda_method,".png")), p_SI, width=6,height=6)
-    
-  } else if(x$set_code=="all"){
-    p_SI <- p + theme(plot.title = element_blank())
-    ggsave(here(paste0("figs/RDA/NFI_GOmap_AllSNPs_PS",correction,"_",rda_method,".pdf")), p_SI, width=6,height=6, device="pdf")
-    ggsave(here(paste0("figs/RDA/NFI_GOmap_AllSNPs_PS",correction,"_",rda_method,".png")), p_SI, width=6,height=6)
-    }
+  p_notitle <- p + theme(plot.title = element_blank())
+  ggsave(here(paste0("figs/RDA/NFI_GOmap_",x$set_code,"_PS",correction,"_",rda_method,".pdf")), p_notitle, width=6,height=6, device="pdf")
+  ggsave(here(paste0("figs/RDA/NFI_GOmap_",x$set_code,"_PS",correction,"_",rda_method,".png")), p_notitle, width=6,height=6)
 
 # Show maps in the Quarto document
 # ================================

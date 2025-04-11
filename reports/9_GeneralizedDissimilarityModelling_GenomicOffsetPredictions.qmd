@@ -767,7 +767,7 @@ list_pred_rasts <- readRDS(here("outputs/GDM/go_pred_rasters.rds"))
 ```{r PlotGorasters, fig.width=12,fig.height=6, message=F, results="hide", eval=T}
 par(mfrow=c(1,2))
 
-names(snp_sets) %>% lapply(function(x){
+names(snp_sets)[1:6] %>% lapply(function(x){
   
 lapply(names(list_clim_fut), function(gcm){
 
@@ -875,7 +875,7 @@ We check that the genomic offset predictions at the locations of the populations
 
 ```{r CheckingCorrelationsPredictionsPointEstimatesVSRasters, eval=T}
 # checking correlations
-names(snp_sets) %>% lapply(function(x){
+names(snp_sets)[1:6] %>% lapply(function(x){
   
 cor_go <- lapply(names(list_clim_fut), function(gcm){
   
@@ -889,7 +889,7 @@ tibble(gcm=names(list_clim_fut),
             cor_go=cor_go)
   
 }) %>% 
-  setNames(names(snp_sets)) %>% 
+  setNames(names(snp_sets)[1:6]) %>% 
   bind_rows(.id="snp_set") %>% 
   kable_mydf()
 ```
@@ -903,6 +903,9 @@ This is ok!
 ```{r ClimaticDataNFIplots}
 # Load the climatic data of the NFI plots.
 nfi_clim <- readRDS(here("data/ClimaticData/NFIplots/NFIclimate.rds")) 
+
+nfi_clim$clim_ref <- nfi_clim$clim_ref %>% arrange(plotcode)
+nfi_clim$clim_survey <- nfi_clim$clim_survey %>% arrange(plotcode)
 
 # Reproject the plotcode coordinates in the projection system `EPSG:3035`.
 plotcoord_EPSG_3035 <- nfi_clim[[1]] %>%

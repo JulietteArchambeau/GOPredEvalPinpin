@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2025-01-27">
+<meta name="dcterms.date" content="2025-03-25">
 
 <title>Defining the sets of control and candidate SNPs</title>
 <style>
@@ -3384,6 +3384,7 @@ window.Quarto = {
   <li><a href="#with-random-frequencies" id="toc-with-random-frequencies" class="nav-link" data-scroll-target="#with-random-frequencies">with random frequencies</a></li>
   <li><a href="#with-frequency-matched-allele-frequencies" id="toc-with-frequency-matched-allele-frequencies" class="nav-link" data-scroll-target="#with-frequency-matched-allele-frequencies">with frequency-matched allele frequencies</a></li>
   </ul></li>
+  <li><a href="#a-set-of-snps-with-no-missing-data" id="toc-a-set-of-snps-with-no-missing-data" class="nav-link" data-scroll-target="#a-set-of-snps-with-no-missing-data">A set of SNPs with no missing data</a></li>
   <li><a href="#exporting-the-sets-of-snps" id="toc-exporting-the-sets-of-snps" class="nav-link" data-scroll-target="#exporting-the-sets-of-snps">Exporting the sets of SNPs</a></li>
   <li><a href="#genome-position-of-all-sets-of-snps" id="toc-genome-position-of-all-sets-of-snps" class="nav-link" data-scroll-target="#genome-position-of-all-sets-of-snps">Genome position of all sets of SNPs</a>
   <ul>
@@ -3410,7 +3411,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 27, 2025</p>
+      <p class="date">March 25, 2025</p>
     </div>
   </div>
   
@@ -5633,9 +5634,21 @@ font-size: 10px
 </div>
 </section>
 </section>
+<section id="a-set-of-snps-with-no-missing-data" class="level1">
+<h1>A set of SNPs with no missing data</h1>
+<p>Following the comments of one reviewer, we added a supplementary set of SNPs containing only SNPs without any missing data - to avoid imputation introduced biases.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>geno <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv&quot;</span>))</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>control_without_nas <span class="ot">&lt;-</span> geno <span class="sc">%&gt;%</span> <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span> .[[<span class="st">&quot;snp_ID&quot;</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
 <section id="exporting-the-sets-of-snps" class="level1">
 <h1>Exporting the sets of SNPs</h1>
-<p>We save six sets of SNPs:</p>
+<p>We save seven sets of SNPs:</p>
 <ul>
 <li><p>380 candidate SNPs, i.e., SNPs identified by at least one GEA method among <em>RDA</em>, <em>pRDA</em>, <em>LFMM</em>, <em>BayPass</em> and <em>GF</em>.</p></li>
 <li><p>221 candidate SNPs with correction for population structure, i.e., SNPs identified by at least one GEA method correcting for population structure (<em>pRDA</em>, <em>LFMM</em> and <em>BayPass</em>).</p></li>
@@ -5643,32 +5656,36 @@ font-size: 10px
 <li><p>380 control SNPs with random frequencies and the same number of candidate SNPs as in the set with all candidate SNPs.</p></li>
 <li><p>380 control SNPs with matched frequencies (i.e., similar frequencies to the frequencies of the set with all candidate SNPs), and with the same number of candidate SNPs as in the set with all candidate SNPs.</p></li>
 <li><p>All SNPs, i.e. 9817 SNPs.</p></li>
+<li><p>SNPs without NAs, i.e., 3258 SNPs.</p></li>
 </ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>snp_sets <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">all_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;all_cand&quot;</span>,</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;All candidate SNPs (&quot;</span>, <span class="fu">length</span>(all_cand),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">set_snps =</span> all_cand),</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">common_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;common_cand&quot;</span>,</span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Common candidate SNPs (&quot;</span>, <span class="fu">length</span>(common_cand),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">set_snps =</span> common_cand),</span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">corrected_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;corrected_cand&quot;</span>,</span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Candidate SNPs considering pop. struct. correction (&quot;</span>, <span class="fu">length</span>(corrected_cand),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">set_snps =</span> corrected_cand),</span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>                 <span class="at">randomfreq_control =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;randomfreq_control&quot;</span>,</span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Control SNPs unmatching allele frequencies (&quot;</span>, <span class="fu">length</span>(control_snps),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">set_snps =</span> control_snps),</span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>                 <span class="at">simfreq_control =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;simfreq_control&quot;</span>, </span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>                                        <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Control SNPs matching allele frequencies (&quot;</span>, <span class="fu">length</span>(random_snps_with_matched_freq),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>                                        <span class="at">set_snps =</span> random_snps_with_matched_freq),</span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>                 <span class="at">all =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;all&quot;</span>,</span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>                            <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;All SNPs (&quot;</span>, <span class="fu">length</span>(all_snps_id),<span class="st">&quot;)&quot;</span>),</span>
-<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>                            <span class="at">set_snps =</span> all_snps_id))</span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(snp_sets,<span class="fu">here</span>(<span class="st">&quot;outputs/list_snp_sets.rds&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>snp_sets <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">all_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;all_cand&quot;</span>,</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;All candidate SNPs (&quot;</span>, <span class="fu">length</span>(all_cand),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">set_snps =</span> all_cand),</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">common_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;common_cand&quot;</span>,</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Common candidate SNPs (&quot;</span>, <span class="fu">length</span>(common_cand),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">set_snps =</span> common_cand),</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">corrected_cand =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;corrected_cand&quot;</span>,</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Candidate SNPs considering pop. struct. correction (&quot;</span>, <span class="fu">length</span>(corrected_cand),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">set_snps =</span> corrected_cand),</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>                 <span class="at">randomfreq_control =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;randomfreq_control&quot;</span>,</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Control SNPs unmatching allele frequencies (&quot;</span>, <span class="fu">length</span>(control_snps),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">set_snps =</span> control_snps),</span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>                 <span class="at">simfreq_control =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;simfreq_control&quot;</span>, </span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>                                        <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;Control SNPs matching allele frequencies (&quot;</span>, <span class="fu">length</span>(random_snps_with_matched_freq),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>                                        <span class="at">set_snps =</span> random_snps_with_matched_freq),</span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a>                 <span class="at">all =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;all&quot;</span>,</span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>                            <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;All SNPs (&quot;</span>, <span class="fu">length</span>(all_snps_id),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a>                            <span class="at">set_snps =</span> all_snps_id),</span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>                 <span class="at">control_without_nas =</span> <span class="fu">list</span>(<span class="at">set_code =</span> <span class="st">&quot;control_without_nas&quot;</span>,</span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>                                            <span class="at">set_name =</span> <span class="fu">paste0</span>(<span class="st">&quot;SNPs without NAs (&quot;</span>, <span class="fu">length</span>(control_without_nas),<span class="st">&quot;)&quot;</span>),</span>
+<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a>                                            <span class="at">set_snps =</span> control_without_nas))</span>
+<span id="cb26-22"><a href="#cb26-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-23"><a href="#cb26-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-24"><a href="#cb26-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-25"><a href="#cb26-25" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(snp_sets,<span class="fu">here</span>(<span class="st">&quot;outputs/list_snp_sets.rds&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p><em><span style="color: orange;">Comment regarding the DRYAD repository: </span></em> We update the dataset <code>data/GenomicData/SNPsInformation.csv</code> containing information of SNP position on the genome and the different SNP IDs used across studies/assays (see report <code>1_FormattingGenomicData.Rmd</code>) with information on outlier SNPs. This updated dataset is exported in the DRYAD repository: file <code>SNPsInformation_WithOutliers.csv</code>. Meaning of the columns:</p>
@@ -5691,31 +5708,33 @@ font-size: 10px
 <li><code>candidate_SNPs_corrected_pop_structure</code>: <code>TRUE</code> if the SNP was an outlier identified by at least one GEA method correcting for population genetic structure (i.e., pRDA, LFMM or BayPass); <code>FALSE</code> otherwise.</li>
 <li><code>random_control_SNPs</code>: <code>TRUE</code> if the SNP was a control SNP randomly sampled among the SNPs not identified by any GEA method; <code>FALSE</code> otherwise.</li>
 <li><code>control_SNPs_matching_allele_freq</code>: <code>TRUE</code> if the SNP was a control SNP sampled among the SNPs not identified by any GEA method, and has a similar allele frequency to a candidate SNP; <code>FALSE</code> otherwise.</li>
+<li><code>control_SNPs_without_NAs</code>: <code>TRUE</code> if the SNP had no mising data; <code>FALSE</code> otherwise.</li>
 </ol>
 <p>Below are shown the first 10 rows of the dataset.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>listsnps <span class="ot">&lt;-</span> <span class="fu">read_csv2</span>(<span class="fu">here</span>(<span class="st">&quot;data/GenomicData/SNPsInformation.csv&quot;</span>),<span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span>  </span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">RDA_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span><span class="st">`</span><span class="at">RDA (mahalanobis)</span><span class="st">`</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">pRDA_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span><span class="st">`</span><span class="at">pRDA (mahalanobis)</span><span class="st">`</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">GF_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>GF, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">LFMM_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>LFMM, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">BayPass_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>BayPass, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">all_candidate_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> all_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">common_candidate_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> common_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">candidate_SNPs_corrected_pop_structure =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> corrected_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">random_control_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> control_snps, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
-<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">control_SNPs_matching_allele_freq =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> random_snps_with_matched_freq, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>listsnps <span class="ot">&lt;-</span> <span class="fu">read_csv2</span>(<span class="fu">here</span>(<span class="st">&quot;data/GenomicData/SNPsInformation.csv&quot;</span>),<span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span>  </span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">RDA_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span><span class="st">`</span><span class="at">RDA (mahalanobis)</span><span class="st">`</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">pRDA_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span><span class="st">`</span><span class="at">pRDA (mahalanobis)</span><span class="st">`</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">GF_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>GF, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">LFMM_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>LFMM, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">BayPass_outliers =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> list_candidates<span class="sc">$</span>BayPass, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">all_candidate_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> all_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">common_candidate_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> common_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">candidate_SNPs_corrected_pop_structure =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> corrected_cand, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">random_control_SNPs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> control_snps, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">control_SNPs_matching_allele_freq =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> random_snps_with_matched_freq, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>),</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>         <span class="at">control_SNPs_without_NAs =</span> <span class="fu">ifelse</span>(snp_ID <span class="sc">%in%</span> control_without_nas, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stderr">
 <pre><code>ℹ Using &quot;&#39;,&#39;&quot; as decimal and &quot;&#39;.&#39;&quot; as grouping mark. Use `read_delim()` for more control.</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>listsnps <span class="sc">%&gt;%</span> <span class="fu">write_csv2</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/SNPsInformation_WithOutliers.csv&quot;</span>),<span class="at">append=</span><span class="cn">FALSE</span>)</span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>listsnps[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,] <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>listsnps <span class="sc">%&gt;%</span> <span class="fu">write_csv2</span>(<span class="fu">here</span>(<span class="st">&quot;data/DryadRepo/SNPsInformation_WithOutliers.csv&quot;</span>),<span class="at">append=</span><span class="cn">FALSE</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>listsnps[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,] <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -5741,6 +5760,7 @@ font-size: 10px
 <th style="text-align: left;" data-quarto-table-cell-role="th">candidate_SNPs_corrected_pop_structure</th>
 <th style="text-align: left;" data-quarto-table-cell-role="th">random_control_SNPs</th>
 <th style="text-align: left;" data-quarto-table-cell-role="th">control_SNPs_matching_allele_freq</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">control_SNPs_without_NAs</th>
 </tr>
 </thead>
 <tbody>
@@ -5753,6 +5773,7 @@ font-size: 10px
 <td style="text-align: right;">303</td>
 <td style="text-align: left;">0_12730_01_contig1-303</td>
 <td style="text-align: left;">REMOVED</td>
+<td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
@@ -5783,6 +5804,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">snp_3</td>
@@ -5803,6 +5825,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">snp_4</td>
@@ -5823,6 +5846,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">snp_5</td>
@@ -5843,6 +5867,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">snp_6</td>
@@ -5863,6 +5888,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">TRUE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">snp_7</td>
@@ -5883,6 +5909,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">snp_8</td>
@@ -5903,6 +5930,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">snp_9</td>
@@ -5923,6 +5951,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">TRUE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">snp_10</td>
@@ -5943,6 +5972,7 @@ font-size: 10px
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
 <td style="text-align: left;">FALSE</td>
+<td style="text-align: left;">TRUE</td>
 </tr>
 </tbody>
 </table>
@@ -5960,51 +5990,53 @@ font-size: 10px
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SNPs position on the reference genome</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>gen_coord <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">&quot;~/Documents/Projects/GOPredEvalPinpin/data/GenomicData/maritime_pine_coord.txt&quot;</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chrom_names =</span> <span class="fu">if_else</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>,<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>), <span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, CHROM <span class="sc">%&gt;%</span> <span class="fu">str_sub</span>(<span class="dv">4</span>,<span class="sc">-</span><span class="dv">1</span>)), <span class="fu">paste0</span>(<span class="st">&quot;Contig &quot;</span>,CHROM)))</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Counting the number of candidate SNPs per chromosome</span></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>nb_per_chr_list <span class="ot">&lt;-</span> <span class="fu">lapply</span>(snp_sets, <span class="cf">function</span>(x){</span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> snppos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">filter</span>(snp_ID <span class="sc">%in%</span> x<span class="sc">$</span>set_snps) </span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>  gen_coord <span class="sc">%&gt;%</span> </span>
-<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(AxiomID <span class="sc">%in%</span> df<span class="sc">$</span>affx_ID) <span class="sc">%&gt;%</span> </span>
-<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(chrom_names) <span class="sc">%&gt;%</span> </span>
-<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n</span>()) <span class="sc">%&gt;%</span> </span>
-<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">set_colnames</span>(<span class="fu">c</span>(<span class="st">&quot;Chromosome / contig&quot;</span>, x<span class="sc">$</span>set_name))</span>
-<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>}) </span>
-<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Merging the counts in one table</span></span>
-<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="ot">&lt;-</span> nb_per_chr_list[[<span class="dv">1</span>]] <span class="sc">%&gt;%</span></span>
-<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">2</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">3</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">4</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">5</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">6</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Replace NA values with 0 across all numeric columns</span></span>
-<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span><span class="fu">replace_na</span>(., <span class="dv">0</span>))) </span>
-<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Sum the total of SNPs mapped on the reference genome for each set of SNPs</span></span>
-<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(</span>
-<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;Total&quot;</span>,</span>
-<span id="cb29-33"><a href="#cb29-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">across</span>(<span class="fu">where</span>(is.numeric), \(x) <span class="fu">sum</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb29-34"><a href="#cb29-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(nb_per_chr_df,.) </span>
-<span id="cb29-35"><a href="#cb29-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-36"><a href="#cb29-36" aria-hidden="true" tabindex="-1"></a><span class="co"># for the text below</span></span>
-<span id="cb29-37"><a href="#cb29-37" aria-hidden="true" tabindex="-1"></a>all_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">2</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-38"><a href="#cb29-38" aria-hidden="true" tabindex="-1"></a>common_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">3</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-39"><a href="#cb29-39" aria-hidden="true" tabindex="-1"></a>corrected_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">4</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-40"><a href="#cb29-40" aria-hidden="true" tabindex="-1"></a>randomfreq_control_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">5</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-41"><a href="#cb29-41" aria-hidden="true" tabindex="-1"></a>simfreq_control_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">6</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-42"><a href="#cb29-42" aria-hidden="true" tabindex="-1"></a>all_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">7</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
-<span id="cb29-43"><a href="#cb29-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-44"><a href="#cb29-44" aria-hidden="true" tabindex="-1"></a><span class="co"># show the table</span></span>
-<span id="cb29-45"><a href="#cb29-45" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="sc">%&gt;%</span>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SNPs position on the reference genome</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>gen_coord <span class="ot">&lt;-</span> <span class="fu">read_delim</span>(<span class="st">&quot;~/Documents/Projects/GOPredEvalPinpin/data/GenomicData/maritime_pine_coord.txt&quot;</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chrom_names =</span> <span class="fu">if_else</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>,<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>), <span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, CHROM <span class="sc">%&gt;%</span> <span class="fu">str_sub</span>(<span class="dv">4</span>,<span class="sc">-</span><span class="dv">1</span>)), <span class="fu">paste0</span>(<span class="st">&quot;Contig &quot;</span>,CHROM)))</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Counting the number of candidate SNPs per chromosome</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>nb_per_chr_list <span class="ot">&lt;-</span> <span class="fu">lapply</span>(snp_sets, <span class="cf">function</span>(x){</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> snppos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">filter</span>(snp_ID <span class="sc">%in%</span> x<span class="sc">$</span>set_snps) </span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  gen_coord <span class="sc">%&gt;%</span> </span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(AxiomID <span class="sc">%in%</span> df<span class="sc">$</span>affx_ID) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(chrom_names) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n</span>()) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">set_colnames</span>(<span class="fu">c</span>(<span class="st">&quot;Chromosome / contig&quot;</span>, x<span class="sc">$</span>set_name))</span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>}) </span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Merging the counts in one table</span></span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="ot">&lt;-</span> nb_per_chr_list[[<span class="dv">1</span>]] <span class="sc">%&gt;%</span></span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">2</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">3</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">4</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">5</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">6</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">full_join</span>(nb_per_chr_list[[<span class="dv">7</span>]], <span class="at">by =</span> <span class="st">&quot;Chromosome / contig&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Replace NA values with 0 across all numeric columns</span></span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span><span class="fu">replace_na</span>(., <span class="dv">0</span>))) </span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Sum the total of SNPs mapped on the reference genome for each set of SNPs</span></span>
+<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(</span>
+<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;Total&quot;</span>,</span>
+<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">across</span>(<span class="fu">where</span>(is.numeric), \(x) <span class="fu">sum</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(nb_per_chr_df,.) </span>
+<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a><span class="co"># for the text below</span></span>
+<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>all_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">2</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a>common_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">3</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a>corrected_cand_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">4</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a>randomfreq_control_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">5</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a>simfreq_control_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">6</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a>all_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">7</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a>control_without_nas_contig <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">sum_column =</span> <span class="fu">sum</span>(.[[<span class="dv">8</span>]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span> pull</span>
+<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a><span class="co"># show the table</span></span>
+<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df <span class="sc">%&gt;%</span>  <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -6019,6 +6051,7 @@ font-size: 10px
 <th style="text-align: right;" data-quarto-table-cell-role="th">Control SNPs unmatching allele frequencies (380)</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">Control SNPs matching allele frequencies (380)</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">All SNPs (9817)</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">SNPs without NAs (3258)</th>
 </tr>
 </thead>
 <tbody>
@@ -6030,6 +6063,7 @@ font-size: 10px
 <td style="text-align: right;">16</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">478</td>
+<td style="text-align: right;">171</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 10</td>
@@ -6039,6 +6073,7 @@ font-size: 10px
 <td style="text-align: right;">18</td>
 <td style="text-align: right;">19</td>
 <td style="text-align: right;">497</td>
+<td style="text-align: right;">187</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 11</td>
@@ -6048,6 +6083,7 @@ font-size: 10px
 <td style="text-align: right;">19</td>
 <td style="text-align: right;">22</td>
 <td style="text-align: right;">493</td>
+<td style="text-align: right;">166</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 12</td>
@@ -6057,6 +6093,7 @@ font-size: 10px
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">18</td>
 <td style="text-align: right;">448</td>
+<td style="text-align: right;">166</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 2</td>
@@ -6066,6 +6103,7 @@ font-size: 10px
 <td style="text-align: right;">13</td>
 <td style="text-align: right;">11</td>
 <td style="text-align: right;">446</td>
+<td style="text-align: right;">161</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 3</td>
@@ -6075,6 +6113,7 @@ font-size: 10px
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">27</td>
 <td style="text-align: right;">563</td>
+<td style="text-align: right;">209</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 4</td>
@@ -6084,6 +6123,7 @@ font-size: 10px
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">17</td>
 <td style="text-align: right;">479</td>
+<td style="text-align: right;">188</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 5</td>
@@ -6093,6 +6133,7 @@ font-size: 10px
 <td style="text-align: right;">24</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">609</td>
+<td style="text-align: right;">223</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 6</td>
@@ -6102,6 +6143,7 @@ font-size: 10px
 <td style="text-align: right;">14</td>
 <td style="text-align: right;">16</td>
 <td style="text-align: right;">490</td>
+<td style="text-align: right;">189</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 7</td>
@@ -6111,6 +6153,7 @@ font-size: 10px
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">552</td>
+<td style="text-align: right;">192</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 8</td>
@@ -6120,6 +6163,7 @@ font-size: 10px
 <td style="text-align: right;">27</td>
 <td style="text-align: right;">26</td>
 <td style="text-align: right;">600</td>
+<td style="text-align: right;">208</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 9</td>
@@ -6129,6 +6173,7 @@ font-size: 10px
 <td style="text-align: right;">21</td>
 <td style="text-align: right;">23</td>
 <td style="text-align: right;">570</td>
+<td style="text-align: right;">220</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00266173_1_2</td>
@@ -6137,6 +6182,7 @@ font-size: 10px
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
@@ -6147,6 +6193,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00038225</td>
@@ -6155,6 +6202,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr class="even">
@@ -6165,6 +6213,7 @@ font-size: 10px
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00271183</td>
@@ -6174,6 +6223,7 @@ font-size: 10px
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00274581</td>
@@ -6182,6 +6232,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr class="odd">
@@ -6192,6 +6243,7 @@ font-size: 10px
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00278606</td>
@@ -6201,6 +6253,7 @@ font-size: 10px
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00027363</td>
@@ -6210,6 +6263,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00047720</td>
@@ -6219,6 +6273,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">4</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00291717</td>
@@ -6228,6 +6283,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00002886</td>
@@ -6237,6 +6293,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00007276</td>
@@ -6245,6 +6302,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr class="even">
@@ -6255,6 +6313,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00041218</td>
@@ -6264,6 +6323,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00044161</td>
@@ -6272,6 +6332,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
@@ -6282,6 +6343,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00051853</td>
@@ -6291,6 +6353,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00060300</td>
@@ -6300,6 +6363,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00090424</td>
@@ -6309,6 +6373,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00093355</td>
@@ -6318,6 +6383,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00266333</td>
@@ -6327,6 +6393,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00266354</td>
@@ -6336,6 +6403,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00266757_1_2</td>
@@ -6345,6 +6413,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00266967_1_2</td>
@@ -6353,6 +6422,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
@@ -6363,6 +6433,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00268161_1_2</td>
@@ -6372,6 +6443,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00268361_1_2</td>
@@ -6381,6 +6453,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00269268_1_2</td>
@@ -6390,6 +6463,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00269400</td>
@@ -6398,6 +6472,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
@@ -6408,6 +6483,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00270477</td>
@@ -6417,6 +6493,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00270817</td>
@@ -6426,6 +6503,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00272133_1_2</td>
@@ -6434,6 +6512,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
@@ -6444,6 +6523,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00274465</td>
@@ -6452,6 +6532,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
@@ -6462,6 +6543,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00275016</td>
@@ -6470,6 +6552,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr class="odd">
@@ -6480,6 +6563,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00277880_1_2</td>
@@ -6488,6 +6572,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
@@ -6498,6 +6583,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00278385</td>
@@ -6507,6 +6593,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00278754_1_2</td>
@@ -6516,6 +6603,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00281147_1_2</td>
@@ -6525,6 +6613,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00281824</td>
@@ -6534,6 +6623,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Contig tig00282714</td>
@@ -6543,6 +6633,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00284229</td>
@@ -6551,6 +6642,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr class="even">
@@ -6561,6 +6653,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00284930</td>
@@ -6569,6 +6662,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr class="even">
@@ -6579,6 +6673,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
+<td style="text-align: right;">6</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Contig tig00286518</td>
@@ -6588,6 +6683,7 @@ font-size: 10px
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Total</td>
@@ -6597,6 +6693,7 @@ font-size: 10px
 <td style="text-align: right;">244</td>
 <td style="text-align: right;">227</td>
 <td style="text-align: right;">6314</td>
+<td style="text-align: right;">2318</td>
 </tr>
 </tbody>
 </table>
@@ -6612,22 +6709,23 @@ font-size: 10px
 <p>Among the 380 control SNPs with random frequencies, 244 SNPs were mapped on the reference genome, including 6 on contigs not assembled on the chromosomes.</p>
 <p>Among the 380 control SNPs with similar frequencies than the candidate SNPs, 227 SNPs were mapped on the reference genome, including 3 on contigs not assembled on the chromosomes.</p>
 <p>Among the 9817 SNPs, 6314 SNPs were mapped on the reference genome, including 89 on contigs not assembled on the chromosomes.</p>
+<p>Among the 3258 SNPs, 2318 SNPs were mapped on the reference genome, including 38 on contigs not assembled on the chromosomes.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> </span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;Unassembled contigs&quot;</span>,</span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">across</span>(<span class="fu">where</span>(is.numeric), \(x) <span class="fu">sum</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(nb_per_chr_df,.) <span class="sc">%&gt;%</span> </span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">factor</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="at">levels =</span> <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>), <span class="st">&quot;Unassembled contigs&quot;</span>,<span class="st">&quot;Total&quot;</span>))) <span class="sc">%&gt;%</span></span>
-<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>)</span>
-<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="sc">%&gt;%</span> <span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="st">&quot;tables/GenomePositionReferenceGenome.rds&quot;</span>))</span>
-<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="ot">&lt;-</span> nb_per_chr_df <span class="sc">%&gt;%</span> </span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;Unassembled contigs&quot;</span>,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">across</span>(<span class="fu">where</span>(is.numeric), \(x) <span class="fu">sum</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(nb_per_chr_df,.) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">str_detect</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="st">&#39;Contig&#39;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">factor</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>, <span class="at">levels =</span> <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>), <span class="st">&quot;Unassembled contigs&quot;</span>,<span class="st">&quot;Total&quot;</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="st">`</span><span class="at">Chromosome / contig</span><span class="st">`</span>)</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="sc">%&gt;%</span> <span class="fu">saveRDS</span>(<span class="fu">here</span>(<span class="st">&quot;tables/GenomePositionReferenceGenome.rds&quot;</span>))</span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>nb_per_chr_df_SI <span class="sc">%&gt;%</span> <span class="fu">kable_mydf</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -6642,6 +6740,7 @@ font-size: 10px
 <th style="text-align: right;" data-quarto-table-cell-role="th">Control SNPs unmatching allele frequencies (380)</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">Control SNPs matching allele frequencies (380)</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">All SNPs (9817)</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">SNPs without NAs (3258)</th>
 </tr>
 </thead>
 <tbody>
@@ -6653,6 +6752,7 @@ font-size: 10px
 <td style="text-align: right;">16</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">478</td>
+<td style="text-align: right;">171</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 2</td>
@@ -6662,6 +6762,7 @@ font-size: 10px
 <td style="text-align: right;">13</td>
 <td style="text-align: right;">11</td>
 <td style="text-align: right;">446</td>
+<td style="text-align: right;">161</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 3</td>
@@ -6671,6 +6772,7 @@ font-size: 10px
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">27</td>
 <td style="text-align: right;">563</td>
+<td style="text-align: right;">209</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 4</td>
@@ -6680,6 +6782,7 @@ font-size: 10px
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">17</td>
 <td style="text-align: right;">479</td>
+<td style="text-align: right;">188</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 5</td>
@@ -6689,6 +6792,7 @@ font-size: 10px
 <td style="text-align: right;">24</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">609</td>
+<td style="text-align: right;">223</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 6</td>
@@ -6698,6 +6802,7 @@ font-size: 10px
 <td style="text-align: right;">14</td>
 <td style="text-align: right;">16</td>
 <td style="text-align: right;">490</td>
+<td style="text-align: right;">189</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 7</td>
@@ -6707,6 +6812,7 @@ font-size: 10px
 <td style="text-align: right;">28</td>
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">552</td>
+<td style="text-align: right;">192</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 8</td>
@@ -6716,6 +6822,7 @@ font-size: 10px
 <td style="text-align: right;">27</td>
 <td style="text-align: right;">26</td>
 <td style="text-align: right;">600</td>
+<td style="text-align: right;">208</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 9</td>
@@ -6725,6 +6832,7 @@ font-size: 10px
 <td style="text-align: right;">21</td>
 <td style="text-align: right;">23</td>
 <td style="text-align: right;">570</td>
+<td style="text-align: right;">220</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 10</td>
@@ -6734,6 +6842,7 @@ font-size: 10px
 <td style="text-align: right;">18</td>
 <td style="text-align: right;">19</td>
 <td style="text-align: right;">497</td>
+<td style="text-align: right;">187</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Chromosome 11</td>
@@ -6743,6 +6852,7 @@ font-size: 10px
 <td style="text-align: right;">19</td>
 <td style="text-align: right;">22</td>
 <td style="text-align: right;">493</td>
+<td style="text-align: right;">166</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Chromosome 12</td>
@@ -6752,6 +6862,7 @@ font-size: 10px
 <td style="text-align: right;">15</td>
 <td style="text-align: right;">18</td>
 <td style="text-align: right;">448</td>
+<td style="text-align: right;">166</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Unassembled contigs</td>
@@ -6761,6 +6872,7 @@ font-size: 10px
 <td style="text-align: right;">6</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">89</td>
+<td style="text-align: right;">38</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Total</td>
@@ -6770,6 +6882,7 @@ font-size: 10px
 <td style="text-align: right;">244</td>
 <td style="text-align: right;">227</td>
 <td style="text-align: right;">6314</td>
+<td style="text-align: right;">2318</td>
 </tr>
 </tbody>
 </table>
@@ -6785,82 +6898,86 @@ font-size: 10px
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Formatting gen_coord for the figure</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>gen_coord <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chrom_names =</span> <span class="fu">factor</span>(chrom_names, <span class="at">levels=</span><span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>)))</span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co"># create a list of df for each set of SNPs</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>snp_sets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(snp_sets, <span class="cf">function</span>(x){</span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> snppos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">filter</span>(snp_ID <span class="sc">%in%</span> x<span class="sc">$</span>set_snps) </span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  x<span class="sc">$</span>gen_pos <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span> </span>
-<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(AxiomID <span class="sc">%in%</span> df<span class="sc">$</span>affx_ID) <span class="sc">%&gt;%</span> </span>
-<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>))</span>
-<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(x)</span>
-<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>})</span>
-<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a><span class="co"># PLOT</span></span>
-<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a><span class="co">#=====</span></span>
-<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a>legend_levels <span class="ot">&lt;-</span>  <span class="fu">c</span>(snp_sets<span class="sc">$</span>all<span class="sc">$</span>set_name,</span>
-<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>set_name,</span>
-<span id="cb31-24"><a href="#cb31-24" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>set_name,</span>
-<span id="cb31-25"><a href="#cb31-25" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>set_name,</span>
-<span id="cb31-26"><a href="#cb31-26" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>set_name,</span>
-<span id="cb31-27"><a href="#cb31-27" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>set_name)</span>
-<span id="cb31-28"><a href="#cb31-28" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-29"><a href="#cb31-29" aria-hidden="true" tabindex="-1"></a>alpha_snp_sets <span class="ot">&lt;-</span> <span class="fl">0.7</span></span>
-<span id="cb31-30"><a href="#cb31-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-31"><a href="#cb31-31" aria-hidden="true" tabindex="-1"></a>plot_chrm <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span></span>
-<span id="cb31-32"><a href="#cb31-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb31-33"><a href="#cb31-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># All SNPs of the reference genome </span></span>
-<span id="cb31-34"><a href="#cb31-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">#geom_segment(aes(x = Absolute_POS, xend = Absolute_POS, y = 0, yend = 0.2, col = factor(legend_levels[[1]], levels = legend_levels)), size = 0.6, alpha=0.3) + </span></span>
-<span id="cb31-35"><a href="#cb31-35" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-36"><a href="#cb31-36" aria-hidden="true" tabindex="-1"></a>   <span class="co"># All SNPs (red lines)</span></span>
-<span id="cb31-37"><a href="#cb31-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>all<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">yend =</span> <span class="fl">0.18</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>all<span class="sc">$</span>set_name, </span>
-<span id="cb31-38"><a href="#cb31-38" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-39"><a href="#cb31-39" aria-hidden="true" tabindex="-1"></a>  <span class="co"># All candidate SNPs (red lines)</span></span>
-<span id="cb31-40"><a href="#cb31-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.2</span>, <span class="at">yend =</span> <span class="fl">0.38</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>set_name, </span>
-<span id="cb31-41"><a href="#cb31-41" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-42"><a href="#cb31-42" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Common candidate SNPs (green lines)</span></span>
-<span id="cb31-43"><a href="#cb31-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.4</span>, <span class="at">yend =</span> <span class="fl">0.58</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>set_name, </span>
-<span id="cb31-44"><a href="#cb31-44" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-45"><a href="#cb31-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Candidate SNPs with correction (blue lines)</span></span>
-<span id="cb31-46"><a href="#cb31-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.6</span>, <span class="at">yend =</span> <span class="fl">0.78</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>set_name, </span>
-<span id="cb31-47"><a href="#cb31-47" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-48"><a href="#cb31-48" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Control SNPs with random frequencies</span></span>
-<span id="cb31-49"><a href="#cb31-49" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.8</span>, <span class="at">yend =</span> <span class="fl">0.98</span>, </span>
-<span id="cb31-50"><a href="#cb31-50" aria-hidden="true" tabindex="-1"></a>                                                               <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>set_name, </span>
-<span id="cb31-51"><a href="#cb31-51" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-52"><a href="#cb31-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Control SNPs with matched frequencies</span></span>
-<span id="cb31-53"><a href="#cb31-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="dv">1</span>, <span class="at">yend =</span> <span class="fl">1.18</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>set_name, </span>
-<span id="cb31-54"><a href="#cb31-54" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
-<span id="cb31-55"><a href="#cb31-55" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb31-56"><a href="#cb31-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="fl">1.2</span>) <span class="sc">+</span></span>
-<span id="cb31-57"><a href="#cb31-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>chrom_names, <span class="at">scales =</span> <span class="st">&quot;free_x&quot;</span>, <span class="at">ncol=</span><span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb31-58"><a href="#cb31-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">&quot;SNP positions on the reference genome&quot;</span>) <span class="sc">+</span></span>
-<span id="cb31-59"><a href="#cb31-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;&quot;</span>) <span class="sc">+</span></span>
-<span id="cb31-60"><a href="#cb31-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>) <span class="sc">+</span></span>
-<span id="cb31-61"><a href="#cb31-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb31-62"><a href="#cb31-62" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-63"><a href="#cb31-63" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks.y =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-64"><a href="#cb31-64" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;right&quot;</span>,</span>
-<span id="cb31-65"><a href="#cb31-65" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-66"><a href="#cb31-66" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-67"><a href="#cb31-67" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.box.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-68"><a href="#cb31-68" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-69"><a href="#cb31-69" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb31-70"><a href="#cb31-70" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="fu">rel</span>(<span class="fl">0.8</span>)),</span>
-<span id="cb31-71"><a href="#cb31-71" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>)</span>
-<span id="cb31-72"><a href="#cb31-72" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb31-73"><a href="#cb31-73" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Define colors and labels for the legend</span></span>
-<span id="cb31-74"><a href="#cb31-74" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">&quot;gray50&quot;</span>,<span class="st">&quot;red&quot;</span>, <span class="st">&quot;green&quot;</span>, <span class="st">&quot;blue&quot;</span>,<span class="st">&quot;orange&quot;</span>,<span class="st">&quot;purple&quot;</span>), <span class="at">name=</span><span class="st">&quot;Sets of SNPs (after pruning)&quot;</span>)</span>
-<span id="cb31-75"><a href="#cb31-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-76"><a href="#cb31-76" aria-hidden="true" tabindex="-1"></a>plot_chrm</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Formatting gen_coord for the figure</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>gen_coord <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chrom_names =</span> <span class="fu">factor</span>(chrom_names, <span class="at">levels=</span><span class="fu">paste0</span>(<span class="st">&quot;Chromosome &quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>)))</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="co"># create a list of df for each set of SNPs</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>snp_sets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(snp_sets, <span class="cf">function</span>(x){</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> snppos <span class="sc">%&gt;%</span> dplyr<span class="sc">::</span><span class="fu">filter</span>(snp_ID <span class="sc">%in%</span> x<span class="sc">$</span>set_snps) </span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>  x<span class="sc">$</span>gen_pos <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span> </span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(AxiomID <span class="sc">%in%</span> df<span class="sc">$</span>affx_ID) <span class="sc">%&gt;%</span> </span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(CHROM <span class="sc">%in%</span> <span class="fu">paste0</span>(<span class="st">&quot;chr&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>))</span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(x)</span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a><span class="co"># PLOT</span></span>
+<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a><span class="co">#=====</span></span>
+<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a>legend_levels <span class="ot">&lt;-</span>  <span class="fu">c</span>(snp_sets<span class="sc">$</span>all<span class="sc">$</span>set_name,</span>
+<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>set_name,</span>
+<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>set_name,</span>
+<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a>                    <span class="co">#snp_sets$control_without_nas$set_name,</span></span>
+<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>set_name,</span>
+<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>set_name,</span>
+<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a>                    snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>set_name)</span>
+<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a>alpha_snp_sets <span class="ot">&lt;-</span> <span class="fl">0.7</span></span>
+<span id="cb32-31"><a href="#cb32-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-32"><a href="#cb32-32" aria-hidden="true" tabindex="-1"></a>plot_chrm <span class="ot">&lt;-</span> gen_coord <span class="sc">%&gt;%</span></span>
+<span id="cb32-33"><a href="#cb32-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb32-34"><a href="#cb32-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># All SNPs of the reference genome </span></span>
+<span id="cb32-35"><a href="#cb32-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">#geom_segment(aes(x = Absolute_POS, xend = Absolute_POS, y = 0, yend = 0.2, col = factor(legend_levels[[1]], levels = legend_levels)), size = 0.6, alpha=0.3) + </span></span>
+<span id="cb32-36"><a href="#cb32-36" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-37"><a href="#cb32-37" aria-hidden="true" tabindex="-1"></a>   <span class="co"># All SNPs (red lines)</span></span>
+<span id="cb32-38"><a href="#cb32-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>all<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">yend =</span> <span class="fl">0.18</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>all<span class="sc">$</span>set_name, </span>
+<span id="cb32-39"><a href="#cb32-39" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> alpha_snp_sets) <span class="sc">+</span> </span>
+<span id="cb32-40"><a href="#cb32-40" aria-hidden="true" tabindex="-1"></a>  <span class="co"># All candidate SNPs (red lines)</span></span>
+<span id="cb32-41"><a href="#cb32-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.2</span>, <span class="at">yend =</span> <span class="fl">0.38</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>all_cand<span class="sc">$</span>set_name, </span>
+<span id="cb32-42"><a href="#cb32-42" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
+<span id="cb32-43"><a href="#cb32-43" aria-hidden="true" tabindex="-1"></a>  <span class="co"># # SNPs without missing data (green lines)</span></span>
+<span id="cb32-44"><a href="#cb32-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># geom_segment(data = snp_sets$control_without_nas$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.4, yend = 0.58, col = factor(snp_sets$control_without_nas$set_name, </span></span>
+<span id="cb32-45"><a href="#cb32-45" aria-hidden="true" tabindex="-1"></a>  <span class="co">#                                                               levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + </span></span>
+<span id="cb32-46"><a href="#cb32-46" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Common candidate SNPs (green lines)</span></span>
+<span id="cb32-47"><a href="#cb32-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.4</span>, <span class="at">yend =</span> <span class="fl">0.58</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>common_cand<span class="sc">$</span>set_name,</span>
+<span id="cb32-48"><a href="#cb32-48" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span></span>
+<span id="cb32-49"><a href="#cb32-49" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Candidate SNPs with correction (blue lines)</span></span>
+<span id="cb32-50"><a href="#cb32-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.6</span>, <span class="at">yend =</span> <span class="fl">0.78</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>corrected_cand<span class="sc">$</span>set_name, </span>
+<span id="cb32-51"><a href="#cb32-51" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
+<span id="cb32-52"><a href="#cb32-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Control SNPs with random frequencies</span></span>
+<span id="cb32-53"><a href="#cb32-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="fl">0.8</span>, <span class="at">yend =</span> <span class="fl">0.98</span>, </span>
+<span id="cb32-54"><a href="#cb32-54" aria-hidden="true" tabindex="-1"></a>                                                               <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>randomfreq_control<span class="sc">$</span>set_name, </span>
+<span id="cb32-55"><a href="#cb32-55" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
+<span id="cb32-56"><a href="#cb32-56" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Control SNPs with matched frequencies</span></span>
+<span id="cb32-57"><a href="#cb32-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">data =</span> snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>gen_pos, <span class="fu">aes</span>(<span class="at">x =</span> Absolute_POS, <span class="at">xend =</span> Absolute_POS, <span class="at">y =</span> <span class="dv">1</span>, <span class="at">yend =</span> <span class="fl">1.18</span>, <span class="at">col =</span> <span class="fu">factor</span>(snp_sets<span class="sc">$</span>simfreq_control<span class="sc">$</span>set_name, </span>
+<span id="cb32-58"><a href="#cb32-58" aria-hidden="true" tabindex="-1"></a>                                                                <span class="at">levels =</span> legend_levels)), <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha=</span>alpha_snp_sets) <span class="sc">+</span> </span>
+<span id="cb32-59"><a href="#cb32-59" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-60"><a href="#cb32-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="fl">1.2</span>) <span class="sc">+</span></span>
+<span id="cb32-61"><a href="#cb32-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>chrom_names, <span class="at">scales =</span> <span class="st">&quot;free_x&quot;</span>, <span class="at">ncol=</span><span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb32-62"><a href="#cb32-62" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">&quot;SNP positions on the reference genome&quot;</span>) <span class="sc">+</span></span>
+<span id="cb32-63"><a href="#cb32-63" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;&quot;</span>) <span class="sc">+</span></span>
+<span id="cb32-64"><a href="#cb32-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>) <span class="sc">+</span></span>
+<span id="cb32-65"><a href="#cb32-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb32-66"><a href="#cb32-66" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-67"><a href="#cb32-67" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks.y =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-68"><a href="#cb32-68" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;right&quot;</span>,</span>
+<span id="cb32-69"><a href="#cb32-69" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.background =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-70"><a href="#cb32-70" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-71"><a href="#cb32-71" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.box.background =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-72"><a href="#cb32-72" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.background =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-73"><a href="#cb32-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.background =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb32-74"><a href="#cb32-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="fu">rel</span>(<span class="fl">0.8</span>)),</span>
+<span id="cb32-75"><a href="#cb32-75" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>)</span>
+<span id="cb32-76"><a href="#cb32-76" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb32-77"><a href="#cb32-77" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Define colors and labels for the legend</span></span>
+<span id="cb32-78"><a href="#cb32-78" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">&quot;gray50&quot;</span>,<span class="st">&quot;red&quot;</span>, <span class="st">&quot;green&quot;</span>, <span class="st">&quot;blue&quot;</span>,<span class="st">&quot;orange&quot;</span>,<span class="st">&quot;purple&quot;</span>), <span class="at">name=</span><span class="st">&quot;Sets of SNPs (after pruning)&quot;</span>)</span>
+<span id="cb32-79"><a href="#cb32-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-80"><a href="#cb32-80" aria-hidden="true" tabindex="-1"></a>plot_chrm</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -6871,7 +6988,7 @@ font-size: 10px
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(plot_chrm, <span class="at">filename=</span><span class="fu">here</span>(<span class="st">&quot;figs/GenomePosition_AfterPruning.pdf&quot;</span>), <span class="at">device=</span><span class="st">&quot;pdf&quot;</span>, <span class="at">height=</span><span class="dv">8</span>, <span class="at">width=</span><span class="dv">14</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(plot_chrm, <span class="at">filename=</span><span class="fu">here</span>(<span class="st">&quot;figs/GenomePosition_AfterPruning.pdf&quot;</span>), <span class="at">device=</span><span class="st">&quot;pdf&quot;</span>, <span class="at">height=</span><span class="dv">8</span>, <span class="at">width=</span><span class="dv">14</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 </section>
@@ -6881,7 +6998,7 @@ font-size: 10px
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">session_info</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">session_info</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>─ Session info ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -6894,7 +7011,7 @@ font-size: 10px
  collate  fr_FR.UTF-8
  ctype    fr_FR.UTF-8
  tz       Europe/Paris
- date     2025-01-27
+ date     2025-03-25
  pandoc   3.1.11 @ /usr/lib/rstudio/resources/app/bin/quarto/bin/tools/x86_64/ (via rmarkdown)
 
 ─ Packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

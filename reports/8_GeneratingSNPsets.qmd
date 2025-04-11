@@ -633,10 +633,22 @@ dups <- duplicated(random_snps_with_matched_freq)
 random_snps_with_matched_freq[dups]
 ```
 
+# A set of SNPs with no missing data
+
+Following the comments of one reviewer, we added a supplementary set of SNPs containing only SNPs without any missing data - to avoid imputation introduced biases.
+
+```{r SNPsWitoutMIssingData}
+geno <- read.csv(here("data/DryadRepo/FormattedFilteredGenomicData_AlleleCounts_withoutmaf.csv"))
+
+control_without_nas <- geno %>% drop_na() %>% .[["snp_ID"]]
+```
+
+
+
 
 # Exporting the sets of SNPs
 
-We save six sets of SNPs: 
+We save seven sets of SNPs: 
 
   - `r length(all_cand)` candidate SNPs, i.e., SNPs identified by at least one GEA method among *RDA*, *pRDA*, *LFMM*, *BayPass* and *GF*.
   
@@ -650,6 +662,7 @@ We save six sets of SNPs:
   
   - All SNPs, i.e. `r length(all_snps_id)` SNPs.
 
+  - SNPs without NAs, i.e., `r length(control_without_nas)` SNPs.
 
 ```{r SaveThreeSetsSNPs, eval=T}
 snp_sets <- list(all_cand = list(set_code = "all_cand",
@@ -669,7 +682,10 @@ snp_sets <- list(all_cand = list(set_code = "all_cand",
                                         set_snps = random_snps_with_matched_freq),
                  all = list(set_code = "all",
                             set_name = paste0("All SNPs (", length(all_snps_id),")"),
-                            set_snps = all_snps_id))
+                            set_snps = all_snps_id),
+                 control_without_nas = list(set_code = "control_without_nas",
+                                            set_name = paste0("SNPs without NAs (", length(control_without_nas),")"),
+                                            set_snps = control_without_nas))
 
 
 
@@ -697,6 +713,7 @@ Meaning of the columns:
   16. `candidate_SNPs_corrected_pop_structure`: `TRUE` if the SNP was an outlier identified by at least one GEA method correcting for population genetic structure (i.e., pRDA, LFMM or BayPass); `FALSE` otherwise.
   17. `random_control_SNPs`: `TRUE` if the SNP was a control SNP randomly sampled among the SNPs not identified by any GEA method; `FALSE` otherwise.
   18. `control_SNPs_matching_allele_freq`: `TRUE` if the SNP was a control SNP sampled among the SNPs not identified by any GEA method, and has a similar allele frequency to a candidate SNP; `FALSE` otherwise.
+  18. `control_SNPs_without_NAs`: `TRUE` if the SNP had no mising data; `FALSE` otherwise.
 
 Below are shown the first 10 rows of the dataset.
 
@@ -711,7 +728,8 @@ listsnps <- read_csv2(here("data/GenomicData/SNPsInformation.csv"),show_col_type
          common_candidate_SNPs = ifelse(snp_ID %in% common_cand, TRUE, FALSE),
          candidate_SNPs_corrected_pop_structure = ifelse(snp_ID %in% corrected_cand, TRUE, FALSE),
          random_control_SNPs = ifelse(snp_ID %in% control_snps, TRUE, FALSE),
-         control_SNPs_matching_allele_freq = ifelse(snp_ID %in% random_snps_with_matched_freq, TRUE, FALSE))
+         control_SNPs_matching_allele_freq = ifelse(snp_ID %in% random_snps_with_matched_freq, TRUE, FALSE),
+         control_SNPs_without_NAs = ifelse(snp_ID %in% control_without_nas, TRUE, FALSE))
 
 
 listsnps %>% write_csv2(here("data/DryadRepo/SNPsInformation_WithOutliers.csv"),append=FALSE)
@@ -750,6 +768,7 @@ nb_per_chr_df <- nb_per_chr_list[[1]] %>%
   full_join(nb_per_chr_list[[4]], by = "Chromosome / contig") %>%
   full_join(nb_per_chr_list[[5]], by = "Chromosome / contig") %>%
   full_join(nb_per_chr_list[[6]], by = "Chromosome / contig") %>%
+  full_join(nb_per_chr_list[[7]], by = "Chromosome / contig") %>%
   # Replace NA values with 0 across all numeric columns
   mutate(across(where(is.numeric), ~replace_na(., 0))) 
 
@@ -766,6 +785,7 @@ corrected_cand_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / conti
 randomfreq_control_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[5]], na.rm = TRUE)) %>% pull
 simfreq_control_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[6]], na.rm = TRUE)) %>% pull
 all_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[7]], na.rm = TRUE)) %>% pull
+control_without_nas_contig <- nb_per_chr_df %>% filter(str_detect(`Chromosome / contig`, 'Contig')) %>% summarise(sum_column = sum(.[[8]], na.rm = TRUE)) %>% pull
 
 # show the table
 nb_per_chr_df %>%  kable_mydf()
@@ -782,6 +802,9 @@ Among the `r length(control_snps)` control SNPs with random frequencies, `r nb_p
 Among the `r length(random_snps_with_matched_freq)` control SNPs with similar frequencies than the candidate SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),6][[1]]` SNPs were mapped on the reference genome, including `r simfreq_control_contig` on contigs not assembled on the chromosomes.
 
 Among the `r length(all_snps_id)` SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),7][[1]]` SNPs were mapped on the reference genome, including `r all_contig` on contigs not assembled on the chromosomes.
+
+
+Among the `r length(control_without_nas)` SNPs, `r nb_per_chr_df[nrow(nb_per_chr_df),8][[1]]` SNPs were mapped on the reference genome, including `r control_without_nas_contig` on contigs not assembled on the chromosomes.
 
 ```{r TableGenPos}
 nb_per_chr_df_SI <- nb_per_chr_df %>% 
@@ -825,8 +848,9 @@ snp_sets <- lapply(snp_sets, function(x){
 #=====
 legend_levels <-  c(snp_sets$all$set_name,
                     snp_sets$all_cand$set_name,
-                    snp_sets$corrected_cand$set_name,
                     snp_sets$common_cand$set_name,
+                    #snp_sets$control_without_nas$set_name,
+                    snp_sets$corrected_cand$set_name,
                     snp_sets$randomfreq_control$set_name,
                     snp_sets$simfreq_control$set_name)
   
@@ -843,9 +867,12 @@ plot_chrm <- gen_coord %>%
   # All candidate SNPs (red lines)
   geom_segment(data = snp_sets$all_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.2, yend = 0.38, col = factor(snp_sets$all_cand$set_name, 
                                                                 levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  # # SNPs without missing data (green lines)
+  # geom_segment(data = snp_sets$control_without_nas$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.4, yend = 0.58, col = factor(snp_sets$control_without_nas$set_name, 
+  #                                                               levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
   # Common candidate SNPs (green lines)
-  geom_segment(data = snp_sets$common_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.4, yend = 0.58, col = factor(snp_sets$common_cand$set_name, 
-                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 
+  geom_segment(data = snp_sets$common_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.4, yend = 0.58, col = factor(snp_sets$common_cand$set_name,
+                                                                levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) +
   # Candidate SNPs with correction (blue lines)
   geom_segment(data = snp_sets$corrected_cand$gen_pos, aes(x = Absolute_POS, xend = Absolute_POS, y = 0.6, yend = 0.78, col = factor(snp_sets$corrected_cand$set_name, 
                                                                 levels = legend_levels)), linewidth = 0.6, alpha=alpha_snp_sets) + 

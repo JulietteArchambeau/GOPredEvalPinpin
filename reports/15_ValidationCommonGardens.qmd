@@ -170,34 +170,6 @@ list_snps %>%
 }) %>% 
   bind_rows() %>% 
   pivot_longer(cols=names(cg_names),names_to="cg",values_to="varX") 
-
-#####
-
-
-# df <- lapply(c("control","cand"), function(x){
-# 
-# list_snps <- list()
-# 
-# list_snps[[x]]$GDM <- readRDS(file=here("outputs/GDM/go_predictions.rds"))[[x]][["go_cg"]]
-# list_snps[[x]]$GF <- readRDS(file=here("outputs/GF/go_predictions.rds"))[[x]][["go_cg"]]
-# list_snps[[x]]$RDA <- readRDS(file=here("outputs/RDA/go_predictions.rds"))[[x]][["go_cg"]]
-# list_snps[[x]]$LFMM <- readRDS(file=here("outputs/LFMM/go_predictions_snpsets.rds"))[[x]][["go_cg"]]
-# 
-# 
-# list_snps <- list_snps[[x]] %>% 
-#   bind_rows(.id="method_type") %>% 
-#   mutate(method_input = x)
-# 
-# return(list_snps)
-# }) %>% bind_rows()
-# 
-# 
-# df <- readRDS(file=here("outputs/LFMM/go_predictions_allsnps.rds"))[["go_cg"]] %>% 
-#    mutate(method_type = "LFMM",
-#           method_input = "all") %>% 
-#   bind_rows(df) %>% 
-#   pivot_longer(cols=c(readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds"))[["cg"]]),names_to="cg",values_to="varX") %>% 
-#   mutate(method = paste0(method_type, "_",method_input))
 ```
 
 ## Climatic transfer distances
@@ -397,10 +369,8 @@ pop_heights <- mod_arch2022$fit %>%
 pop_heights[1:5,] %>% kable_mydf
 ```
 
-<span style="color: orange;">**DRYAD REPOSITORY:** We export the height intercepts from @archambeau2022combining to the DRYAD repository: `HeightIntercepts_Archambeauetal2022.csv`.</span>
-
-
-```{r HeightInterceptsInDryadRepo}
+```{r HeightInterceptsInDryadRepo, echo=F}
+# we export this dataset for the DRYAD repository
 pop_heights %>% write_csv(here("data/DryadRepo/HeightIntercepts_Archambeauetal2022.csv"))
 ```
 
@@ -468,7 +438,7 @@ list(mod = mod,
 
 ```
 
-```{r CoefftabMortalityModels, eval=T}
+```{r CoefftabMortalityModels, eval=F}
 coefftab <- lapply(unique(survival_data$site),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -525,7 +495,7 @@ Below, we plot the mean and 95% credible intervals of:
   
 Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting higher mortality rates in populations with higher GO predictions.
 
-```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T}
+```{r CoeffPlotsMortalityModels, fig.height=9, fig.width=12, eval=T, warning=F}
 coeff_match <- list(beta_H = "Regression coefficients $\\beta_H$ in mortality models",
                     beta_X = "Regression coefficients $\\beta_X$ in mortality models")
 
@@ -736,7 +706,7 @@ In Bordeaux, there were even less dead trees than in Asturias (119 dead trees). 
 
 Let's visualize the uncertainty around the estimation of the probability of tree mortality $p$.
 
-```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+```{r MortalityPredictions, message=F,warning=F, fig.height=6, fig.width=6, eval=F, results='hide'}
 ####################################################################################################
 # Visualizing the relationships between GO predictions or CTDs and mortality probability predictions
 ####################################################################################################
@@ -850,12 +820,11 @@ In the table below:
   
   - percent change in $p$ associated with a one-unit increase in $x$ (which corresponds to a one-standard deviation increase).
 
-```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+```{r MortalityPredictionsTable, message=F,warning=F, fig.height=6, fig.width=6, eval=F}
 p_pred <- lapply(names(cg_names), function(site_i){
   
 lapply(unique(df$method_input_code), function(method_input_code_i){   
-#lapply(names(methods), function(method_i){
-
+  
 # We load the stanlist
 stanlist <- readRDS(file = here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",
                                        site_i,"_",method_input_code_i,".rds")))$stanlist
@@ -1005,7 +974,7 @@ list(mod = mod,
 })
 ```
 
-```{r extractMortalityProbabilityModelWithoutGO, eval=T}
+```{r extractMortalityProbabilityModelWithoutGO, eval=F}
 corrtab <- lapply(unique(survival_data$site),function(site_i){
   
   list_mod <- readRDS(file=here(paste0("outputs/ValidationCommonGarden/MortalityModels/stan_models/",site_i,"_ModelWithoutGO.rds")))
@@ -1082,12 +1051,12 @@ saveRDS(corrtab, here("outputs/ValidationCommonGarden/MortalityModels/corrtab.rd
 
 We plot the correlations.
 
-```{r PlotCorrelationsModelWithoutGO, eval=T}
+```{r PlotCorrelationsModelWithoutGO, eval=T, warning=F, results='hide'}
 corrtab <- readRDS(here("outputs/ValidationCommonGarden/MortalityModels/corrtab.rds"))
 
 correlation_types <- c("pearson_correlation", "spearman_correlation")
 
-lapply(correlation_types, function(coeff){
+p_corr  <- lapply(correlation_types, function(coeff){
   
   p <- corrtab %>%
     pivot_longer(values_to = "correlation_estimate", names_to = "correlation_type", cols = all_of(correlation_types)) %>% 
@@ -1202,7 +1171,7 @@ png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_na
 
 p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
 
-p_allvar_images
+
 
 # save in pdf and png
 ggsave(p_allvar_images,
@@ -1211,7 +1180,13 @@ ggsave(p_allvar_images,
        height=13.6,
        width=15)
 
+return(p_allvar_images)
+
 })
+```
+
+```{r ShowCorrPlotMortalityModels,fig.height=9, fig.width=12}
+lapply(p_corr, function(x) x)
 ```
 
 
@@ -1744,7 +1719,7 @@ lapply(unique(height_data$cg), function(site_i){
 })
 ```
 
-```{r BuildCoeffTableM1, eval=T}
+```{r BuildCoeffTableM1, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -1788,7 +1763,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$ and $\beta_{X_2}$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r ModelCoeffM1, fig.width=15, fig.height=13.6, eval=T}
+```{r ModelCoeffM1, fig.width=15, fig.height=13.6, eval=T, message=F, warning=F}
 generate_interval_plots(model_i = "M1")
 ```
 
@@ -1796,7 +1771,7 @@ generate_interval_plots(model_i = "M1")
 
 We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
-```{r MakePolyPlotsM1, fig.width=12, fig.height=7, eval=T}
+```{r MakePolyPlotsM1, fig.width=12, fig.height=7, eval=F}
 generate_poly_plots(model_i="M1")
 ```
 
@@ -1889,7 +1864,7 @@ lapply(unique(height_data$cg), function(site_i){
 ```
 
 
-```{r BuildCoeffTableM2, eval=T}
+```{r BuildCoeffTableM2, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -2009,7 +1984,7 @@ coefftab %>% saveRDS(file=here("outputs/ValidationCommonGarden/HeightModels/coef
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM2, fig.width=15, fig.height=13.6, eval=T}
+```{r IntervalPlotsM2, fig.width=15, fig.height=13.6, eval=T, message=F, warning=F}
 generate_interval_plots(model_i = "M2")
 ```
 
@@ -2019,7 +1994,7 @@ generate_interval_plots(model_i = "M2")
 
 We plot the mean predicted relationships between tree height and GO predictions / CTD.
 
-```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=T}
+```{r PolyPlotsM2, fig.width=12, fig.height=7, eval=F}
 generate_poly_plots(model_i = "M2")
 ```
  
@@ -2031,7 +2006,7 @@ The graphs above do not show the estimate uncertainty. We generate some graphs t
   
   - the uncertainty in tree height predictions (i.e. after accounting for $\sigma$ in the predictions).
 
-```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6, eval=T}
+```{r HeightPredictionsM2, message=F,warning=F, fig.height=6, fig.width=6, eval=F, results='hide'}
 #############################################################################
 # Visualizing the relationships between GO predictions and height predictions
 #############################################################################
@@ -2212,7 +2187,7 @@ lapply(unique(height_data$cg), function(site_i){
 })
 ```
 
-```{r BuildCorrTabHeightModelWithoutPredictorWithPredictions, message=F, warning=F, eval=T}
+```{r BuildCorrTabHeightModelWithoutPredictorWithPredictions, message=F, warning=F, eval=F}
 corrtab <-lapply(unique(height_data$cg), function(site_i){
   
   mod <- readRDS(mod, file=here(paste0("outputs/ValidationCommonGarden/HeightModels/stan_models/M2/M2_WithoutPredictorWithPredictions_",site_i,".rds")))
@@ -2270,7 +2245,7 @@ corrtab <- readRDS(here("outputs/ValidationCommonGarden/HeightModels/corrtab_M2.
 
 correlation_types <- c("pearson_correlation", "spearman_correlation")
 
-lapply(correlation_types, function(coeff){
+p_corr <- lapply(correlation_types, function(coeff){
   
   p <- corrtab %>%
     pivot_longer(values_to = "correlation_estimate", names_to = "correlation_type", cols = all_of(correlation_types)) %>% 
@@ -2385,8 +2360,6 @@ png_cg = annotation_custom2(rasterGrob(readPNG(here(df_png[df_png$cg_name==cg_na
 
 p_allvar_images <- p_allvar + list_pngs[[1]]+ list_pngs[[2]]+ list_pngs[[3]]+ list_pngs[[4]]+ list_pngs[[5]]
 
-p_allvar_images
-
 # save in pdf and png
 ggsave(p_allvar_images,
        file=here(paste0("figs/ValidationCommonGarden/HeightModels/Correlations/",coeff,"_SNPsandCTD_WithImages.pdf")),
@@ -2394,8 +2367,16 @@ ggsave(p_allvar_images,
        height=13.6,
        width=15)
 
+return(p_allvar_images)
+
 })
 ```
+
+
+```{r ShowCorrPlotHeightModels,fig.height=9, fig.width=12}
+lapply(p_corr, function(x) x)
+```
+
 
 ## Model 3
 
@@ -2477,7 +2458,7 @@ Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicat
 Running the chains for more iterations may help. See
 https://mc-stan.org/misc/warnings.html#bulk-ess"
 
-```{r BuildCoeffTableM3, eval=T}
+```{r BuildCoeffTableM3, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -2521,7 +2502,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM3, fig.width=15, fig.height=13.6, eval=T}
+```{r IntervalPlotsM3, fig.width=15, fig.height=13.6, eval=T, message=F, warning=F}
 generate_interval_plots(model_i = "M3")
 ```
 
@@ -2529,7 +2510,7 @@ generate_interval_plots(model_i = "M3")
 
 We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
-```{r PolyPlotsM3, fig.width=12, fig.height=7, eval=T}
+```{r PolyPlotsM3, fig.width=12, fig.height=7, eval=F}
 generate_poly_plots(model_i = "M3")
 ```
 
@@ -2611,7 +2592,7 @@ Warning message: "Warning: Bulk Effective Samples Size (ESS) is too low, indicat
 Running the chains for more iterations may help. See
 https://mc-stan.org/misc/warnings.html#bulk-ess"
 
-```{r BuildCoeffTableM4, eval=T}
+```{r BuildCoeffTableM4, eval=F}
 coefftab <- lapply(unique(height_data$cg),function(site_i){
   
   lapply(unique(df$method_input_code), function(method_input_code_i){
@@ -2654,7 +2635,7 @@ coefftab %>%
 
 We plot the mean and 95% credible intervals of the $\beta_{X_1}$, $\beta_{X_2}$ and $\beta_H$ coefficients. Graph titles include the time in months corresponding to the age at which height and survival were recorded. Coefficients in the green area have the expected sign, reflecting lower height in populations with higher GO predictions.
 
-```{r IntervalPlotsM4, fig.width=15, fig.height=13.6, eval=T}
+```{r IntervalPlotsM4, fig.width=15, fig.height=13.6, eval=T, message=F, warning=F}
 generate_interval_plots(model_i = "M4")
 ```
 
@@ -2662,7 +2643,7 @@ generate_interval_plots(model_i = "M4")
 
 We plot the predicted quadratic relationships between tree height and GO predictions / CTD.
 
-```{r PolyPlotsM4, fig.width=12, fig.height=7, eval=T}
+```{r PolyPlotsM4, fig.width=12, fig.height=7, eval=F}
 generate_poly_plots(model_i = "M4")
 ```
 
