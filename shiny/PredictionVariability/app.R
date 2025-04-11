@@ -133,31 +133,14 @@ server <- function(input, output) {
       Available on <i>bioRxiv</i> at 
       <a href='https://www.biorxiv.org/content/10.1101/2024.05.17.594631v1.full.pdf'>https://www.biorxiv.org/content/10.1101/2024.05.17.594631v1.full.pdf</a>.</p>
       
-      <p><b>Plots available:</b>
       
-      <p><b>Bumpcharts: </b> these charts display population ranks based on their genomic offset predictions. 
-      Populations with a lower rank have a higher genomic offset, indicating that they may be more at risk under climate change. 
-      Colored populations are those with genomic offset ranks in the top three lowest positions (i.e., highest genomic offset values) in at least one
-row, where each row represents either a combination of SNP (single nucleotide polymorphism) set and method (bumpcharts across methods and SNP sets) or a general circulation model (bumpchart across GCMs).
-  <ul>
-    <li><b>Bumpcharts across methods and SNP sets</b> show the variability across methods and SNP sets for a specific general circulation model (GCM).</li>
-    <li><b>Bumpcharts across GCMs</b> show the variability across general circulation models for a particular combination of method and SNP set.</li>
-  </ul>
-  
+      </br>
+      <p> The genomic offset was predicted using five methods, seven sets of genetic markers (single nucleotide polymorphisms, SNPs), and five general circulation models. <br>
+      All genomic offset predictions were generated at the locations of the studied populations, using the 1901–1950 climate at these locations as the reference climate. <br>
+      For future climates, predictions were based on the 2041–2060 period under the shared socio-economic pathway (SSP) 3.7–0. <br>
+      For further details on how the genomic offset predictions were generated, please refer to the manuscript.</p>
       
-      <p><b>Correlation matrices: </b> these plots show the Pearson correlation coefficients among genomic offset predictions. 
-      
-  <ul>
-    <li><b>Correlation matrice across methods and SNP sets</b> show the variability across methods and SNP sets for a specific Global Climate Model (GCM).</li>
-    <li><b>Correlation matrice across GCMs</b> show the variability across GCMs for a particular combination of method and SNP set.</li>
-  </ul>
-  
-      <p><b>Scatter plots: </b> these plots allow users to explore relationships between two selected variables, including genomic offset predictions from 
-      different methods and SNP sets, and climatic distances. The climatic distances correspond to the absolute difference between future and reference 
-      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables.
-      
-
-      <p><b>Genomic offset methods:</b> 
+      <p><b>Genomic offset methods</b> 
       <ul>
       <li>Generalized Dissimilarity Modeling (GDM)
       <li>Gradient Forest (GF)
@@ -174,7 +157,48 @@ row, where each row represents either a combination of SNP (single nucleotide po
       <li>Control SNPs unmatching allele frequencies (380 SNPs), i.e., SNPs that were randomly sampled among the non-candidate SNPs and with the same number of SNPs as in the set with all candidate SNPs.
       <li>Control SNPs matching allele frequencies (380 SNPs), i.e., SNPs that were sampled among non-candidate SNPs and that have similar allele frequencies and the same number of SNPs as the set with all candidate SNPs.
       <li>All SNPs, i.e., 9817 SNPs.
+      <li>SNPs without any missing data, i.e., 3258 SNPs.
       </ul>
+      
+      <p><b>General circulation models</b> 
+      <ul>
+      <li>GFDL-ESM4
+      <li>IPSL-CM6A-LR
+      <li>MPI-ESM1-2-HR
+      <li>MRI-ESM2-0
+      <li>UKESM1-0-LL
+      </ul>
+      
+      </br>
+      </br>
+      <p><b> <u>Plots available in the present app:</u> </b>
+      
+      <p><b>Bumpcharts: </b> these charts display population ranks based on their genomic offset predictions. <br>
+      Populations with a lower rank have a higher genomic offset, indicating that they may be more at risk under climate change. <br>
+      Colored populations are those with genomic offset ranks in the top three lowest positions (i.e., highest genomic offset values) in at least one
+row, where each row represents either a combination of SNP (single nucleotide polymorphism) set and method (bumpcharts across methods and SNP sets) or a general circulation model (bumpchart across GCMs).
+
+  <ul>
+    <li><b>Bumpcharts across methods and SNP sets</b> show the variability across methods and SNP sets for a specific general circulation model (GCM).</li>
+    <li><b>Bumpcharts across GCMs</b> show the variability across general circulation models for a particular combination of method and SNP set.</li>
+  </ul>
+  
+      </br>
+      <p><b>Correlation matrices: </b> these plots show the Pearson correlation coefficients among genomic offset predictions. 
+      
+  <ul>
+    <li><b>Correlation matrice across methods and SNP sets</b> show the variability across methods and SNP sets for a specific Global Climate Model (GCM).</li>
+    <li><b>Correlation matrice across GCMs</b> show the variability across GCMs for a particular combination of method and SNP set.</li>
+  </ul>
+  
+      </br>
+      <p><b>Scatter plots: </b> these plots allow users to explore relationships between two selected variables, including genomic offset predictions from 
+      different methods and SNP sets, and climatic distances. <br>
+      The climatic distances correspond to the absolute difference between future and reference 
+      values for each climatic variable, or the Euclidean climatic distance integrating all the selected climatic variables.
+      
+
+      
       "
     )
   })
@@ -212,7 +236,7 @@ output$bumpchart <- renderPlot({
               size = 4, 
               angle = 40) +
     theme_bw() +
-    ylab("Population rank") +
+    ylab("Population rank (low rank = high genomic offset)") +
     theme(#panel.grid.minor.x = element_blank(),
           panel.grid.major.y = element_blank(),
           legend.position = "none",
@@ -253,14 +277,14 @@ output$bumpchartGCM <- renderPlot({
               size = 4, 
               angle = 40) +
     theme_bw() +
-    ylab("Population rank") +
+    ylab("Population rank (low rank = high genomic offset)") +
     theme(#panel.grid.minor.x = element_blank(),
       panel.grid.major.y = element_blank(),
       legend.position = "none",
       axis.text.y = element_text(size=12),
       axis.text.x = element_text(size=11),
       axis.title.x = element_text(size=16),
-      axis.title.y = element_blank()) 
+      axis.title.y = element_blank())
   
 })
 
