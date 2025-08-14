@@ -1,6 +1,19 @@
 ---
-title: "Supplementary Information of the paper: 'Evaluating genomic offset predictions in a forest tree with high population genetic structure' "
+title: "Supplementary Information of the paper: *Evaluating genomic offset predictions in a forest tree with high population genetic structure*"
+subtitle: Published in *The American Naturalist*
 date: last-modified
+author: 
+  - Archambeau Juliette
+  - Marta Benito-Garzón
+  - Marina de-Miguel
+  - Alexandre Changenet
+  - Francesca Bagnoli
+  - Frédéric Barraquand
+  - Maurizio Marchi
+  - Giovanni G. Vendramin
+  - Stephen Cavers
+  - Annika Perry
+  - Santiago C. González-Martínez
 format: 
   pdf:
     keep-tex: true
@@ -24,10 +37,14 @@ header-includes:
   - \usepackage{float}
   - \floatplacement{table}{H}
   - \usepackage[font=small]{caption}
+  - \renewcommand{\thefigure}{S\arabic{figure}}
+  - \renewcommand{\thetable}{S\arabic{table}}  
+  - \usepackage{titling}
+  - \setlength{\droptitle}{-1cm}
 editor_options: 
   chunk_output_type: console
 ---
-
+      
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache=F, echo=F)
 options(width = 300)
@@ -104,7 +121,7 @@ df %>%
 
 ```{r}
 #| label: tbl-ClimCG
-#| tbl-cap: Climate in the five common gardens between the planting date and the measurement date. See Table S[-@tbl-SelectedClimaticVariableInformation] for the full names and units of the climatic variables.
+#| tbl-cap: Climate in the five common gardens between the planting date and the measurement date. See Table [-@tbl-SelectedClimaticVariableInformation] for the full names and units of the climatic variables.
 
 readRDS(here("data/ClimaticData/CommonGardens/ClimateCG.rds")) %>%
   dplyr::select(c("bio1", "bio12", "bio15", "bio3", "bio4", "SHM")) %>% 
@@ -246,7 +263,7 @@ From the PCA, we retained the first three principal components (PCs) as a proxy 
 
 # Variance partitioning of genetic variation {#sec-VarPart}
 
-Following @capblancq2021redundancy, we used a combination of RDA and partial RDA (pRDA) to estimate the proportion of genetic variation that can be or cannot be uniquely attributed to climate, neutral population structure and geography. The response variable was the allele frequencies of the populations. The climate was represented by the six climatic variables that were selected in the previous section (Table S[-@tbl-SelectedClimaticVariableInformation]), i.e. the climatic variables that are then used to identify the loci potentially involved in local adaptation (with gene-environment association analyses) and to make genomic offset predictions. The neutral population genetic structure was accounted for with the first three PCs of the PCA based on the genomic data not filtered for MAF (Figure S[-@fig-PCA]). The geography was accounted for with distance-based Moran's eigenvector maps (dbMEMs) that had positive eigenvalues and that were calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2023].
+Following @capblancq2021redundancy, we used a combination of RDA and partial RDA (pRDA) to estimate the proportion of genetic variation that can be or cannot be uniquely attributed to climate, neutral population structure and geography. The response variable was the allele frequencies of the populations. The climate was represented by the six climatic variables that were selected in the previous section (Table [-@tbl-SelectedClimaticVariableInformation]), i.e. the climatic variables that are then used to identify the loci potentially involved in local adaptation (with gene-environment association analyses) and to make genomic offset predictions. The neutral population genetic structure was accounted for with the first three PCs of the PCA based on the genomic data not filtered for MAF (Figure [-@fig-PCA]). The geography was accounted for with distance-based Moran's eigenvector maps (dbMEMs) that had positive eigenvalues and that were calculated based on the geographical coordinates of the populations with the function `dbmem` of the `adespatial` R package v`r packageVersion("adespatial")` [@adespatial2023].
 
 We first used an RDA model including all explanatory variables (i.e. climate, neutral genetic structure and geography), and named the 'full model'. The full model provides the total amount of genetic variance (i.e. inertia) explained by the explanatory variables together. We then used three pRDA models, named the 'pure models', to estimate the contribution of genetic variance that can be uniquely attributed to each explanatory variable. For that, for the three pRDA models, we used either the climate, geography and neutral population structure as explanatory variables, while conditioning on the remaining two variables. 
 
@@ -590,7 +607,9 @@ ggplot(df_2, aes(x = eucli, y = go)) +
 
 ![Isothermality and precipitation seasonality at the location of the national foret inventory plots (in gray) and the 34 sampled populations (colored according their main gene pool).  Climatic values correspond to average climates over the reference period 1901-1950.](../figs/ValidationNFI/ClimaticCoverage_Bio3vsBio15.pdf)
 
-  
-
 {{< pagebreak >}}
+
+# References
+
+
 
